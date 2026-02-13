@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import requests
+import pathlib
 
 if TYPE_CHECKING:
     from main import MainApp
@@ -57,6 +58,9 @@ class WeatherScreen:
             background_color = 'black'
         foreground_color = 'white'
         self.previous_condition_image_url = ''
+        self.cache_root = pathlib.Path(__file__).parent / ".cache"
+        self.cache_root.mkdir(parents=True, exist_ok=True)
+        self.weather_cache_file = self.cache_root / "weather_last.json"
 
         self.degrees = u"\u00b0"
         self.arrow_up = u"\u25b2"
@@ -212,12 +216,53 @@ class WeatherScreen:
         if hasattr(self.main_app, "update_network_status_ui"):
             self.main_app.update_network_status_ui(network_available)
 
+    def _save_cached_weather(self, payload: dict):
+        try:
+            self.weather_cache_file.write_text(json.dumps(payload))
+        except Exception as exc:
+            logger.warning(f"Could not save weather cache: {exc}")
+
+    def _load_cached_weather(self):
+        if not self.weather_cache_file.exists():
+            return None
+        try:
+            return json.loads(self.weather_cache_file.read_text())
+        except Exception as exc:
+            logger.warning(f"Could not read weather cache: {exc}")
+            return None
+
+    def _icon_cache_path(self, icon_code):
+        return self.cache_root / f"weather_icon_{icon_code}.png"
+
+    def _save_icon_cache(self, icon_code, image_bytes):
+        try:
+            self._icon_cache_path(icon_code).write_bytes(image_bytes)
+        except Exception as exc:
+            logger.warning(f"Could not save weather icon cache: {exc}")
+
+    def _load_cached_icon(self, icon_code):
+        icon_path = self._icon_cache_path(icon_code)
+        if not icon_path.exists():
+            return None
+        try:
+            return icon_path.read_bytes()
+        except Exception as exc:
+            logger.warning(f"Could not read weather icon cache: {exc}")
+            return None
+
     def update_weather(self):
         try:
             url = f'https://api.openweathermap.org/data/2.5/weather?id={self.city_id}&appid={self.api_key}&units={self.units}&lang={self.lang}'
             data = self.make_request(url)
             if data is None:
-                logger.error(f"No response from weather; just try the next cycle in {self.main_app.settings.weather_update_interval} seconds.")
+                cached = self._load_cached_weather()
+                if cached is not None:
+                    logger.warning("No weather API response; using cached weather payload.")
+                    self.today_data = cached
+                    self.last_updated = time.time()
+                    self.update_weather_gui(use_cached_icon=True)
+                    return
+                logger.error(f"No response from weather and no cache available; retry in {self.main_app.settings.weather_update_interval} seconds.")
                 return
             
             logger.debug(f"Got weather data at {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
@@ -230,6 +275,7 @@ class WeatherScreen:
 
             self.today_data = json_data
             self.last_updated = time.time()
+            self._save_cached_weather(json_data)
 
             # Update GUI
             try:
@@ -239,7 +285,7 @@ class WeatherScreen:
         except Exception as e:
             logger.error(f"Error in update_weather: {e}")
 
-    def update_weather_gui(self):
+    def update_weather_gui(self, use_cached_icon=False):
         temperature = self.today_data['main']['temp']
         temp_min = self.today_data['main']['temp_min']
         temp_max = self.today_data['main']['temp_max']
@@ -250,8 +296,19 @@ class WeatherScreen:
 
         if self.previous_condition_image_url != condition_image_url:
             try:
-                condition_image_response = self.make_request(condition_image_url)
-                condition_image_bytes = BytesIO(condition_image_response)
+                condition_image_response = None
+                if not use_cached_icon:
+                    condition_image_response = self.make_request(condition_image_url)
+
+                if condition_image_response:
+                    self._save_icon_cache(icon, condition_image_response)
+                    icon_bytes = condition_image_response
+                else:
+                    icon_bytes = self._load_cached_icon(icon)
+                    if icon_bytes is None:
+                        raise ValueError("No cached icon available")
+
+                condition_image_bytes = BytesIO(icon_bytes)
                 condition_image = Image.open(condition_image_bytes)
                 condition_image = condition_image.resize(
                     (self.icon_size_large, self.icon_size_large),
@@ -260,11 +317,12 @@ class WeatherScreen:
                 self.weather_now_image = ImageTk.PhotoImage(condition_image)
             except Exception as e:
                 logger.error(f"Could not open weather image: {e}")
-                return
+                self.weather_now_image = None
 
         self.previous_condition_image_url = condition_image_url
 
-        self.label_condition.configure(image=self.weather_now_image)
+        if self.weather_now_image is not None:
+            self.label_condition.configure(image=self.weather_now_image)
         self.label_temperature.configure(text=f'{round(temperature)}{self.degrees}C')
         self.label_max.configure(text=f'{self.arrow_up}{round(temp_max)}{self.degrees}C')
         self.label_min.configure(text=f'{self.arrow_down}{round(temp_min)}{self.degrees}C')

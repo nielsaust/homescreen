@@ -27,6 +27,8 @@ CORE_MODULES = [
     "core.reducer",
     "core.state",
     "core.store",
+    "app.controllers.action_dispatcher",
+    "app.ui.widgets.network_status_widget",
 ]
 
 CORE_FILES = [
@@ -44,6 +46,8 @@ CORE_FILES = [
     "core/reducer.py",
     "core/state.py",
     "core/store.py",
+    "app/controllers/action_dispatcher.py",
+    "app/ui/widgets/network_status_widget.py",
 ]
 
 

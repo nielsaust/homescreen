@@ -16,7 +16,7 @@ import time
 class TouchController:
     def __init__(self, main_app: MainApp):  # You can set the default hold_time here (in seconds)
         self.main_app = main_app
-        from action_dispatcher import ActionDispatcher
+        from app.controllers.action_dispatcher import ActionDispatcher
         self.action_dispatcher = ActionDispatcher(main_app, self)
         self.hold_time = self.main_app.settings.hold_time  # Store the hold time threshold
         self.click_time = None  # To store the time of the initial click

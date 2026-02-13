@@ -18,7 +18,7 @@ from core.events import AppEvent
 from core.state import AppState
 from core.store import AppStore
 from device_states import DeviceStates
-from network_status_widget import NetworkStatusWidget
+from app.ui.widgets.network_status_widget import NetworkStatusWidget
 from settings import Settings
 from sentry_setup import init_sentry
 from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
@@ -28,6 +28,22 @@ import tkinter as tk
 # Initialize logging
 log_setup.setup_logging()
 logger = logging.getLogger(__name__)
+
+
+class DeferredMqttController:
+    """No-op MQTT controller used until network is available."""
+
+    def publish_action(self, action, value=None):
+        logger.warning("MQTT not initialized yet; skipping action '%s'", action)
+
+    def publish_message(self, payload=None, topic="screen_commands/outgoing"):
+        logger.warning("MQTT not initialized yet; skipping publish to '%s'", topic)
+
+    def start(self):
+        return None
+
+    def stop(self):
+        return None
 
 class MainApp:
     def __init__(self, root):
@@ -64,6 +80,8 @@ class MainApp:
         self.root.geometry(f"{self.settings.screen_width}x{self.settings.screen_height}")
         self.mqtt_message_queue = Queue()
         self.mqtt_queue_poll_interval_ms = 50
+        self.mqtt_controller = DeferredMqttController()
+        self.mqtt_initialized = False
         self.network_status_widget = NetworkStatusWidget(self.root, self.settings.feedback_icon_size)
         network_interval = int(
             getattr(
@@ -112,7 +130,7 @@ class MainApp:
         self.switch_to_idle()
         self.start_mqtt_queue_pump()
         self.start_network_status_poll()
-        self.init_mqtt()
+        self.maybe_init_mqtt_if_online()
 
 
     def is_internet_connected(self,host="8.8.8.8", port=53, timeout=3):
@@ -160,6 +178,7 @@ class MainApp:
         online = self.is_network_available(timeout=1)
         self.publish_event("network.status", {"online": online}, source="network_poll")
         self.update_network_status_ui(online)
+        self.maybe_init_mqtt_if_online(online)
         self.root.after(self.network_status_poll_interval_ms, self._poll_network_status)
 
     def update_network_status_ui(self, online):
@@ -180,8 +199,21 @@ class MainApp:
         return self.is_internet_connected(timeout=timeout)
 
     def init_mqtt(self):
+        if self.mqtt_initialized:
+            return
         from mqtt_controller import MqttController
         self.mqtt_controller = MqttController(self, self.settings.mqtt_broker, self.settings.mqtt_port, self.settings.mqtt_user, self.settings.mqtt_password)
+        self.mqtt_initialized = True
+
+    def maybe_init_mqtt_if_online(self, online=None):
+        if self.mqtt_initialized:
+            return
+        if online is None:
+            online = self.is_network_available(timeout=1)
+        if not online:
+            return
+        logger.info("Network available; initializing MQTT controller.")
+        self.init_mqtt()
 
     def enqueue_mqtt_message(self, topic, data):
         self.mqtt_message_queue.put((topic, data))

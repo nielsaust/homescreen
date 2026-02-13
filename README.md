@@ -28,3 +28,4 @@ More detail: `docs/testing.md`
 ## Architecture
 
 - Core event/state skeleton: `docs/architecture.md`
+- Structure overview: `docs/structure.md`
