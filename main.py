@@ -415,14 +415,18 @@ class MainApp:
             if playback_state == self._last_music_playback_state:
                 return
             self._last_music_playback_state = playback_state
+            current_screen = self.display_controller.get_screen_state()
+            menu_open = current_screen == "menu"
             if playback_state == "playing":
                 self._cancel_music_pause_timeout()
                 self.switch_to_music()
             elif playback_state == "paused":
-                self._schedule_music_pause_idle()
+                if not menu_open:
+                    self._schedule_music_pause_idle()
             else:
                 self._cancel_music_pause_timeout()
-                self.switch_to_idle()
+                if not menu_open:
+                    self.switch_to_idle()
             return
 
         if intent_type == "ui.screen.changed":
@@ -951,6 +955,8 @@ class MainApp:
 
     def _apply_music_pause_idle(self):
         self.music_pause_timeout = None
+        if self.display_controller.get_screen_state() == "menu":
+            return
         state = getattr(self.music_object, "state", None)
         if state == "playing":
             return
