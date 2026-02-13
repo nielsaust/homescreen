@@ -56,3 +56,18 @@ Behavior:
 - While up: normal internet checks and MQTT reconnect attempts resume.
 - Offline icon is now rendered by a global network status widget (not weather-specific).
 - Weather shows cached last-known data when API is unreachable and cache exists.
+
+## Music Debug Logging
+
+Enable in `settings.json`:
+
+```json
+{
+  "music_debug_logging": true
+}
+```
+
+Then run app and reproduce play/skip behavior.  
+Share log lines containing:
+- `[music] ...`
+- `[music-screen] ...`
