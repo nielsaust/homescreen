@@ -94,6 +94,10 @@ class MainApp:
         self.root = root
         self.root.geometry(f"{self.settings.screen_width}x{self.settings.screen_height}")
         self.mqtt_message_queue = Queue()
+        self.ui_intent_queue = Queue()
+        self.ui_intent_poll_interval_ms = 50
+        self._last_network_ui_state = None
+        self._last_cached_weather_label_text = None
         self.mqtt_queue_poll_interval_ms = 50
         self.mqtt_controller = DeferredMqttController()
         self.mqtt_initialized = False
@@ -124,6 +128,13 @@ class MainApp:
         )
         logger.info("[music] debug logging enabled=%s", self.music_debug_logging)
         self.network_status_widget = NetworkStatusWidget(self.root, self.settings.feedback_icon_size)
+        self.store.subscribe(self._on_state_changed)
+        self._enqueue_ui_intent(
+            {
+                "type": "network.status",
+                "online": self.store.get_state().network_online,
+            }
+        )
         network_interval = int(
             getattr(
                 self.settings,
@@ -170,6 +181,7 @@ class MainApp:
 
         self.switch_to_idle()
         self.start_mqtt_queue_pump()
+        self.start_ui_intent_pump()
         self.start_network_status_poll()
         self.start_music_metrics_log()
         self.maybe_init_mqtt_if_online()
@@ -219,13 +231,77 @@ class MainApp:
     def _poll_network_status(self):
         online = self.is_network_available(timeout=1)
         self.publish_event("network.status", {"online": online}, source="network_poll")
-        self.update_network_status_ui(online)
         self.maybe_init_mqtt_if_online(online)
         self.root.after(self.network_status_poll_interval_ms, self._poll_network_status)
 
     def update_network_status_ui(self, online):
         if hasattr(self, "network_status_widget") and self.network_status_widget:
             self.network_status_widget.set_online(bool(online))
+
+    def _on_state_changed(self, state, event):
+        if event.event_type == "network.status":
+            self._enqueue_ui_intent(
+                {
+                    "type": "network.status",
+                    "online": state.network_online,
+                }
+            )
+        elif event.event_type == "weather.updated":
+            self._enqueue_ui_intent(
+                {
+                    "type": "weather.cache.status",
+                    "source": state.weather_source,
+                    "cached_at_text": state.weather_cached_at_text,
+                }
+            )
+
+    def _enqueue_ui_intent(self, intent):
+        self.ui_intent_queue.put(intent)
+
+    def start_ui_intent_pump(self):
+        self.root.after(self.ui_intent_poll_interval_ms, self._pump_ui_intents)
+
+    def _pump_ui_intents(self):
+        handled = 0
+        while handled < 100:
+            try:
+                intent = self.ui_intent_queue.get_nowait()
+            except Empty:
+                break
+            try:
+                self._apply_ui_intent(intent)
+            except Exception as exc:
+                logger.error("Error applying UI intent (%s): %s", intent, exc)
+            handled += 1
+        self.root.after(self.ui_intent_poll_interval_ms, self._pump_ui_intents)
+
+    def _apply_ui_intent(self, intent):
+        intent_type = intent.get("type")
+        if intent_type == "network.status":
+            online = intent.get("online")
+            if online is None or online == self._last_network_ui_state:
+                return
+            self._last_network_ui_state = online
+            self.update_network_status_ui(online)
+            return
+
+        if intent_type == "weather.cache.status":
+            weather_screen = self.display_controller.screen_objects.get("weather")
+            if weather_screen is None:
+                return
+
+            source = intent.get("source")
+            cached_at_text = intent.get("cached_at_text")
+            if source == "cache" and cached_at_text:
+                if cached_at_text == self._last_cached_weather_label_text:
+                    return
+                self._last_cached_weather_label_text = cached_at_text
+                weather_screen.show_cached_weather_label(cached_at_text)
+            else:
+                if self._last_cached_weather_label_text is None:
+                    return
+                self._last_cached_weather_label_text = None
+                weather_screen.hide_cached_weather_label()
 
     def _network_sim_flag_path(self):
         return pathlib.Path(__file__).parent / ".sim" / "network_down.flag"

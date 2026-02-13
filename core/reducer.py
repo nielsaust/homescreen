@@ -55,6 +55,13 @@ def reduce_state(state: AppState, event: AppEvent) -> AppState:
             printer_progress=payload.get("printer_progress", base.printer_progress),
         )
 
+    if event_type == "weather.updated":
+        return replace(
+            base,
+            weather_source=payload.get("source", base.weather_source),
+            weather_cached_at_text=payload.get("cached_at_text"),
+        )
+
     if event_type == "startup.queue.size":
         return replace(base, startup_queue_size=payload.get("size", base.startup_queue_size))
 
