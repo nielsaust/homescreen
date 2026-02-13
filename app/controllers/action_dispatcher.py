@@ -18,8 +18,8 @@ class ActionDispatcher:
         self.main_app = main_app
         self.touch_controller = touch_controller
         self._handlers: dict[str, Callable[[], None]] = {
-            "back": lambda: self.main_app.display_controller.menu_back(),
-            "close": lambda: self.main_app.display_controller.exit_menu(),
+            "back": lambda: self.main_app.request_menu_navigation("back", source="action_dispatcher"),
+            "close": lambda: self.main_app.request_menu_navigation("exit", source="action_dispatcher"),
             "turn_screen_off": self._turn_screen_off,
             "cover_kitchen": lambda: self.main_app.mqtt_controller.publish_action("cover_kitchen_toggle"),
             "cinema": lambda: self.main_app.mqtt_controller.publish_action("cinema_toggle"),
@@ -91,11 +91,15 @@ class ActionDispatcher:
         )
 
     def _turn_screen_off(self) -> None:
-        self.main_app.display_controller.exit_menu()
-        self.main_app.display_controller.turn_off()
+        self.main_app.request_menu_navigation("exit", source="action_dispatcher")
+        self.main_app.publish_event(
+            "ui.screen.changed",
+            {"screen": "off", "is_display_on": False, "force": True},
+            source="action_dispatcher",
+        )
         self.main_app.check_idle_timer(False)
 
     def _music_show_title(self) -> None:
-        self.main_app.display_controller.exit_menu()
+        self.main_app.request_menu_navigation("exit", source="action_dispatcher")
         if not self.main_app.settings.media_show_titles:
-            self.main_app.show_music_overlays()
+            self.main_app.root.after(120, self.main_app.show_music_overlays)

@@ -296,6 +296,13 @@ class MainApp:
                     "type": "menu.refresh",
                 }
             )
+        elif event.event_type == "menu.navigation.requested":
+            self._enqueue_ui_intent(
+                {
+                    "type": "menu.navigate",
+                    "command": event.payload.get("command"),
+                }
+            )
 
     def _enqueue_ui_intent(self, intent):
         self.ui_intent_queue.put(intent)
@@ -409,6 +416,23 @@ class MainApp:
 
         if intent_type == "menu.refresh":
             self.display_controller.update_menu_states()
+            return
+
+        if intent_type == "menu.navigate":
+            command = intent.get("command")
+            if command == "page_prev":
+                self.display_controller.switch_menu_page(-1)
+                return
+            if command == "page_next":
+                self.display_controller.switch_menu_page(1)
+                return
+            if command == "back":
+                self.display_controller.menu_back()
+                return
+            if command == "exit":
+                self.display_controller.exit_menu()
+                return
+            logger.warning("Unknown menu navigation command: %s", command)
             return
 
     def _network_sim_flag_path(self):
@@ -568,11 +592,23 @@ class MainApp:
                     self.media_volume("down")
             elif screen_state == "menu":
                 if interaction_type == "left":
-                    page_info = self.display_controller.switch_menu_page(-1)
+                    self.publish_event(
+                        "menu.navigation.requested",
+                        {"command": "page_prev"},
+                        source="gesture",
+                    )
                 elif interaction_type == "right":
-                    page_info = self.display_controller.switch_menu_page(1)
+                    self.publish_event(
+                        "menu.navigation.requested",
+                        {"command": "page_next"},
+                        source="gesture",
+                    )
                 elif interaction_type == "down":
-                    self.display_controller.exit_menu()
+                    self.publish_event(
+                        "menu.navigation.requested",
+                        {"command": "exit"},
+                        source="gesture",
+                    )
 
             self.print_memory_usage()
 
@@ -629,6 +665,13 @@ class MainApp:
             self.switch_to_music(True)
         else:
             self.switch_to_idle()
+
+    def request_menu_navigation(self, command: str, source: str = "main"):
+        self.publish_event(
+            "menu.navigation.requested",
+            {"command": command},
+            source=source,
+        )
     
 
 
