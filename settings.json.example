@@ -62,6 +62,7 @@
     "media_titles_font_size": 28,
     "media_titles_timeout": 5000,
     "music_update_debounce_ms": 150,
+    "music_pause_grace_ms": 1200,
     "music_drop_duplicate_payloads": true,
     "music_apply_transport_immediately": true,
     "music_metrics_log_interval_seconds": 30,
