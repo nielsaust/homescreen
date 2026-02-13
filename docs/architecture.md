@@ -131,6 +131,11 @@ This project now has a minimal core layer to support gradual migration to a stat
 - If `playing` arrives within the grace window, pending idle switch is canceled.
 - Grace duration is configurable via `music_pause_grace_ms` (default `1200`).
 
+## Menu click reliability and doorbell action (Phase 6.7)
+
+- Menu button down/up handlers now return `"break"` to avoid root click handlers interfering with menu actions.
+- Doorbell menu action now opens camera immediately and can still publish the remote trigger topic.
+
 ## Screen namespace bootstrap (Phase 8.0)
 
 - Added `app/ui/screens/` package as the target namespace for screen modules.

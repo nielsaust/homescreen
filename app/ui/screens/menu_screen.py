@@ -290,6 +290,7 @@ class MenuScreen:
         self.button_click_time = time.time()
         button.label.configure(highlightthickness=self.main_app.settings.menu_border_thickness)
         self.close_timeout()
+        return "break"
 
     # Define a method to handle button clicks
     def handle_button_release(self, event, button, button_nr):
@@ -299,6 +300,9 @@ class MenuScreen:
             self.close_timeout()
 
         button.label.configure(highlightthickness=0)
+        if self.click_x is None or self.click_y is None:
+            self.click_x = event.x_root
+            self.click_y = event.y_root
         x_dir = event.x_root - self.click_x
         y_dir = event.y_root - self.click_y
         max_movement = max(abs(x_dir),abs(y_dir))
@@ -306,7 +310,7 @@ class MenuScreen:
         
         if(max_movement>min_movement):
             logger.debug(f"Will not be seen as button click; moved more than {min_movement} ({max_movement})")
-            return
+            return "break"
 
         sub_button_amount = 0
 
@@ -325,6 +329,7 @@ class MenuScreen:
             else:
                 self.change_button_background(button=button, new_color=self.button_color.get("down"), duration_ms=self.main_app.settings.button_down_color_change_time)
                 self.main_app.touch_controller.handle_menu_button(button.action)
+        return "break"
 
     def handle_button_hold(self, button, time_held):
         logger.debug(f"Button held for more than {self.main_app.settings.hold_time} ({time_held}) seconds")
