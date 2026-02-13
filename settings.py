@@ -21,7 +21,10 @@ class Settings:
                     #logger.debug(f"Loading variable '{key}' = {value}")
                     setattr(self, key, value)
         except FileNotFoundError:
-            logger.critical(f"Settings file '{json_file}' not found. Be sure to copy 'settings.json.example' and edit it to your needs. to 'settings.json' before you edit. You can do this with the command: cp settings.py.example settings.py")
+            logger.critical(
+                f"Settings file '{json_file}' not found. Copy 'settings.json.example' to "
+                f"'settings.json' first. Example: cp settings.json.example settings.json"
+            )
             sys.exit(1)
         except json.JSONDecodeError as e:
             logger.critical(f"Error parsing JSON: {e}. Check your settings.json file.")

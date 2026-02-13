@@ -1,0 +1,14 @@
+# OS / editor
+.DS_Store
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+
+# Runtime / local state
+logs/*.log
+logs/rollover_logs.txt
+settings.json
