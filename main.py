@@ -67,7 +67,7 @@ def _to_bool(value, default=False):
 
 class MainApp:
     def __init__(self, root):
-        logger.info(f"========= NEW STARTUP @ {self.print_current_datetime()} =========")
+        log_event(logger, logging.INFO, "app", "startup.begin", at=self.print_current_datetime())
         # load settings
         self.settings = Settings("settings.json")
         log_setup.apply_runtime_logging_policy(self.settings)
@@ -76,11 +76,14 @@ class MainApp:
         self.store = AppStore(AppState())
         self.event_bus.subscribe(self.store.dispatch)
 
-        logger.info(
-            "Log policy applied (root=%s, console=%s, file=%s)",
-            getattr(self.settings, "log_level", "INFO"),
-            getattr(self.settings, "console_log_level", "INFO"),
-            getattr(self.settings, "file_log_level", "DEBUG"),
+        log_event(
+            logger,
+            logging.INFO,
+            "app",
+            "logging.policy_applied",
+            root=getattr(self.settings, "log_level", "AUTO"),
+            console=getattr(self.settings, "log_console_level", getattr(self.settings, "console_log_level", "INFO")),
+            file=getattr(self.settings, "log_file_level", getattr(self.settings, "file_log_level", "DEBUG")),
         )
 
         # Wait for an internet connection
@@ -123,7 +126,7 @@ class MainApp:
         self.music_metrics_interval_ms = int(
             (getattr(self.settings, "music_metrics_log_interval_seconds", 30) or 30) * 1000
         )
-        logger.info("[music] debug logging enabled=%s", self.music_debug_logging)
+        log_event(logger, logging.INFO, "music", "debug_logging", enabled=self.music_debug_logging)
         self.network_status_widget = NetworkStatusWidget(self.root, self.settings.feedback_icon_size)
         self.store.subscribe(self._on_state_changed)
         self._enqueue_ui_intent(
@@ -192,7 +195,7 @@ class MainApp:
         try:
             return ping3.ping(host,timeout=timeout) is not None
         except Exception as e:
-            logger.info(f"Error checking internet connection: {e}")
+            log_event(logger, logging.INFO, "network", "connectivity_check_error", error=e)
             return False
 
     def wait_for_internet_connection(self):
@@ -375,7 +378,7 @@ class MainApp:
             online = self.is_network_available(timeout=1)
         if not online:
             return
-        logger.info("Network available; initializing MQTT controller.")
+        log_event(logger, logging.INFO, "mqtt", "controller.init_requested", reason="network_available")
         self.init_mqtt()
 
     def enqueue_mqtt_message(self, topic, data):
@@ -395,7 +398,7 @@ class MainApp:
             try:
                 self.on_mqtt_message(topic, data)
             except Exception as exc:
-                logger.error(f"Error handling queued MQTT message ({topic}): {exc}")
+                log_event(logger, logging.ERROR, "mqtt", "queue_message_handle_failed", topic=topic, error=exc)
             handled += 1
 
         self.root.after(self.mqtt_queue_poll_interval_ms, self._pump_mqtt_queue)
@@ -457,21 +460,28 @@ class MainApp:
 
     def perform_action(self, interaction_type):
         self.publish_event("interaction.received", {"interaction_type": interaction_type})
-        logger.debug(f"Perform_action: {interaction_type}")
+        log_event(logger, logging.DEBUG, "ui", "interaction.received", interaction_type=interaction_type)
         current_time = time.time()
 
         if self.touch_controller.ignore_next_click:
-            logger.debug(f"Menu click done. Ignoring this next root click")
+            log_event(logger, logging.DEBUG, "ui", "interaction.ignored", reason="menu_click_already_handled")
             self.touch_controller.ignore_next_click = False
             return
         
         if self.display_controller.is_cam_showing():
-            logger.debug(f"Cam is showing; so all interactions prohibited")
+            log_event(logger, logging.DEBUG, "ui", "interaction.ignored", reason="camera_overlay_active")
             return
         
         time_between_actions = current_time - self.time_last_action
         if time_between_actions<self.settings.min_time_between_actions:
-            logger.warning(f"Too many actions more or less simultaniously ({time_between_actions}ms); could result in errors so abording. Mostly this is to prevent a button press registered both from TouchController as MenuScreen.")
+            log_event(
+                logger,
+                logging.WARNING,
+                "ui",
+                "interaction.rejected.rate_limit",
+                time_between_actions=time_between_actions,
+                min_interval=self.settings.min_time_between_actions,
+            )
             return
 
         self.time_last_action = current_time
@@ -586,27 +596,34 @@ class MainApp:
             if topic:
                 processes_queue_item = self.startup_mqtt_messages.pop(topic,None)
                 if processes_queue_item is not None:
-                    logger.debug(f"Removed {topic} from startup_mqtt_messages queue.")
+                    log_event(logger, logging.DEBUG, "mqtt", "startup_queue.removed", topic=topic)
                 else:
-                    logger.warning(f"Could not remove {topic} from startup_mqtt_messages, because it does not exist.")
+                    log_event(logger, logging.WARNING, "mqtt", "startup_queue.remove_missing", topic=topic)
                     return
             
             try:
                 next_mqtt_queue_item_key, next_mqtt_queue_item_value = next(iter(self.startup_mqtt_messages.items()))
-                logger.debug(f"Next item in the self.startup_mqtt_messages queue is: (key) {next_mqtt_queue_item_key}, (value) {next_mqtt_queue_item_value}")
+                log_event(
+                    logger,
+                    logging.DEBUG,
+                    "mqtt",
+                    "startup_queue.next",
+                    key=next_mqtt_queue_item_key,
+                    handler=str(next_mqtt_queue_item_value),
+                )
                 next_mqtt_queue_item_value()
             except StopIteration:
-                logger.debug("The self.startup_mqtt_messages dictionary is empty.")
+                log_event(logger, logging.DEBUG, "mqtt", "startup_queue.empty")
 
-            logger.debug(f"Checked mqtt message queue (size: {len(self.startup_mqtt_messages)})")
+            log_event(logger, logging.DEBUG, "mqtt", "startup_queue.checked", size=len(self.startup_mqtt_messages))
             self.publish_event("startup.queue.size", {"size": len(self.startup_mqtt_messages)})
     
     def update_device_states(self):
-        logger.debug(f"Asking mqtt for device states")
+        log_event(logger, logging.DEBUG, "mqtt", "state_update.requested")
         self.mqtt_controller.publish_action("update_device_states")
     
     def check_music_status(self):
-        logger.debug(f"Asking mqtt for music state")
+        log_event(logger, logging.DEBUG, "mqtt", "music_state.requested")
         self.mqtt_controller.publish_message(topic="screen_commands/update_music")
 
     def on_mqtt_message(self, topic, data):
@@ -671,7 +688,7 @@ class MainApp:
         for key, value in vars(obj).items():
             logging.info("music_object.%s = %r", key, value)
         
-        logger.debug(f'{state} - {title}')
+        log_event(logger, logging.DEBUG, "music", "state.updated", state=state, title=title)
         self.publish_event(
             "music.updated",
             {
@@ -726,11 +743,11 @@ class MainApp:
         system_info = {}
 
         if system_platform == "Darwin":
-            logger.info("You are on a Mac (macOS).")
+            log_event(logger, logging.INFO, "system", "platform.detected", platform=system_platform, type="desktop_macos")
             system_info["is_desktop"] = True
             system_info["system_platform"] = system_platform
         elif system_platform == "Windows":
-            logger.info("You are on a Windows system.")
+            log_event(logger, logging.INFO, "system", "platform.detected", platform=system_platform, type="desktop_windows")
             system_info["is_desktop"] = True
             system_info["system_platform"] = system_platform
         elif system_platform == "Linux":
@@ -739,14 +756,14 @@ class MainApp:
                     for line in cpuinfo:
                         if line.startswith('Hardware'):
                             if 'BCM' in line or 'Raspberry Pi' in line:
-                                logger.info("You are on a Raspberry Pi (Linux).")
+                                log_event(logger, logging.INFO, "system", "platform.detected", platform=system_platform, type="raspberry_pi")
                                 break
             except FileNotFoundError:
-                logger.info("You are on a Linux system, but not a Raspberry Pi.")
+                log_event(logger, logging.INFO, "system", "platform.detected", platform=system_platform, type="linux_non_pi")
             system_info["is_desktop"] = False
             system_info["system_platform"] = system_platform
         else:
-            logger.info(f"You are on an unknown system with platform: {system_platform}")
+            log_event(logger, logging.INFO, "system", "platform.detected", platform=system_platform, type="unknown")
             system_info["is_desktop"] = False
             system_info["system_platform"] = system_platform
         
@@ -760,7 +777,15 @@ class MainApp:
         available_memory_mb = available_memory / (1024 * 1024)
         used_memory_mb = memory_usage / (1024 * 1024)
         memory_percentage = used_memory_mb / available_memory_mb * 100
-        logger.debug(f"Memory usage: {used_memory_mb:.2f}/{available_memory_mb:.2f} MB ({memory_percentage:.2f}%)")
+        log_event(
+            logger,
+            logging.DEBUG,
+            "system",
+            "memory.usage",
+            used_mb=round(used_memory_mb, 2),
+            available_mb=round(available_memory_mb, 2),
+            pct=round(memory_percentage, 2),
+        )
 
     def get_memory_usage(self):
         try:
@@ -768,7 +793,7 @@ class MainApp:
             memory_info = process.memory_info()
             return memory_info.rss
         except Exception as e:
-            logger.error(f"Could not get memory usage: {e}")
+            log_event(logger, logging.ERROR, "system", "memory.usage_failed", error=e)
             return 0
 
     def signal_handler(self, sig, frame):
@@ -778,6 +803,7 @@ class MainApp:
 
     def log_unhandled_exception(exc_type, exc_value, exc_traceback):
         log_event(logger, logging.ERROR, "app", "unhandled_exception", error=exc_value)
+        log_event(logger, logging.ERROR, "app", "unhandled_exception.trace")
         logger.error("Unhandled exception", exc_info=(exc_type, exc_value, exc_traceback))
 
     def print_current_datetime(self):
@@ -800,12 +826,19 @@ class MainApp:
         if not self.music_debug_logging:
             return
         if payload is None:
-            logger.info(message)
+            log_event(logger, logging.INFO, "music", "debug", message=message)
             return
         try:
-            logger.info("%s :: %s", message, json.dumps(payload, default=str, ensure_ascii=False))
+            log_event(
+                logger,
+                logging.INFO,
+                "music",
+                "debug",
+                message=message,
+                payload=json.dumps(payload, default=str, ensure_ascii=False),
+            )
         except Exception:
-            logger.info("%s :: %s", message, payload)
+            log_event(logger, logging.INFO, "music", "debug", message=message, payload=payload)
 
     def record_music_metric(self, key, amount=1):
         if key not in self.music_metrics:
@@ -829,9 +862,9 @@ class MainApp:
             **fields,
         }
         try:
-            logger.info("[ui-trace] %s", json.dumps(payload, default=str, ensure_ascii=False))
+            log_event(logger, logging.INFO, "ui", "trace", payload=json.dumps(payload, default=str, ensure_ascii=False))
         except Exception:
-            logger.info("[ui-trace] %s", payload)
+            log_event(logger, logging.INFO, "ui", "trace", payload=payload)
 
 if __name__ == "__main__":
     try:
