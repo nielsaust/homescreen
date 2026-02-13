@@ -134,10 +134,15 @@ class WeatherScreen:
         self.recurring_job = None
         self.blink_id = None
         self.network_available = True
+        self.last_network_indicator_check = 0
+        self.network_indicator_check_interval_seconds = int(
+            getattr(self.main_app.settings, "network_indicator_check_interval_seconds", 5)
+        )
 
         self.update_time_inteval = 10 * 1000
 
     def show(self):
+        self.refresh_network_indicator(force=True)
         self.update_weather_loop()
         self.update_time_loop()
         return True
@@ -164,11 +169,26 @@ class WeatherScreen:
             self.weather_update_job = None  # Reset de job zodat er geen ghost jobs zijn
 
     def update_time_loop(self):
+        self.refresh_network_indicator()
         self.update_time()
         # Set the time update timer (e.g., every 10 seconds)
         self.time_update_job = self.main_frame.after(self.update_time_inteval, self.update_time_loop)
 
+    def refresh_network_indicator(self, force=False):
+        now = time.time()
+        if not force and (now - self.last_network_indicator_check) < self.network_indicator_check_interval_seconds:
+            return
+        self.last_network_indicator_check = now
+
+        if hasattr(self.main_app, "is_network_available"):
+            self.update_network_availability(self.main_app.is_network_available(timeout=1))
+
     def make_request(self, url):
+        if hasattr(self.main_app, "is_network_available") and not self.main_app.is_network_available(timeout=1):
+            self.update_network_availability(False)
+            logger.warning("Skipping weather API call because network is unavailable.")
+            return None
+
         for attempt in range(self.main_app.settings.weather_api_call_direct_retries):
             try:
                 # Suppress InsecureRequestWarning if verify is False
