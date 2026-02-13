@@ -54,6 +54,12 @@ This project now has a minimal core layer to support gradual migration to a stat
 - MQTT initialization is deferred until network is available.
 - Before MQTT init, a no-op controller prevents crashes on user actions.
 
+## Weather split (Phase 5.4)
+
+- `weather_screen.py` now focuses on Tk rendering/timers.
+- Weather IO/cache/retry logic moved to `app/services/weather_service.py`.
+- Display text mapping moved to `app/viewmodels/weather_view_model.py`.
+
 ## Local state testing without UI
 
 Use replay tool with JSONL:
