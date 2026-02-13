@@ -115,24 +115,26 @@ class MusicScreen:
         album_art_api_url = getattr(obj, "album_art_api_url", None)
 
         if artist is None:
-            log_event(logger, logging.WARNING, "music", "screen.show_blocked", reason="missing_artist", state=state)
+            log_event(logger, logging.WARNING, "music", "screen.partial_metadata", reason="missing_artist", state=state)
             if getattr(self.main_app, "music_debug_logging", False):
                 log_event(
                     logger,
                     logging.INFO,
                     "music",
-                    "screen.render_blocked_details",
+                    "screen.partial_metadata_details",
                     state=state,
                     title=title,
                     channel=channel,
                     album_art=album_art_api_url,
                 )
-            return False
 
         self._maybe_load_album_art(album_art_api_url)
 
-        if self.main_app.settings.media_show_titles:
+        has_any_text = any([artist, title, album, channel])
+        if self.main_app.settings.media_show_titles and has_any_text:
             self.show_overlays(artist, title, album, channel)
+        else:
+            self.remove_overlays()
 
         return True
 

@@ -181,6 +181,7 @@ class DisplayController:
 
     def show_screen(self, screen_name, init=False, force=False):
         time_between_switches = time.time() - self.time_in_screen
+        previous_state = self._screen_state
         self._trace_ui(
             "screen.show.request",
             screen=screen_name,
@@ -209,7 +210,14 @@ class DisplayController:
         if self.current_screen is None:
             log_event(logger, logging.ERROR, "display", "screen.current_missing", screen=screen_name)
         elif not self._show_selected_screen(screen_name):
+            log_event(logger, logging.WARNING, "display", "screen.show.restore_previous", failed_screen=screen_name)
             self.current_screen = self.previous_screen
+            self._screen_state = previous_state
+            if self.current_screen is not None:
+                try:
+                    self.current_screen.pack(fill=tk.BOTH, expand=True)
+                except Exception as exc:
+                    log_event(logger, logging.ERROR, "display", "screen.restore_previous_failed", error=exc)
 
         if screen_name != "off":
             self.check_idle()
