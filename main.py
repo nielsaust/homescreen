@@ -575,7 +575,7 @@ class MainApp:
             self.touch_controller.ignore_next_click = False
             return
         
-        if self.display_controller.cam_screen.is_showing:
+        if self.display_controller.is_cam_showing():
             logger.debug(f"Cam is showing; so all interactions prohibited")
             return
         
