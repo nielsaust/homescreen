@@ -4,6 +4,8 @@ import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from app.controllers.overlay_commands import OverlayCommand
+
 if TYPE_CHECKING:
     from main import MainApp
     from touch_controller import TouchController
@@ -56,15 +58,15 @@ class ActionDispatcher:
             "music_next": lambda: self.main_app.media_skip_song("next"),
             "music_previous": lambda: self.main_app.media_skip_song("previous"),
             "music_show_title": self._music_show_title,
-            "heart": lambda: self.main_app.request_overlay("open_slideshow", source="action_dispatcher"),
+            "heart": lambda: self.main_app.request_overlay(OverlayCommand.OPEN_SLIDESHOW, source="action_dispatcher"),
             "christmas": lambda: self.main_app.mqtt_controller.publish_action("activate_christmas"),
             "3d_printer_status": lambda: self.main_app.request_overlay(
-                "show_print_status",
+                OverlayCommand.SHOW_PRINT_STATUS,
                 {"progress": self.main_app.device_states.printer_progress},
                 source="action_dispatcher",
             ),
             "3d_printer_cam": lambda: self.main_app.request_overlay(
-                "show_cam",
+                OverlayCommand.SHOW_CAM,
                 {"data": {}, "url": self.main_app.settings.printer_url},
                 source="action_dispatcher",
             ),

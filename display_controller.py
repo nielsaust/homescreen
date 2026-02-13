@@ -8,6 +8,7 @@ import time
 import tkinter as tk
 from PIL import Image, ImageTk
 from hyperpixel_backlight import Backlight
+from app.controllers.overlay_commands import OverlayCommand
 from app.controllers.overlay_manager import OverlayManager
 
 class DisplayController:
@@ -126,6 +127,44 @@ class DisplayController:
 
     def is_cam_showing(self):
         return self.overlay_manager.is_cam_showing()
+
+    def handle_overlay_command(self, command, payload):
+        if command == OverlayCommand.OPEN_SLIDESHOW:
+            self.open_slideshow()
+            return True
+        if command == OverlayCommand.SHOW_CAM:
+            self.show_cam(
+                payload.get("data") or {},
+                payload.get("url"),
+                payload.get("username"),
+                payload.get("password"),
+            )
+            return True
+        if command == OverlayCommand.SHOW_CALENDAR:
+            self.show_calendar(payload.get("data") or {})
+            return True
+        if command == OverlayCommand.SHOW_ALERT:
+            self.show_alert(payload.get("data") or {})
+            return True
+        if command == OverlayCommand.SHOW_PRINT_STATUS:
+            self.show_print_status(
+                payload.get("progress"),
+                bool(payload.get("reset", False)),
+            )
+            return True
+        if command == OverlayCommand.UPDATE_PRINT_PROGRESS:
+            self.update_print_progress(payload.get("progress"))
+            return True
+        if command == OverlayCommand.PRINT_SCREEN_ATTENTION:
+            self.print_screen_attention()
+            return True
+        if command == OverlayCommand.CLOSE_PRINT_SCREEN:
+            self.close_print_screen()
+            return True
+        if command == OverlayCommand.CANCEL_ATTENTION:
+            self.cancel_attention()
+            return True
+        return False
 
     def show_show_slider(self,entity,title,type="light"):
         self.stop_menu_timer()
