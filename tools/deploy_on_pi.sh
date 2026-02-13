@@ -20,6 +20,8 @@ REMOTE_SHA="$(git rev-parse "origin/${BRANCH}")"
 
 if [[ "${LOCAL_SHA}" == "${REMOTE_SHA}" ]]; then
   echo "[deploy] already up to date (${LOCAL_SHA})"
+  echo "[deploy] no changes; skipping install, baseline, and restart"
+  exit 0
 else
   echo "[deploy] updating ${LOCAL_SHA} -> ${REMOTE_SHA}"
   git pull --ff-only origin "${BRANCH}"

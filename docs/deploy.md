@@ -3,6 +3,7 @@
 ## Goal
 
 On updates to `main`, pull latest code on the Pi and restart the app safely.
+When there is no new commit, deploy exits early and does not restart the app.
 
 ## Files in this repo
 
