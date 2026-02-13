@@ -4,11 +4,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 import os
-import pathlib
 import random
 import tkinter as tk
 from PIL import Image, ImageTk
-from time import sleep
 
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[3]
 IMAGES_DIR = PROJECT_ROOT / "images"
