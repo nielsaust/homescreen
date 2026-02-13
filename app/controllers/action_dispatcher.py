@@ -45,7 +45,7 @@ class ActionDispatcher:
             "light_kleur": lambda: self.main_app.mqtt_controller.publish_action("light_kleur_toggle"),
             "light_tafel": lambda: self.main_app.mqtt_controller.publish_action("light_tafel_toggle"),
             "in_bed_toggle": lambda: self.main_app.mqtt_controller.publish_action("in_bed_toggle"),
-            "doorbell": lambda: self.main_app.show_doorbell_camera(trigger_remote=True),
+            "doorbell": lambda: self.main_app.mqtt_controller.publish_message(topic="screen_commands/doorbell"),
             "calendar": lambda: self.main_app.mqtt_controller.publish_action("calendar"),
             "calendar_add": lambda: self.main_app.display_controller.show_fullscreen_image("qr-agenda.png"),
             "wifi_qr": lambda: self.main_app.display_controller.show_fullscreen_image("qr-wifi.png"),

@@ -316,11 +316,11 @@ class MenuScreen:
             y_abs = abs(y_dir)
             if x_abs > y_abs and x_dir > min_movement:
                 self.main_app.perform_action("left")
-            elif x_abs > y_abs and x_dir < min_movement:
+            elif x_abs > y_abs and x_dir < -min_movement:
                 self.main_app.perform_action("right")
             elif x_abs < y_abs and y_dir > min_movement:
                 self.main_app.perform_action("down")
-            elif x_abs < y_abs and y_dir < min_movement:
+            elif x_abs < y_abs and y_dir < -min_movement:
                 self.main_app.perform_action("up")
             return "break"
 
