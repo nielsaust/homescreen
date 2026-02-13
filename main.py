@@ -1,0 +1,459 @@
+
+import datetime
+import json
+import logging
+import logger as log_setup
+import time
+import sys
+
+import platform
+import psutil
+import signal
+import ping3
+
+from device_states import DeviceStates
+from settings import Settings
+from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
+
+import tkinter as tk
+
+# Initialize logging
+log_setup.setup_logging()
+logger = logging.getLogger(__name__)
+
+class MainApp:
+    def __init__(self, root):
+        logger.info(f"========= NEW STARTUP @ {self.print_current_datetime()} =========")
+        # load settings
+        self.settings = Settings("settings.json")
+
+        # Get the log level from settings and convert it to a logging level
+        try:
+            log_level_str = self.settings.log_level.upper()
+            log_level = getattr(logging, log_level_str, logging.DEBUG)
+
+            tmp_logger = logging.getLogger()
+            tmp_logger.setLevel(log_level)
+            logger.info(f"Log level set to: {log_level_str} ({log_level})")
+
+            # Update handler levels
+            for handler in tmp_logger.handlers:
+                logger.debug(f"Log handlerlevel set to: {log_level_str} ({log_level})")
+                handler.setLevel(log_level)
+                
+        except Exception as e:
+            logger.error(f"Error setting log level: {e}")
+
+        # Wait for an internet connection
+        self.wait_for_internet_connection()
+
+        # Set up the root window
+        self.root = root
+        self.root.geometry(f"{self.settings.screen_width}x{self.settings.screen_height}")
+
+        # Set up system info
+        self.system_info = self.checksystem()
+        self.music_object = None
+        self.boot_time = time.time()
+        self.time_last_action = time.time()
+        self.bed_time_timeout_future = None
+        self.music_pause_timeout = None
+        self.startup_mqtt_messages = {self.settings.mqtt_topic_devices: self.update_device_states, self.settings.mqtt_topic_music: self.check_music_status}
+
+        # LOGGING asyncio - Check to see if still needed
+        asyncio_logger = logging.getLogger('asyncio')
+        asyncio_logger.setLevel(logging.WARNING)
+        sys.excepthook = self.log_unhandled_exception
+
+        self.device_states = DeviceStates()
+        from touch_controller import TouchController
+        self.touch_controller = TouchController(self)
+        from display_controller import DisplayController
+        self.display_controller = DisplayController(self)
+        self.touch_controller.bind_events(self.root)
+
+        # Register the signal handler for Ctrl-C
+        signal.signal(signal.SIGINT, self.signal_handler)
+
+        self.switch_to_idle()
+        self.init_mqtt()
+
+
+    def is_internet_connected(self,host="8.8.8.8", port=53, timeout=3):
+        try:
+            return ping3.ping(host,timeout=timeout) is not None
+        except Exception as e:
+            logger.info(f"Error checking internet connection: {e}")
+            return False
+
+    def wait_for_internet_connection(self):
+        while not self.is_internet_connected():
+            logger.info("Waiting for an internet connection...")
+            time.sleep(5)  # Wait for 5 seconds before checking again
+
+        logger.info("Internet connection is available!")
+
+    def init_mqtt(self):
+        from mqtt_controller import MqttController
+        self.mqtt_controller = MqttController(self, self.settings.mqtt_broker, self.settings.mqtt_port, self.settings.mqtt_user, self.settings.mqtt_password)
+
+    def perform_action(self, interaction_type):
+        logger.debug(f"Perform_action: {interaction_type}")
+        current_time = time.time()
+
+        if self.touch_controller.ignore_next_click:
+            logger.debug(f"Menu click done. Ignoring this next root click")
+            self.touch_controller.ignore_next_click = False
+            return
+        
+        if self.display_controller.cam_screen.is_showing:
+            logger.debug(f"Cam is showing; so all interactions prohibited")
+            return
+        
+        time_between_actions = current_time - self.time_last_action
+        if time_between_actions<self.settings.min_time_between_actions:
+            logger.warning(f"Too many actions more or less simultaniously ({time_between_actions}ms); could result in errors so abording. Mostly this is to prevent a button press registered both from TouchController as MenuScreen.")
+            return
+
+        self.time_last_action = current_time
+        screen_state = self.display_controller.get_screen_state()
+
+        self.check_idle_timer()
+        if(not self.display_controller.is_showing):
+            if self.settings.show_weather_on_idle and not self.display_controller.is_showing:
+                self.display_controller.check_idle(True)
+                return
+        
+        if screen_state is not None:
+            # check if we have to wake up screen        
+            if screen_state == "weather" or screen_state == "off":
+                if interaction_type == "single_click":
+                    self.switch_to_menu()
+                elif interaction_type == "hold":
+                    pass
+            elif screen_state == "music":
+                if interaction_type == "single_click":
+                    self.switch_to_menu()
+                elif interaction_type == "hold":
+                    self.media_play_pause()
+                elif interaction_type == "left":
+                    self.media_skip_song("previous")
+                elif interaction_type == "right":
+                    self.media_skip_song("next")
+                elif interaction_type == "up":
+                    self.media_volume("up")
+                elif interaction_type == "down":
+                    self.media_volume("down")
+            elif screen_state == "menu":
+                if interaction_type == "left":
+                    page_info = self.display_controller.switch_menu_page(-1)
+                elif interaction_type == "right":
+                    page_info = self.display_controller.switch_menu_page(1)
+                elif interaction_type == "down":
+                    self.display_controller.exit_menu()
+
+            self.print_memory_usage()
+
+    def check_bed_time(self,force=False):
+        if self.device_states.in_bed_changed or force:
+            if self.device_states.in_bed:
+                self.display_controller.turn_off()  
+            else:          
+                self.display_controller.turn_on()
+            self.device_states.in_bed_changed = False
+
+        self.display_controller.check_idle()
+
+    def check_idle_timer(self,startnew=True):
+        if self.bed_time_timeout_future:
+            self.root.after_cancel(self.bed_time_timeout_future)
+
+        if(startnew):
+            self.bed_time_timeout_future = self.root.after(self.settings.in_bed_turn_off_timeout, lambda: self.check_bed_time(True))
+
+    ###### SCREEENS ######
+    def switch_to_idle(self,force=False):
+        if self.settings.show_weather_on_idle:
+            self.display_controller.show_screen("weather", force=force)
+        else:
+            self.display_controller.turn_off()  
+
+    def switch_to_music(self,force=False):
+        if not self.display_controller.get_screen_state() == "menu" or force:
+            logger.debug(f"Switch_to_music, current screen: {self.display_controller.get_screen_state()}")
+            self.display_controller.show_screen("music", force=force)
+
+
+    def switch_to_menu(self):
+        if self.display_controller.menu_ready():
+            logger.debug(f"Menu ready; show menu")
+            self.display_controller.show_screen("menu")
+        else:
+            logger.warning(f"Menu NOT ready; show idle instead")
+            self.switch_to_idle()
+
+    def exit_menu(self):
+        if(self.music_object is not None and self.music_object.state=="playing"):
+            self.switch_to_music(True)
+        else:
+            self.switch_to_idle()
+    
+
+
+    ###### MQTT ######
+    def start_mqtt(self):
+        self.mqtt_controller.start()
+
+    def stop_mqtt(self):
+        self.mqtt_controller.stop()
+
+    def on_mqtt_connected(self):
+        self.check_mqtt_message_queue()
+    
+    def check_mqtt_message_queue(self,topic=None):
+        if self.startup_mqtt_messages:
+            if topic:
+                processes_queue_item = self.startup_mqtt_messages.pop(topic,None)
+                if processes_queue_item is not None:
+                    logger.debug(f"Removed {topic} from startup_mqtt_messages queue.")
+                else:
+                    logger.warning(f"Could not remove {topic} from startup_mqtt_messages, because it does not exist.")
+                    return
+            
+            try:
+                next_mqtt_queue_item_key, next_mqtt_queue_item_value = next(iter(self.startup_mqtt_messages.items()))
+                logger.debug(f"Next item in the self.startup_mqtt_messages queue is: (key) {next_mqtt_queue_item_key}, (value) {next_mqtt_queue_item_value}")
+                next_mqtt_queue_item_value()
+            except StopIteration:
+                logger.debug("The self.startup_mqtt_messages dictionary is empty.")
+
+            logger.debug(f"Checked mqtt message queue (size: {len(self.startup_mqtt_messages)})")
+    
+    def update_device_states(self):
+        logger.debug(f"Asking mqtt for device states")
+        self.mqtt_controller.publish_action("update_device_states")
+    
+    def check_music_status(self):
+        logger.debug(f"Asking mqtt for music state")
+        self.mqtt_controller.publish_message(topic="screen_commands/update_music")
+
+    def check_print_status(self, data):
+        progress = data.get('progress')
+        if self.device_states:
+            self.device_states.printer_progress = progress
+        logger.info(f"Checking print status ({progress}%)")
+        if self.settings.show_cam_on_print_percentage>0 and progress and progress >= self.settings.show_cam_on_print_percentage:
+            self.display_controller.show_cam(data,self.settings.printer_url)
+        else:
+            self.display_controller.update_print_progress(progress)
+
+    def on_mqtt_message(self, topic, data):
+        # prevent initial messages @ startup
+        time_since_boot = time.time()-self.boot_time
+        logger.debug(f"On MQTT message: {topic}, with data: {data}")
+        self.check_mqtt_message_queue(topic)
+
+        if topic==self.settings.mqtt_topic_music:
+            self.update_music_object(data)
+            self.display_controller.update_menu_states()
+            return
+        elif topic==self.settings.mqtt_topic_devices:
+            try:
+                self.device_states.update_states(data)
+                self.display_controller.update_menu_states()
+                self.check_bed_time()
+                return
+            except Exception as e:
+                logger.error(f"Something went wrong when updating device states or buttons: {e}")
+                return 
+
+        # don't accept certain messages shortly after boot
+        logger.debug(f"time since boot: {round(time_since_boot)}s ({round(time_since_boot/60/60,1)}h)")
+        if time_since_boot<self.settings.mqtt_accept_nonessential_messages_after:
+            logger.warning(f"only accepting non-essential messages afer {self.settings.mqtt_accept_nonessential_messages_after}s")
+            return
+        
+        # octoPrint/progress/printing = mqtt_topic_printer_progress
+        if topic==self.settings.mqtt_topic_doorbell:
+            self.display_controller.show_cam(data,f'http://{self.settings.doorbell_url}{self.settings.doorbell_path}',self.settings.doorbell_username,self.settings.doorbell_password)
+        elif topic==self.settings.mqtt_topic_printer_progress:
+            self.check_print_status(data)           
+        elif topic==self.settings.mqtt_topic_calendar:
+            self.display_controller.show_calendar(data)
+        elif topic==self.settings.mqtt_topic_alert:
+            logger.debug(f"Received alert: {data}")
+            self.display_controller.show_alert(data)
+        elif topic==self.settings.mqtt_topic_print_start:
+            self.display_controller.show_print_status(self.device_states.printer_progress,True)
+        elif topic==self.settings.mqtt_topic_print_done:
+            self.display_controller.print_screen_attention()
+        elif topic==self.settings.mqtt_topic_print_cancelled:
+            self.display_controller.close_print_screen()
+        elif topic==self.settings.mqtt_topic_print_change_filament:
+            self.display_controller.print_screen_attention()
+        elif topic==self.settings.mqtt_topic_print_change_z:
+            self.display_controller.cancel_attention()
+        else:
+            logger.warning(f"Unknown or untimely topic received: {topic}")
+        
+
+
+
+
+    ###### MEDIA ######
+    def show_music_overlays(self):
+        self.display_controller.show_music_overlays()
+
+    def media_play_pause(self):
+        data = {
+            "action": "media-play-pause"
+        }
+        payload = json.dumps(data)
+        self.mqtt_controller.publish_action("media-play-pause")
+        if self.music_object and self.music_object.state=="playing":
+            self.display_controller.place_action_label(image="pause-white.png")
+        else:
+            self.display_controller.place_action_label(image="play-white.png")
+
+    def media_skip_song(self,next_previous):
+        if self.music_object and self.music_object.channel is None:
+            if next_previous=="next":
+                self.mqtt_controller.publish_action("media-next")
+                self.display_controller.place_action_label(image="forward-white.png")
+            else:
+                self.mqtt_controller.publish_action("media-previous")
+                self.display_controller.place_action_label(image="backward-white.png")
+        else:
+            logger.info("Can't skip song; radio is playing.")
+
+    def media_volume(self,up_down):
+        if up_down=="up":
+            self.mqtt_controller.publish_action("media-volume-up")
+            self.display_controller.place_action_label(image="volume-up-white.png")
+        else:
+            self.mqtt_controller.publish_action("media-volume-down")
+            self.display_controller.place_action_label(image="volume-down-white.png")
+
+    def update_music_object(self, data):
+        state = data['state']
+        title = data['title']
+        artist = data['artist']
+        channel = data['channel']
+        album = data['album']
+        album_art_api_url = data['album_art_api_url']
+
+        if not artist and channel:
+            artist = channel
+
+        if(self.music_object is None):
+            from music_object import MusicObject
+            self.music_object = MusicObject(
+                state, 
+                title, 
+                artist, 
+                channel, 
+                album, 
+                album_art_api_url
+            )
+        else:
+            self.music_object.state = state
+            self.music_object.title = title
+            self.music_object.artist = artist
+            self.music_object.channel = channel
+            self.music_object.album = album
+            self.music_object.album_art_api_url = album_art_api_url
+        
+        logging.debug("========= Music object updated =========")
+        obj = self.music_object
+        for key, value in vars(obj).items():
+            logging.info("music_object.%s = %r", key, value)
+        
+        logger.debug(f'{state} - {title}')
+
+        if(state!="playing"):
+            self.switch_to_idle()
+        else:
+            self.switch_to_music()
+
+        self.print_memory_usage()
+
+
+    def wait_till_pause(self,startnew=True):
+        if self.music_pause_timeout:
+            self.root.after_cancel(self.music_pause_timeout)
+
+        if(startnew):
+            self.music_pause_timeout = self.root.after(500, lambda: self.switch_to_idle())
+
+    ###### SYSTEM ######
+    def checksystem(self):
+        system_platform = platform.system()
+        system_info = {}
+
+        if system_platform == "Darwin":
+            logger.info("You are on a Mac (macOS).")
+            system_info["is_desktop"] = True
+            system_info["system_platform"] = system_platform
+        elif system_platform == "Windows":
+            logger.info("You are on a Windows system.")
+            system_info["is_desktop"] = True
+            system_info["system_platform"] = system_platform
+        elif system_platform == "Linux":
+            try:
+                with open('/proc/cpuinfo', 'r') as cpuinfo:
+                    for line in cpuinfo:
+                        if line.startswith('Hardware'):
+                            if 'BCM' in line or 'Raspberry Pi' in line:
+                                logger.info("You are on a Raspberry Pi (Linux).")
+                                break
+            except FileNotFoundError:
+                logger.info("You are on a Linux system, but not a Raspberry Pi.")
+            system_info["is_desktop"] = False
+            system_info["system_platform"] = system_platform
+        else:
+            logger.info(f"You are on an unknown system with platform: {system_platform}")
+            system_info["is_desktop"] = False
+            system_info["system_platform"] = system_platform
+        
+        return system_info
+    
+    def print_memory_usage(self):
+        memory = psutil.virtual_memory()
+        memory_usage = self.get_memory_usage()
+        available_memory = memory.available
+        available_memory_gb = available_memory / (1024 ** 3)
+        available_memory_mb = available_memory / (1024 * 1024)
+        used_memory_mb = memory_usage / (1024 * 1024)
+        memory_percentage = used_memory_mb / available_memory_mb * 100
+        logger.debug(f"Memory usage: {used_memory_mb:.2f}/{available_memory_mb:.2f} MB ({memory_percentage:.2f}%)")
+
+    def get_memory_usage(self):
+        try:
+            process = psutil.Process()
+            memory_info = process.memory_info()
+            return memory_info.rss
+        except Exception as e:
+            logger.error(f"Could not get memory usage: {e}")
+            return 0
+
+    def signal_handler(self, sig, frame):
+        # Perform cleanup and exit gracefully
+        logger.info(f"Exited gracefully by user (ctrl+c) request.")
+        sys.exit(0)
+
+    def log_unhandled_exception(exc_type, exc_value, exc_traceback):
+        logger.error("Unhandled exception", exc_info=(exc_type, exc_value, exc_traceback))
+
+    def print_current_datetime(self):
+        current_datetime = datetime.datetime.now()
+        formatted_datetime = current_datetime.strftime("%d %b %Y - %H:%M")
+        return formatted_datetime
+
+if __name__ == "__main__":
+    try:
+        root = tk.Tk()
+        app = MainApp(root)
+        root.mainloop()
+    except Exception as e:
+        print(f"Unhandled exception: {e}")
+        sys.exit(1)

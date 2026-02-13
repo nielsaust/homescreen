@@ -1,0 +1,79 @@
+# originally inspired, based and extended from 
+# https://www.hackster.io/mark-hank/sonos-album-art-on-raspberry-pi-screen-5b0012
+# but completely re-written to not make use of the Sonos API but rather
+# Home Assistant and MQTT
+
+# install (optionally headless) Raspberry Pi OS with the Raspberry Pi Imager
+# https://www.raspberrypi.com/software/
+# Follow the steps on for example 
+# https://www.tomshardware.com/reviews/raspberry-pi-headless-setup-how-to,6028.html
+# to have direct ssh access
+
+# housekeeping
+sudo apt update
+sudo apt upgrade
+
+# setup HyperPixel display
+# https://github.com/pimoroni/hyperpixel4/issues/177
+# when on 32-bit os
+sudo nano /boot/confix.txt
+# add
+# Rectangular: 
+dtoverlay=vc4-kms-dpi-hyperpixel4
+
+# Square: 
+dtoverlay=vc4-kms-dpi-hyperpixel4sq
+
+# python & other essentials
+sudo apt update
+sudo apt install python3-tk
+sudo apt install python3-pil 
+sudo apt install python3-pil.imagetk
+sudo pip3 install requests
+sudo pip3 install aiohttp RPi.GPIO
+
+# nescesarry modules
+pip install paho-mqtt
+
+# (optional) install locale (in this case Dutch / nl_NL.UTF-8)
+sudo sed -i "s/# nl_NL.UTF-8/nl_NL.UTF-8/g" /etc/locale.gen
+sudo locale-gen
+
+# edit settings.py
+...
+
+# login to the GUI using VNC to test
+python3 homescreen/main.py
+
+# auto-start
+sudo nano /etc/xdg/lxsession/LXDE-pi/autostart
+
+# Then insert the following lines at the end of the file that has opened
+@xset s noblank
+@xset s off
+@xset -dpms
+@sudo /usr/bin/python3 /home/niels/homescreen/main.py
+
+# (optional) hide mouse cursor
+sudo apt update
+sudo apt install unclutter
+sudo nano /etc/xdg/lxsession/LXDE-pi/autostart
+
+# add
+@unclutter -idle 0
+
+# In my case, the autostart file now looks like:
+
+@lxpanel --profile LXDE-pi
+@pcmanfm --desktop --profile LXDE-pi
+@xscreensaver -no-splash
+@xset s noblank
+@xset s off
+@xset -dpms
+@unclutter -idle 0
+@python3 /home/niels/homescreen/main.py
+@python3 /home/niels/homescreen/doorbell.py
+@python3 /home/niels/homescreen/homecalendar.py
+
+# reboot
+sudo reboot

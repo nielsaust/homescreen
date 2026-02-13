@@ -1,0 +1,8 @@
+paho-mqtt
+aiohttp
+yarl
+frozenlist
+requests
+aiohttp
+psutil
+pillow
