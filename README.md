@@ -29,3 +29,4 @@ More detail: `docs/testing.md`
 
 - Core event/state skeleton: `docs/architecture.md`
 - Structure overview: `docs/structure.md`
+- Settings workflow: `docs/settings.md`

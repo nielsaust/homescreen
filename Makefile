@@ -1,6 +1,6 @@
 PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 
-.PHONY: install baseline doctor smoke test-local test-device run net-down net-up net-status
+.PHONY: install baseline doctor smoke test-local test-device run net-down net-up net-status settings-check settings-update-example settings-update-local
 
 install:
 	bash tools/bootstrap.sh
@@ -30,3 +30,12 @@ net-up:
 
 net-status:
 	$(PYTHON) tools/network_sim.py status
+
+settings-check:
+	$(PYTHON) tools/settings_sync.py check
+
+settings-update-example:
+	$(PYTHON) tools/settings_sync.py update-example
+
+settings-update-local:
+	$(PYTHON) tools/settings_sync.py update-local
