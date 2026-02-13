@@ -84,7 +84,11 @@ class ActionDispatcher:
         current = bool(getattr(self.main_app.settings, attr))
         setattr(self.main_app.settings, attr, not current)
         self.main_app.settings.save_settings()
-        self.main_app.display_controller.update_menu_states()
+        self.main_app.publish_event(
+            "menu.refresh.requested",
+            {"reason": f"setting.toggled:{attr}"},
+            source="action_dispatcher",
+        )
 
     def _turn_screen_off(self) -> None:
         self.main_app.display_controller.exit_menu()
