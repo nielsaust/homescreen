@@ -1,7 +1,6 @@
 import math
 import os
 import pathlib
-import sys
 import logging
 logger = logging.getLogger(__name__)
 
