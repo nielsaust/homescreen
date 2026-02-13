@@ -6,6 +6,8 @@ Current structure is moving toward clearer boundaries:
   - action routing and controller-like orchestration (`action_dispatcher.py`)
 - `app/ui/widgets/`:
   - reusable UI components (`network_status_widget.py`)
+- `app/ui/screens/`:
+  - screen modules namespace (currently compatibility wrappers while root screens are migrated)
 - `core/`:
   - event bus + reducer/state store skeleton
 - `tools/`:

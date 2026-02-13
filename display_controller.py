@@ -60,16 +60,16 @@ class DisplayController:
         screen_frame = tk.Frame(self.main_app.root, bg=frame_background_color)
         # Add widgets and logic specific to each screen here
         if screen_name == "off":
-            from turned_off_screen import TurnedOffScreen
+            from app.ui.screens.turned_off_screen import TurnedOffScreen
             screen_object = TurnedOffScreen(self.main_app,screen_frame)
         elif screen_name == "weather":         
-            from weather_screen import WeatherScreen   
+            from app.ui.screens.weather_screen import WeatherScreen
             screen_object = WeatherScreen(self.main_app,screen_frame,self.main_app.settings.weather_api_key, self.main_app.settings.weather_city_id, self.main_app.settings.weather_langage)
         elif screen_name == "music":
-            from music_screen import MusicScreen
+            from app.ui.screens.music_screen import MusicScreen
             screen_object = MusicScreen(self.main_app,screen_frame)
         elif screen_name == "menu":
-            from menu_screen import MenuScreen
+            from app.ui.screens.menu_screen import MenuScreen
             screen_object = MenuScreen(self.main_app,screen_frame)
         
         # Store the screen frame in the dictionary

@@ -125,6 +125,12 @@ This project now has a minimal core layer to support gradual migration to a stat
 - `MainApp` maps these to `menu.navigate` UI intents and applies them on Tk thread.
 - Gesture and action-dispatcher paths no longer call menu navigation methods directly.
 
+## Screen namespace bootstrap (Phase 8.0)
+
+- Added `app/ui/screens/` package as the target namespace for screen modules.
+- `DisplayController` now imports screens from `app.ui.screens.*`.
+- Current screen modules are compatibility wrappers to keep behavior stable before physically moving screen implementations out of root.
+
 ## Local state testing without UI
 
 Use replay tool with JSONL:
