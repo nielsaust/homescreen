@@ -3,6 +3,7 @@ import datetime
 import json
 import logging
 import logger as log_setup
+import pathlib
 from queue import Empty, Queue
 import time
 import sys
@@ -110,13 +111,48 @@ class MainApp:
             return False
 
     def wait_for_internet_connection(self):
-        while not self.is_internet_connected():
-            self.publish_event("network.status", {"online": False})
-            logger.info("Waiting for an internet connection...")
-            time.sleep(5)  # Wait for 5 seconds before checking again
+        timeout_seconds = int(getattr(self.settings, "startup_wait_for_internet_seconds", 0) or 0)
+        check_interval_seconds = int(getattr(self.settings, "startup_wait_check_interval_seconds", 5) or 5)
 
-        self.publish_event("network.status", {"online": True})
-        logger.info("Internet connection is available!")
+        if timeout_seconds <= 0:
+            online = self.is_network_available(timeout=2)
+            self.publish_event("network.status", {"online": online})
+            if online:
+                logger.info("Internet connection is available.")
+            else:
+                logger.warning("Startup continues in degraded mode (no internet at boot).")
+            return
+
+        deadline = time.time() + timeout_seconds
+        while time.time() < deadline:
+            if self.is_network_available(timeout=2):
+                self.publish_event("network.status", {"online": True})
+                logger.info("Internet connection is available.")
+                return
+
+            self.publish_event("network.status", {"online": False})
+            remaining = max(0, int(deadline - time.time()))
+            logger.warning("Waiting for internet connection... %ss remaining", remaining)
+            time.sleep(check_interval_seconds)
+
+        self.publish_event("network.status", {"online": False})
+        logger.warning(
+            "No internet after %ss startup wait. Continuing in degraded mode.",
+            timeout_seconds,
+        )
+
+    def _network_sim_flag_path(self):
+        return pathlib.Path(__file__).parent / ".sim" / "network_down.flag"
+
+    def is_network_simulated_down(self):
+        if not bool(getattr(self.settings, "enable_network_simulation", True)):
+            return False
+        return self._network_sim_flag_path().exists()
+
+    def is_network_available(self, timeout=2):
+        if self.is_network_simulated_down():
+            return False
+        return self.is_internet_connected(timeout=timeout)
 
     def init_mqtt(self):
         from mqtt_controller import MqttController
