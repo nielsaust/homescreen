@@ -100,6 +100,7 @@ class MainApp:
         self._last_cached_weather_label_text = None
         self._last_music_ui_signature = None
         self._last_music_playback_state = None
+        self._last_screen_ui_signature = None
         self.mqtt_queue_poll_interval_ms = 50
         self.mqtt_controller = DeferredMqttController()
         self.mqtt_initialized = False
@@ -274,6 +275,15 @@ class MainApp:
                     "state": state.music_state,
                 }
             )
+        elif event.event_type == "ui.screen.changed":
+            self._enqueue_ui_intent(
+                {
+                    "type": "ui.screen.changed",
+                    "screen": state.screen_state,
+                    "is_display_on": state.is_display_on,
+                    "force": bool(event.payload.get("force", False)),
+                }
+            )
 
     def _enqueue_ui_intent(self, intent):
         self.ui_intent_queue.put(intent)
@@ -359,6 +369,30 @@ class MainApp:
                 self.switch_to_music()
             else:
                 self.switch_to_idle()
+            return
+
+        if intent_type == "ui.screen.changed":
+            screen = intent.get("screen")
+            is_display_on = bool(intent.get("is_display_on"))
+            force = bool(intent.get("force", False))
+            signature = (screen, is_display_on)
+            if not force and signature == self._last_screen_ui_signature:
+                return
+            self._last_screen_ui_signature = signature
+
+            if not is_display_on or screen == "off":
+                self.display_controller.turn_off()
+                return
+            if screen == "weather":
+                self.display_controller.show_screen("weather", force=force)
+                return
+            if screen == "music":
+                self.display_controller.show_screen("music", force=force)
+                return
+            if screen == "menu":
+                self.display_controller.show_screen("menu", force=force)
+                return
+            logger.warning("Unknown screen intent received: %s", screen)
 
     def _network_sim_flag_path(self):
         return pathlib.Path(__file__).parent / ".sim" / "network_down.flag"
@@ -540,24 +574,31 @@ class MainApp:
 
     ###### SCREEENS ######
     def switch_to_idle(self,force=False):
-        self.publish_event("ui.screen.changed", {"screen": "weather" if self.settings.show_weather_on_idle else "off", "is_display_on": self.settings.show_weather_on_idle})
-        if self.settings.show_weather_on_idle:
-            self.display_controller.show_screen("weather", force=force)
-        else:
-            self.display_controller.turn_off()  
+        self.publish_event(
+            "ui.screen.changed",
+            {
+                "screen": "weather" if self.settings.show_weather_on_idle else "off",
+                "is_display_on": self.settings.show_weather_on_idle,
+                "force": bool(force),
+            },
+        )
 
     def switch_to_music(self,force=False):
         if not self.display_controller.get_screen_state() == "menu" or force:
-            self.publish_event("ui.screen.changed", {"screen": "music", "is_display_on": True})
+            self.publish_event(
+                "ui.screen.changed",
+                {"screen": "music", "is_display_on": True, "force": bool(force)},
+            )
             logger.debug(f"Switch_to_music, current screen: {self.display_controller.get_screen_state()}")
-            self.display_controller.show_screen("music", force=force)
 
 
     def switch_to_menu(self):
         if self.display_controller.menu_ready():
-            self.publish_event("ui.screen.changed", {"screen": "menu", "is_display_on": True})
+            self.publish_event(
+                "ui.screen.changed",
+                {"screen": "menu", "is_display_on": True, "force": False},
+            )
             logger.debug(f"Menu ready; show menu")
-            self.display_controller.show_screen("menu")
         else:
             logger.warning(f"Menu NOT ready; show idle instead")
             self.switch_to_idle()
