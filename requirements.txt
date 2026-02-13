@@ -1,8 +1,8 @@
-paho-mqtt
 aiohttp
-yarl
 frozenlist
-requests
-aiohttp
-psutil
+paho-mqtt
+ping3
 pillow
+psutil
+requests
+yarl
