@@ -6,14 +6,16 @@ if TYPE_CHECKING:
 
 import sys
 import logging
+import pathlib
 
 logger = logging.getLogger(__name__)
+PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[3]
+IMAGES_DIR = PROJECT_ROOT / "images"
 
 import math
 import time
 import tkinter as tk
 import os
-import pathlib
 
 from tkinter import font as tkFont
 
@@ -130,7 +132,7 @@ class MenuScreen:
         for button in buttons:
             button = button.get("button")
             button_name = button.text
-            image_path= os.fspath(pathlib.Path(__file__).parent / f'images/buttons/{button.image}')
+            image_path = os.fspath(IMAGES_DIR / "buttons" / button.image)
             
             try:
                 button_image = tk.PhotoImage(file=image_path)
@@ -234,7 +236,7 @@ class MenuScreen:
         self.make_menu_buttons(new_page_nr,buttons)
     
     def show_fullscreen_image(self, image):
-        image_path= os.fspath(pathlib.Path(__file__).parent / f'images/{image}')
+        image_path = os.fspath(IMAGES_DIR / image)
         # Create a top-level window for the QR code overlay
         self.fullscreen_image_window = tk.Toplevel(self.frame)
         fullscreen_image = tk.PhotoImage(file=image_path)

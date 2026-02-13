@@ -18,6 +18,8 @@ from app.services.music_art_service import MusicArtService
 from app.viewmodels.music_view_model import build_music_overlay_view_model
 
 logger = logging.getLogger(__name__)
+PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[3]
+IMAGES_DIR = PROJECT_ROOT / "images"
 
 
 class MusicScreen:
@@ -293,7 +295,7 @@ class MusicScreen:
         self.main_app.record_music_metric("art_placeholder")
         if getattr(self.main_app, "music_debug_logging", False):
             logger.info("[music-screen] using local placeholder image")
-        self.load_local_image(pathlib.Path(__file__).parent / "images/no_album_art.jpeg")
+        self.load_local_image(IMAGES_DIR / "no_album_art.jpeg")
         self.main_app.root.update_idletasks()
 
     def load_local_image(self, image_path):
@@ -309,7 +311,7 @@ class MusicScreen:
             return None
 
     def preparing_loading_gif(self):
-        gif_path = pathlib.Path(__file__).parent / "images/loading.gif"
+        gif_path = IMAGES_DIR / "loading.gif"
         gif_image = Image.open(gif_path)
         self.loading_animation_frames = []
         try:
