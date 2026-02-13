@@ -66,6 +66,12 @@ This project now has a minimal core layer to support gradual migration to a stat
 - Duplicate payloads can be dropped via `music_drop_duplicate_payloads`.
 - Normalization/signature logic lives in `app/services/music_service.py`.
 
+## Music priority update path (Phase 5.7)
+
+- Transport updates (`state`) can bypass debounce (`music_apply_transport_immediately`).
+- Metadata/art updates remain debounced/coalesced.
+- This keeps play/pause/track state responsive while reducing event-burst churn.
+
 ## Local state testing without UI
 
 Use replay tool with JSONL:

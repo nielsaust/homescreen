@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 import sys
 import logging
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 import tkinter as tk
 from tkinter import font as tkFont
@@ -173,6 +173,8 @@ class MusicScreen:
         else:
             self.top_overlay.place_forget()
 
+        # Helps desktop Tk render text updates consistently without forcing a full event loop tick.
+        self.frame.update_idletasks()
         self.remove_overlays_timeout()
 
     def remove_overlays_timeout(self):

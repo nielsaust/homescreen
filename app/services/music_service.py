@@ -57,3 +57,6 @@ class MusicService:
             return False
         self._last_signature = signature
         return True
+
+    def has_transport_update(self, payload: dict[str, Any]) -> bool:
+        return "state" in payload

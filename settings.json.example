@@ -63,6 +63,7 @@
     "media_titles_timeout": 5000,
     "music_update_debounce_ms": 150,
     "music_drop_duplicate_payloads": true,
+    "music_apply_transport_immediately": true,
     "music_debug_logging": false,
     "media_show_titles": true,
     "media_get_remote_image_retry_amount": 3,
