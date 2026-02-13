@@ -212,7 +212,8 @@ class DisplayController:
         else:
             logger.error(f"No current screen; screen '{screen_name}' was not yet created")
 
-        self.check_idle()
+        if screen_name != "off":
+            self.check_idle()
         self.force_screen_update()
 
     def show_music_overlays(self):
@@ -342,7 +343,7 @@ class DisplayController:
         logger.info("turning screeen off")
         self.is_showing = False
         self.close_open_windows()
-        if not self.main_app.settings.show_weather_on_idle:
+        if not self.main_app.settings.show_weather_on_idle and self.get_screen_state() != "off":
             self.show_screen("off")
         if(not self.main_app.system_info["is_desktop"]):
             self.backlight.set_power(False)
