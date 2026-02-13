@@ -75,6 +75,14 @@ def _check_settings() -> list[str]:
     if missing:
         errors.append(f"Missing settings keys in {path}: {', '.join(missing)}")
 
+    if bool(data.get("do_sentry_logging", False)):
+        if not str(data.get("sentry_dsn", "")).strip():
+            errors.append("Sentry enabled but sentry_dsn is empty")
+        try:
+            importlib.import_module("sentry_sdk")
+        except Exception as exc:  # pragma: no cover
+            errors.append(f"Sentry enabled but sentry-sdk import failed: {exc}")
+
     return errors
 
 

@@ -5,4 +5,5 @@ ping3
 pillow
 psutil
 requests
+sentry-sdk
 yarl
