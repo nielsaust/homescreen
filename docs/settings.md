@@ -46,12 +46,13 @@ make settings-prune-local
 
 Useful runtime keys:
 - `log_profile`: logging profile preset (`default`, `dev`, `pi`, `quiet`)
-- `log_level`: root logger level
-- `console_log_level`: console/journal verbosity
-- `file_log_level`: date-based file log verbosity
+- `log_console_level`: console/journal verbosity
+- `log_file_level`: date-based file log verbosity
 - `log_noisy_third_party_debug`: enable noisy third-party debug logs
 - `log_noisy_loggers`: list of logger names to treat as noisy
-- `logger_levels`: per-logger explicit levels map (e.g. `"app.controllers.mqtt_controller": "WARNING"`)
+- `log_domain_levels`: per-logger explicit levels map (e.g. `"app.controllers.mqtt_controller": "WARNING"`)
+
+Legacy keys (`console_log_level`, `file_log_level`, `logger_levels`, `log_level`) are still accepted for backward compatibility.
 
 ## Secret safety
 

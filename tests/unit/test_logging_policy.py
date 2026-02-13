@@ -38,7 +38,7 @@ class TestLoggingPolicy(unittest.TestCase):
         settings = SimpleNamespace(
             log_profile="pi",
             log_noisy_loggers=["urllib3.connectionpool"],
-            logger_levels={},
+            log_domain_levels={},
         )
 
         apply_runtime_logging_policy(settings)
@@ -52,11 +52,11 @@ class TestLoggingPolicy(unittest.TestCase):
         settings = SimpleNamespace(
             log_profile="quiet",
             log_level="DEBUG",
-            console_log_level="WARNING",
-            file_log_level="ERROR",
+            log_console_level="WARNING",
+            log_file_level="ERROR",
             log_noisy_third_party_debug=True,
             log_noisy_loggers=["PIL.PngImagePlugin"],
-            logger_levels={"app.controllers.mqtt_controller": "WARNING"},
+            log_domain_levels={"app.controllers.mqtt_controller": "WARNING"},
         )
 
         apply_runtime_logging_policy(settings)
@@ -66,6 +66,21 @@ class TestLoggingPolicy(unittest.TestCase):
         self.assertEqual(self.file_handler.level, logging.ERROR)
         self.assertEqual(logging.getLogger("PIL.PngImagePlugin").level, logging.DEBUG)
         self.assertEqual(logging.getLogger("app.controllers.mqtt_controller").level, logging.WARNING)
+
+    def test_legacy_keys_remain_supported(self):
+        settings = SimpleNamespace(
+            log_profile="default",
+            console_log_level="ERROR",
+            file_log_level="WARNING",
+            logger_levels={"app.ui.screens.music_screen": "WARNING"},
+            log_noisy_loggers=[],
+        )
+
+        apply_runtime_logging_policy(settings)
+
+        self.assertEqual(self.console_handler.level, logging.ERROR)
+        self.assertEqual(self.file_handler.level, logging.WARNING)
+        self.assertEqual(logging.getLogger("app.ui.screens.music_screen").level, logging.WARNING)
 
 
 if __name__ == "__main__":

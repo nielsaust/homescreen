@@ -1,15 +1,14 @@
 {
     "version": "0.1.2",
     "log_profile": "default",
-    "log_level": "DEBUG",
-    "console_log_level": "INFO",
-    "file_log_level": "DEBUG",
+    "log_console_level": "INFO",
+    "log_file_level": "DEBUG",
     "log_noisy_third_party_debug": false,
     "log_noisy_loggers": [
         "PIL.PngImagePlugin",
         "urllib3.connectionpool"
     ],
-    "logger_levels": {},
+    "log_domain_levels": {},
     "do_sentry_logging": false,
     "sentry_dsn": "",
     "sentry_environment": "development",
