@@ -96,7 +96,7 @@ class MainApp:
         self.mqtt_message_queue = Queue()
         self.ui_intent_queue = Queue()
         self.ui_intent_poll_interval_ms = 50
-        self.macos_repaint_workaround = _to_bool(getattr(self.settings, "macos_repaint_workaround", True), True)
+        self.macos_repaint_workaround = _to_bool(getattr(self.settings, "macos_repaint_workaround", False), False)
         self.macos_repaint_interval_ms = int(getattr(self.settings, "macos_repaint_interval_ms", 16) or 16)
         self._macos_repaint_after_id = None
         self._last_network_ui_state = None
@@ -749,17 +749,6 @@ class MainApp:
             self.display_controller.show_cam(data,self.settings.printer_url)
         else:
             self.display_controller.update_print_progress(progress)
-
-    def show_doorbell_camera(self, trigger_remote=True):
-        url = f"http://{self.settings.doorbell_url}{self.settings.doorbell_path}"
-        self.display_controller.show_cam(
-            {},
-            url,
-            self.settings.doorbell_username,
-            self.settings.doorbell_password,
-        )
-        if trigger_remote:
-            self.mqtt_controller.publish_message(topic="screen_commands/doorbell")
 
     def on_mqtt_message(self, topic, data):
         # prevent initial messages @ startup
