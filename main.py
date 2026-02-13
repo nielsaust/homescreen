@@ -245,7 +245,11 @@ class MainApp:
 
     def queue_music_update(self, data):
         normalized = self.music_service.normalize_payload(data or {})
-        self.pending_music_payload = normalized
+        if self.pending_music_payload is None:
+            self.pending_music_payload = normalized
+        else:
+            # Merge partial updates so fast event bursts don't drop fields.
+            self.pending_music_payload.update(normalized)
         if self.music_update_after_id:
             self.root.after_cancel(self.music_update_after_id)
         self.music_update_after_id = self.root.after(self.music_update_debounce_ms, self.flush_music_update)
@@ -256,10 +260,11 @@ class MainApp:
         self.pending_music_payload = None
         if payload is None:
             return
-        if not self.music_service.should_process(payload, drop_duplicates=self.music_drop_duplicate_payloads):
+        resolved_payload = self.music_service.resolve_payload(self.music_object, payload)
+        if not self.music_service.should_process(resolved_payload, drop_duplicates=self.music_drop_duplicate_payloads):
             logger.debug("Skipping duplicate music payload.")
             return
-        self.update_music_object(payload)
+        self.update_music_object(resolved_payload)
         self.display_controller.update_menu_states()
 
     def perform_action(self, interaction_type):
