@@ -18,6 +18,7 @@ from core.events import AppEvent
 from core.state import AppState
 from core.store import AppStore
 from device_states import DeviceStates
+from network_status_widget import NetworkStatusWidget
 from settings import Settings
 from sentry_setup import init_sentry
 from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
@@ -63,6 +64,16 @@ class MainApp:
         self.root.geometry(f"{self.settings.screen_width}x{self.settings.screen_height}")
         self.mqtt_message_queue = Queue()
         self.mqtt_queue_poll_interval_ms = 50
+        self.network_status_widget = NetworkStatusWidget(self.root, self.settings.feedback_icon_size)
+        network_interval = int(
+            getattr(
+                self.settings,
+                "network_status_poll_interval_seconds",
+                getattr(self.settings, "network_indicator_check_interval_seconds", 5),
+            )
+            or 5
+        )
+        self.network_status_poll_interval_ms = max(1, network_interval) * 1000
 
         # Set up system info
         self.system_info = self.checksystem()
@@ -100,6 +111,7 @@ class MainApp:
 
         self.switch_to_idle()
         self.start_mqtt_queue_pump()
+        self.start_network_status_poll()
         self.init_mqtt()
 
 
@@ -140,6 +152,19 @@ class MainApp:
             "No internet after %ss startup wait. Continuing in degraded mode.",
             timeout_seconds,
         )
+
+    def start_network_status_poll(self):
+        self.root.after(self.network_status_poll_interval_ms, self._poll_network_status)
+
+    def _poll_network_status(self):
+        online = self.is_network_available(timeout=1)
+        self.publish_event("network.status", {"online": online}, source="network_poll")
+        self.update_network_status_ui(online)
+        self.root.after(self.network_status_poll_interval_ms, self._poll_network_status)
+
+    def update_network_status_ui(self, online):
+        if hasattr(self, "network_status_widget") and self.network_status_widget:
+            self.network_status_widget.set_online(bool(online))
 
     def _network_sim_flag_path(self):
         return pathlib.Path(__file__).parent / ".sim" / "network_down.flag"

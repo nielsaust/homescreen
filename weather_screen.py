@@ -1,6 +1,4 @@
 from __future__ import annotations
-import os
-import pathlib
 from typing import TYPE_CHECKING
 
 import requests
@@ -9,7 +7,6 @@ if TYPE_CHECKING:
     from main import MainApp
 
 import json
-import sys
 import logging
 
 logger = logging.getLogger(__name__)
@@ -99,15 +96,6 @@ class WeatherScreen:
         self.label_min = tk.Label(self.temp_frame,text=f'{self.arrow_down} --{self.degrees}C', font=minmax_font, bg=background_color, fg=foreground_color, padx=20, pady=10)
         self.label_max = tk.Label(self.temp_frame,text=f'{self.arrow_up} --{self.degrees}C', font=minmax_font, bg=background_color, fg=foreground_color, padx=20, pady=10)
 
-        self.no_connection_image = Image.open(os.fspath(pathlib.Path(__file__).parent / f'images/buttons/no-wifi-white.png'))
-        self.no_connection_image = self.no_connection_image.resize(self.main_app.settings.feedback_icon_size)
-        self.no_connection_image = ImageTk.PhotoImage(self.no_connection_image)
-
-        self.no_connection_label = tk.Label(self.main_frame, image=self.no_connection_image,bg=background_color)
-        self.no_connection_label.image = self.no_connection_image  # Keep a reference
-        self.no_connection_label.configure(image=self.no_connection_image,width=self.main_app.settings.feedback_icon_size[0],height=self.main_app.settings.feedback_icon_size[1])
-        self.no_connection_label.place(relx=.95, rely=.95, anchor='se')
-
         relx = 0.6
         rely_correction = 0     
         if(not self.main_app.system_info["is_desktop"]):
@@ -134,15 +122,9 @@ class WeatherScreen:
         self.recurring_job = None
         self.blink_id = None
         self.network_available = True
-        self.last_network_indicator_check = 0
-        self.network_indicator_check_interval_seconds = int(
-            getattr(self.main_app.settings, "network_indicator_check_interval_seconds", 5)
-        )
-
         self.update_time_inteval = 10 * 1000
 
     def show(self):
-        self.refresh_network_indicator(force=True)
         self.update_weather_loop()
         self.update_time_loop()
         return True
@@ -169,19 +151,9 @@ class WeatherScreen:
             self.weather_update_job = None  # Reset de job zodat er geen ghost jobs zijn
 
     def update_time_loop(self):
-        self.refresh_network_indicator()
         self.update_time()
         # Set the time update timer (e.g., every 10 seconds)
         self.time_update_job = self.main_frame.after(self.update_time_inteval, self.update_time_loop)
-
-    def refresh_network_indicator(self, force=False):
-        now = time.time()
-        if not force and (now - self.last_network_indicator_check) < self.network_indicator_check_interval_seconds:
-            return
-        self.last_network_indicator_check = now
-
-        if hasattr(self.main_app, "is_network_available"):
-            self.update_network_availability(self.main_app.is_network_available(timeout=1))
 
     def make_request(self, url):
         if hasattr(self.main_app, "is_network_available") and not self.main_app.is_network_available(timeout=1):
@@ -235,11 +207,10 @@ class WeatherScreen:
         return None
 
     def update_network_availability(self, network_available):
-        if network_available:
-            self.no_connection_label.place_forget()       
-        else:
+        if not network_available:
             logger.warning(f"Network unavailable.")
-            self.no_connection_label.place(relx=.95, rely=.95, anchor='se')
+        if hasattr(self.main_app, "update_network_status_ui"):
+            self.main_app.update_network_status_ui(network_available)
 
     def update_weather(self):
         try:
