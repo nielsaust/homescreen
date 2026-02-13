@@ -61,6 +61,7 @@ class WeatherScreen:
         self.cache_root = pathlib.Path(__file__).parent / ".cache"
         self.cache_root.mkdir(parents=True, exist_ok=True)
         self.weather_cache_file = self.cache_root / "weather_last.json"
+        self.weather_cache_meta_file = self.cache_root / "weather_last_meta.json"
 
         self.degrees = u"\u00b0"
         self.arrow_up = u"\u25b2"
@@ -110,10 +111,20 @@ class WeatherScreen:
         
         self.label_condition = tk.Label(self.sub_frame,text='IMAGE', bg=background_color, fg=foreground_color)
         self.label_description = tk.Label(self.sub_frame,text=f'mooi weer', font=description_font, bg=background_color, fg=foreground_color)
+        self.cached_weather_label = tk.Label(
+            self.main_frame,
+            text="",
+            font=tkFont.Font(family="Helvetica", size=18, weight="bold"),
+            bg=background_color,
+            fg="#b0b0b0",
+            padx=20,
+            pady=10,
+        )
 
         self.label_condition.grid(row=0,column=0)
         self.temp_frame.grid(row=1,column=0)
         self.label_description.grid(row=2,column=0)
+        self.cached_weather_label.place_forget()
         
         self.time_frame.grid_columnconfigure(0, weight=1)
         self.sub_frame.grid_columnconfigure(0, weight=1)
@@ -219,6 +230,9 @@ class WeatherScreen:
     def _save_cached_weather(self, payload: dict):
         try:
             self.weather_cache_file.write_text(json.dumps(payload))
+            self.weather_cache_meta_file.write_text(
+                json.dumps({"cached_at": int(time.time())})
+            )
         except Exception as exc:
             logger.warning(f"Could not save weather cache: {exc}")
 
@@ -233,6 +247,40 @@ class WeatherScreen:
 
     def _icon_cache_path(self, icon_code):
         return self.cache_root / f"weather_icon_{icon_code}.png"
+
+    def _format_cached_timestamp(self, payload):
+        try:
+            ts = payload.get("dt")
+            if ts:
+                dt = datetime.datetime.fromtimestamp(ts)
+                return dt.strftime("%d-%m %H:%M")
+        except Exception:
+            pass
+
+        try:
+            if self.weather_cache_meta_file.exists():
+                meta = json.loads(self.weather_cache_meta_file.read_text())
+                cached_at = meta.get("cached_at")
+                if cached_at:
+                    dt = datetime.datetime.fromtimestamp(cached_at)
+                    return dt.strftime("%d-%m %H:%M")
+        except Exception:
+            pass
+
+        try:
+            dt = datetime.datetime.fromtimestamp(self.weather_cache_file.stat().st_mtime)
+            return dt.strftime("%d-%m %H:%M")
+        except Exception:
+            return "onbekend"
+
+    def _show_cached_weather_label(self, payload):
+        ts = self._format_cached_timestamp(payload)
+        self.cached_weather_label.configure(text=f"Laatste weer: {ts}")
+        self.cached_weather_label.place(relx=0.0, rely=1.0, anchor=tk.SW)
+        self.cached_weather_label.lift()
+
+    def _hide_cached_weather_label(self):
+        self.cached_weather_label.place_forget()
 
     def _save_icon_cache(self, icon_code, image_bytes):
         try:
@@ -260,6 +308,7 @@ class WeatherScreen:
                     logger.warning("No weather API response; using cached weather payload.")
                     self.today_data = cached
                     self.last_updated = time.time()
+                    self._show_cached_weather_label(cached)
                     self.update_weather_gui(use_cached_icon=True)
                     return
                 logger.error(f"No response from weather and no cache available; retry in {self.main_app.settings.weather_update_interval} seconds.")
@@ -276,6 +325,7 @@ class WeatherScreen:
             self.today_data = json_data
             self.last_updated = time.time()
             self._save_cached_weather(json_data)
+            self._hide_cached_weather_label()
 
             # Update GUI
             try:

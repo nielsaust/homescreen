@@ -12,7 +12,8 @@ class NetworkStatusWidget:
 
     def __init__(self, root, icon_size):
         self.root = root
-        image_path = os.fspath(pathlib.Path(__file__).parent / "images/buttons/no-wifi-white.png")
+        project_root = pathlib.Path(__file__).resolve().parents[3]
+        image_path = os.fspath(project_root / "images" / "buttons" / "no-wifi-white.png")
         image = Image.open(image_path)
         image = image.resize(icon_size)
         self.icon = ImageTk.PhotoImage(image)
@@ -30,8 +31,10 @@ class NetworkStatusWidget:
 
     def show(self) -> None:
         if self.visible:
+            self.label.lift()
             return
         self.label.place(relx=0.95, rely=0.95, anchor="se")
+        self.label.lift()
         self.visible = True
 
     def hide(self) -> None:
