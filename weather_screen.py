@@ -152,15 +152,18 @@ class WeatherScreen:
     def update_network_availability(self, network_available):
         if not network_available:
             logger.warning("Network unavailable.")
-        if hasattr(self.main_app, "update_network_status_ui"):
-            self.main_app.update_network_status_ui(network_available)
+        self.main_app.publish_event(
+            "network.status",
+            {"online": bool(network_available)},
+            source="weather_service",
+        )
 
-    def _show_cached_weather_label(self, cached_at_text):
+    def show_cached_weather_label(self, cached_at_text):
         self.cached_weather_label.configure(text=f"Laatste weer: {cached_at_text}")
         self.cached_weather_label.place(relx=0.0, rely=1.0, anchor=tk.SW)
         self.cached_weather_label.lift()
 
-    def _hide_cached_weather_label(self):
+    def hide_cached_weather_label(self):
         self.cached_weather_label.place_forget()
 
     def update_weather(self):
@@ -186,6 +189,11 @@ class WeatherScreen:
                 logger.warning("Keeping app running in degraded weather mode.")
 
         if result.payload is None:
+            self.main_app.publish_event(
+                "weather.updated",
+                {"source": "none", "cached_at_text": None},
+                source="weather_screen",
+            )
             logger.error(
                 "No response from weather and no cache available; retry in %s seconds.",
                 self.main_app.settings.weather_update_interval,
@@ -194,11 +202,11 @@ class WeatherScreen:
 
         self.last_updated = datetime.datetime.now().timestamp()
         vm = build_weather_view_model(result.payload, result.cached_at_text)
-
-        if result.source == "cache" and result.cached_at_text:
-            self._show_cached_weather_label(result.cached_at_text)
-        else:
-            self._hide_cached_weather_label()
+        self.main_app.publish_event(
+            "weather.updated",
+            {"source": result.source, "cached_at_text": result.cached_at_text},
+            source="weather_screen",
+        )
 
         self.update_weather_gui(vm, result.icon_bytes)
 

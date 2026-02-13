@@ -25,6 +25,8 @@ class AppState:
     in_bed: bool | None = None
     printer_progress: float | int | None = None
     network_online: bool | None = None
+    weather_source: str | None = None
+    weather_cached_at_text: str | None = None
 
     startup_queue_size: int = 0
     data: dict[str, Any] = field(default_factory=dict)

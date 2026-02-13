@@ -83,6 +83,15 @@ This project now has a minimal core layer to support gradual migration to a stat
 - Album-art HTTP fetch logic moved to `app/services/music_art_service.py`.
 - Overlay text composition/sanitization moved to `app/viewmodels/music_view_model.py`.
 
+## State-driven render loop start (Phase 6.0)
+
+- `MainApp` now subscribes to store updates and translates selected state changes into UI intents.
+- UI intents are queued thread-safe and applied on the Tk main thread only.
+- First migrated slice:
+  - global network icon visibility (`network.status`)
+  - weather cached-data label (`weather.updated`)
+- This removes direct Tk updates from non-UI paths and is the baseline for further screen migrations.
+
 ## Local state testing without UI
 
 Use replay tool with JSONL:
