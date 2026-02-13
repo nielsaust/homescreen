@@ -54,3 +54,4 @@ make net-up
 Behavior:
 - While down: startup and MQTT reconnect logic stay in degraded mode with retries/backoff.
 - While up: normal internet checks and MQTT reconnect attempts resume.
+- Offline icon is now rendered by a global network status widget (not weather-specific).

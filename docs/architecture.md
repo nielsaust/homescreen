@@ -41,6 +41,12 @@ This project now has a minimal core layer to support gradual migration to a stat
 - Menu action -> behavior routing moved to `action_dispatcher.py`.
 - This reduces UI/input coupling and prepares further service extraction.
 
+## Network visualization split (Phase 5.1)
+
+- Offline icon rendering moved to app-level `network_status_widget.py`.
+- Weather screen no longer owns the network indicator widget.
+- Network status polling and visualization are now controlled in `MainApp`.
+
 ## Local state testing without UI
 
 Use replay tool with JSONL:

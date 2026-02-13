@@ -11,7 +11,7 @@
     "mqtt_reconnect_interval_seconds": 2,
     "mqtt_reconnect_max_interval_seconds": 60,
     "enable_network_simulation": true,
-    "network_indicator_check_interval_seconds": 5,
+    "network_status_poll_interval_seconds": 5,
     "show_weather_on_idle": true,
     "screen_width": 720,
     "screen_height": 720,
