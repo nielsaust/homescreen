@@ -10,24 +10,34 @@ class MusicService:
         self._last_signature: tuple[Any, ...] | None = None
 
     def normalize_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
-        state = payload.get("state")
-        title = payload.get("title")
-        artist = payload.get("artist")
-        channel = payload.get("channel")
-        album = payload.get("album")
-        album_art_api_url = payload.get("album_art_api_url")
+        allowed_keys = (
+            "state",
+            "title",
+            "artist",
+            "channel",
+            "album",
+            "album_art_api_url",
+        )
+        return {key: payload.get(key) for key in allowed_keys if key in payload}
 
-        if not artist and channel:
-            artist = channel
-
-        return {
-            "state": state,
-            "title": title,
-            "artist": artist,
-            "channel": channel,
-            "album": album,
-            "album_art_api_url": album_art_api_url,
+    def resolve_payload(self, current: Any, incoming_partial: dict[str, Any]) -> dict[str, Any]:
+        """Build full payload by overlaying incoming partial update on current state."""
+        resolved = {
+            "state": getattr(current, "state", None),
+            "title": getattr(current, "title", None),
+            "artist": getattr(current, "artist", None),
+            "channel": getattr(current, "channel", None),
+            "album": getattr(current, "album", None),
+            "album_art_api_url": getattr(current, "album_art_api_url", None),
         }
+        resolved.update(incoming_partial)
+
+        # Normalize common edge-cases
+        if resolved.get("album_art_api_url") == "":
+            resolved["album_art_api_url"] = None
+        if not resolved.get("artist") and resolved.get("channel"):
+            resolved["artist"] = resolved["channel"]
+        return resolved
 
     def signature(self, payload: dict[str, Any]) -> tuple[Any, ...]:
         return (
