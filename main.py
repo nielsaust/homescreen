@@ -46,6 +46,20 @@ class DeferredMqttController:
     def stop(self):
         return None
 
+
+def _to_bool(value, default=False):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in ("1", "true", "yes", "on"):
+            return True
+        if lowered in ("0", "false", "no", "off"):
+            return False
+    if value is None:
+        return default
+    return bool(value)
+
 class MainApp:
     def __init__(self, root):
         logger.info(f"========= NEW STARTUP @ {self.print_current_datetime()} =========")
@@ -87,9 +101,10 @@ class MainApp:
         self.pending_music_payload = None
         self.music_update_after_id = None
         self.music_update_debounce_ms = int(getattr(self.settings, "music_update_debounce_ms", 150) or 150)
-        self.music_drop_duplicate_payloads = bool(getattr(self.settings, "music_drop_duplicate_payloads", True))
-        self.music_debug_logging = bool(getattr(self.settings, "music_debug_logging", False))
+        self.music_drop_duplicate_payloads = _to_bool(getattr(self.settings, "music_drop_duplicate_payloads", True), True)
+        self.music_debug_logging = _to_bool(getattr(self.settings, "music_debug_logging", False), False)
         self.music_update_seq = 0
+        logger.info("[music] debug logging enabled=%s", self.music_debug_logging)
         self.network_status_widget = NetworkStatusWidget(self.root, self.settings.feedback_icon_size)
         network_interval = int(
             getattr(
