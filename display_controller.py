@@ -1,15 +1,12 @@
-import math
-import os
-import pathlib
 import logging
 logger = logging.getLogger(__name__)
 
 import time
 import tkinter as tk
-from PIL import Image, ImageTk
 from hyperpixel_backlight import Backlight
 from app.controllers.overlay_commands import OverlayCommand
 from app.controllers.overlay_manager import OverlayManager
+from app.ui.ui_render_service import UiRenderService
 
 class DisplayController:
     def __init__(self, main_app):
@@ -19,7 +16,6 @@ class DisplayController:
         self._screen_state = None
         self.screens = {}
         self.screen_objects = {}
-        self.action_labels = []
 
         # Create screens
         self.music_screen = None
@@ -27,8 +23,8 @@ class DisplayController:
         # switching/state screens
         self._create_base_screens()
 
-        self.current_overlay_label = None
         self.overlay_manager = OverlayManager(self.main_app)
+        self.ui_render = UiRenderService(self.main_app)
 
         self.time_in_screen = time.time() - 1000 # offset for start
 
@@ -314,92 +310,19 @@ class DisplayController:
                 menu_screen.back()
 
     def force_screen_update(self):
-        if(self.main_app.settings.force_update):
-            logger.debug("Forcing screen update")
-            self.main_app.root.update()
-            self.main_app.root.update_idletasks()
-        else:
-            logger.debug("Not forcing screen update; force_update is false")
+        self.ui_render.force_screen_update()
 
     def _trace_ui(self, event_name, **fields):
-        if not getattr(self.main_app, "ui_trace_logging", False):
-            return
-        if hasattr(self.main_app, "trace_ui_event"):
-            self.main_app.trace_ui_event(event_name, **fields)
+        self.ui_render.trace_ui(event_name, **fields)
 
     def _trace_widget_state(self, event_name, widget):
-        if not getattr(self.main_app, "ui_trace_logging", False):
-            return
-        if widget is None:
-            self._trace_ui(event_name, widget="none")
-            return
-        try:
-            self._trace_ui(
-                event_name,
-                widget_class=widget.winfo_class(),
-                manager=widget.winfo_manager(),
-                mapped=bool(widget.winfo_ismapped()),
-                width=int(widget.winfo_width()),
-                height=int(widget.winfo_height()),
-                rootx=int(widget.winfo_rootx()),
-                rooty=int(widget.winfo_rooty()),
-            )
-        except Exception as exc:
-            self._trace_ui(event_name, widget_error=str(exc))
+        self.ui_render.trace_widget_state(event_name, widget)
 
     def _schedule_trace_widget_state(self, event_name, widget):
-        if not getattr(self.main_app, "ui_trace_logging", False):
-            return
-        delay_ms = max(1, int(getattr(self.main_app, "ui_trace_followup_ms", 80)))
-        self.main_app.root.after(delay_ms, lambda: self._trace_widget_state(event_name, widget))
+        self.ui_render.schedule_trace_widget_state(event_name, widget)
 
     def place_action_label(self, text=None, anchor="center", image=None, bg='black', fg='white', bordercolor='black'): 
-        if self.main_app.settings.show_feedback_label_timeout==0:
-            logger.info(f"Settings disallow for feedback label to be shown.")   
-            return
-        
-        def remove(label):
-            self.action_labels.remove(label)
-            label.destroy()
-
-        label_options = {
-            "fg": fg,
-            "bg": bg,
-            "padx": self.main_app.settings.feedback_label_padx,
-            "pady": self.main_app.settings.feedback_label_pady,
-            "wraplength": self.main_app.settings.feedback_label_width-10,
-            "highlightbackground": bordercolor,
-            "highlightthickness": self.main_app.settings.feedback_label_border,
-        }
-
-        if text is not None:
-            label_options["text"] = text
-            label_options["compound"] = "top"
-            label_options["font"] = "Helvetica 20"
-
-        label = tk.Label(self.main_app.root, **label_options)
-        self.current_overlay_label = label
-
-        if image is not None:
-            image_path= os.fspath(pathlib.Path(__file__).parent / f'images/buttons/{image}')
-            image = Image.open(image_path)
-            image = image.resize(self.main_app.settings.feedback_icon_size)
-            label_image = ImageTk.PhotoImage(image)
-            label.image = label_image
-            label.configure(image=label_image,width=self.main_app.settings.feedback_label_width,height=self.main_app.settings.feedback_label_height)
-        
-        label_x = math.floor((self.main_app.settings.screen_width-self.main_app.settings.feedback_label_width)/2)-self.main_app.settings.feedback_label_border
-        label_y = math.floor((self.main_app.settings.screen_height-self.main_app.settings.feedback_label_height)/2)-self.main_app.settings.feedback_label_border
-        
-        if anchor!="center":
-            label.place(x=self.main_app.root.winfo_width() - label.winfo_reqwidth(), y=self.main_app.root.winfo_height() - label.winfo_reqheight())
-        else:
-            label.place(x=label_x, y=label_y)
-
-        self.action_labels.append(label)
-
-        # Destroy the label after 3 seconds
-        self.current_overlay_label_timeout = self.main_app.root.after(self.main_app.settings.show_feedback_label_timeout, lambda: remove(label))
+        self.ui_render.place_action_label(text, anchor, image, bg, fg, bordercolor)
 
     def check_idle(self,turn_on=False):
         screen = self.get_screen_state()
