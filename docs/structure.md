@@ -7,7 +7,7 @@ Current structure is moving toward clearer boundaries:
 - `app/ui/widgets/`:
   - reusable UI components (`network_status_widget.py`)
 - `app/ui/screens/`:
-  - screen modules namespace (`weather_screen.py` + `music_screen.py` moved; others currently compatibility wrappers)
+  - screen modules namespace (`weather_screen.py` + `music_screen.py` + `menu_screen.py` moved; remaining screens are compatibility wrappers)
 - `core/`:
   - event bus + reducer/state store skeleton
 - `tools/`:

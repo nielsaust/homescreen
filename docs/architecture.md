@@ -142,6 +142,11 @@ This project now has a minimal core layer to support gradual migration to a stat
 - `music_screen.py` implementation was moved to `app/ui/screens/music_screen.py`.
 - Root `music_screen.py` now acts as a backward-compatible shim import.
 
+## Menu screen move (Phase 8.3)
+
+- `menu_screen.py` implementation was moved to `app/ui/screens/menu_screen.py`.
+- Root `menu_screen.py` now acts as a backward-compatible shim import.
+
 ## Local state testing without UI
 
 Use replay tool with JSONL:
