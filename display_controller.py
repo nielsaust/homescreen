@@ -217,8 +217,16 @@ class DisplayController:
 
     def show_music_overlays(self):
         music_screen = self.screen_objects.get("music")
-        if(music_screen and self.get_screen_state()=="music"):
-            music_screen.show_overlays()
+        if music_screen and self.get_screen_state() == "music":
+            obj = getattr(self.main_app, "music_object", None)
+            if obj is None:
+                return
+            music_screen.show_overlays(
+                getattr(obj, "artist", None),
+                getattr(obj, "title", None),
+                getattr(obj, "album", None),
+                getattr(obj, "channel", None),
+            )
 
     def clear_album_art(self):
         music_screen = self.screen_objects.get("music")
@@ -342,4 +350,3 @@ class DisplayController:
     # Getter method for screen_state
     def get_screen_state(self):
         return self._screen_state
-

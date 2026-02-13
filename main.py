@@ -98,6 +98,7 @@ class MainApp:
         self.ui_intent_poll_interval_ms = 50
         self._last_network_ui_state = None
         self._last_cached_weather_label_text = None
+        self._last_music_ui_signature = None
         self.mqtt_queue_poll_interval_ms = 50
         self.mqtt_controller = DeferredMqttController()
         self.mqtt_initialized = False
@@ -254,6 +255,18 @@ class MainApp:
                     "cached_at_text": state.weather_cached_at_text,
                 }
             )
+        elif event.event_type == "music.updated":
+            self._enqueue_ui_intent(
+                {
+                    "type": "music.render",
+                    "state": state.music_state,
+                    "title": state.music_title,
+                    "artist": state.music_artist,
+                    "channel": state.music_channel,
+                    "album": state.music_album,
+                    "album_art_api_url": state.music_album_art_api_url,
+                }
+            )
 
     def _enqueue_ui_intent(self, intent):
         self.ui_intent_queue.put(intent)
@@ -302,6 +315,32 @@ class MainApp:
                     return
                 self._last_cached_weather_label_text = None
                 weather_screen.hide_cached_weather_label()
+            return
+
+        if intent_type == "music.render":
+            signature = (
+                intent.get("state"),
+                intent.get("title"),
+                intent.get("artist"),
+                intent.get("channel"),
+                intent.get("album"),
+                intent.get("album_art_api_url"),
+            )
+            if signature == self._last_music_ui_signature:
+                return
+            self._last_music_ui_signature = signature
+
+            music_screen = self.display_controller.screen_objects.get("music")
+            if music_screen is None:
+                return
+            music_screen.apply_state_update(
+                state=intent.get("state"),
+                title=intent.get("title"),
+                artist=intent.get("artist"),
+                channel=intent.get("channel"),
+                album=intent.get("album"),
+                album_art_api_url=intent.get("album_art_api_url"),
+            )
 
     def _network_sim_flag_path(self):
         return pathlib.Path(__file__).parent / ".sim" / "network_down.flag"
@@ -704,6 +743,9 @@ class MainApp:
                 "state": state,
                 "title": title,
                 "artist": artist,
+                "channel": channel,
+                "album": album,
+                "album_art_api_url": album_art_api_url,
             },
         )
 

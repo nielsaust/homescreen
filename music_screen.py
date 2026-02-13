@@ -130,6 +130,18 @@ class MusicScreen:
 
         return True
 
+    def apply_state_update(self, state, title, artist, channel, album, album_art_api_url):
+        if state != "playing":
+            self.remove_overlays()
+            return
+
+        if artist is None and channel is None and title is None:
+            return
+
+        self._maybe_load_album_art(album_art_api_url)
+        if self.main_app.settings.media_show_titles:
+            self.show_overlays(artist, title, album, channel)
+
     def _maybe_load_album_art(self, album_art_api_url):
         logger.debug("album url = %s, current url = %s", album_art_api_url, self.current_album_art_url)
         if album_art_api_url is None:

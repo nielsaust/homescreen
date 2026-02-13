@@ -21,6 +21,9 @@ class AppState:
     music_state: str | None = None
     music_title: str | None = None
     music_artist: str | None = None
+    music_channel: str | None = None
+    music_album: str | None = None
+    music_album_art_api_url: str | None = None
 
     in_bed: bool | None = None
     printer_progress: float | int | None = None
