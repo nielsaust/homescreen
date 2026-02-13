@@ -95,11 +95,21 @@ class MusicScreen:
         
         if self.main_app.music_object.artist is None:
             logger.warning(f"No artist = no music")
+            if getattr(self.main_app, "music_debug_logging", False):
+                logger.info(
+                    "[music-screen] blocked render (artist missing) state=%s title=%s channel=%s album_art=%s",
+                    state,
+                    title,
+                    channel,
+                    album_art_api_url,
+                )
             return False
 
         logger.debug(f"album url = {album_art_api_url}, current url = {self.current_album_art_url}")
         if album_art_api_url is not None:
             image_url = self.main_app.settings.home_assistant_api_base_url + album_art_api_url
+            if getattr(self.main_app, "music_debug_logging", False):
+                logger.info("[music-screen] computed image_url=%s", image_url)
             if image_url != self.current_album_art_url:
                 self.clear_album_art()
                 self.load_image(image_url,self.main_app.settings.media_get_remote_image_retry_amount)  # Use asyncio.run to create an event loop
@@ -200,6 +210,8 @@ class MusicScreen:
 
     def load_image(self, image_url, num_of_tries=3):
         # Run the async task within an asyncio loop
+        if getattr(self.main_app, "music_debug_logging", False):
+            logger.info("[music-screen] load_image start url=%s tries=%s", image_url, num_of_tries)
         asyncio.run(self.run_image_task(image_url, num_of_tries))
 
     # Add this method to load and display a remote image
@@ -231,6 +243,8 @@ class MusicScreen:
                                 new_image.thumbnail(new_size, Image.LANCZOS)
                             
                             logger.debug(f"loaded remote image: {url}")
+                            if getattr(self.main_app, "music_debug_logging", False):
+                                logger.info("[music-screen] loaded remote image successfully url=%s", url)
                             self.album_art_image = ImageTk.PhotoImage(new_image)
                             self.album_art_label.configure(image=self.album_art_image)
                             self.current_album_art_url = url
@@ -249,6 +263,8 @@ class MusicScreen:
 
         # Load a local image using PIL
         self.stop_loading_animation()
+        if getattr(self.main_app, "music_debug_logging", False):
+            logger.info("[music-screen] using local placeholder image")
         self.load_local_image(pathlib.Path(__file__).parent / 'images/no_album_art.jpeg')
         
     def load_local_image(self, image_path):

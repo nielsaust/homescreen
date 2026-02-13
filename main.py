@@ -88,6 +88,8 @@ class MainApp:
         self.music_update_after_id = None
         self.music_update_debounce_ms = int(getattr(self.settings, "music_update_debounce_ms", 150) or 150)
         self.music_drop_duplicate_payloads = bool(getattr(self.settings, "music_drop_duplicate_payloads", True))
+        self.music_debug_logging = bool(getattr(self.settings, "music_debug_logging", False))
+        self.music_update_seq = 0
         self.network_status_widget = NetworkStatusWidget(self.root, self.settings.feedback_icon_size)
         network_interval = int(
             getattr(
@@ -244,14 +246,23 @@ class MainApp:
         self.root.after(self.mqtt_queue_poll_interval_ms, self._pump_mqtt_queue)
 
     def queue_music_update(self, data):
+        self.music_update_seq += 1
+        update_seq = self.music_update_seq
+        self.log_music_debug(
+            f"[music] queue start seq={update_seq} raw_keys={sorted((data or {}).keys())}",
+            data,
+        )
         normalized = self.music_service.normalize_payload(data or {})
+        self.log_music_debug(f"[music] normalized seq={update_seq}", normalized)
         if self.pending_music_payload is None:
             self.pending_music_payload = normalized
         else:
             # Merge partial updates so fast event bursts don't drop fields.
             self.pending_music_payload.update(normalized)
+        self.log_music_debug(f"[music] pending merged seq={update_seq}", self.pending_music_payload)
         if self.music_update_after_id:
             self.root.after_cancel(self.music_update_after_id)
+            self.log_music_debug(f"[music] debounce reset seq={update_seq}")
         self.music_update_after_id = self.root.after(self.music_update_debounce_ms, self.flush_music_update)
 
     def flush_music_update(self):
@@ -259,11 +270,15 @@ class MainApp:
         payload = self.pending_music_payload
         self.pending_music_payload = None
         if payload is None:
+            self.log_music_debug("[music] flush skipped: no pending payload")
             return
+        self.log_music_debug("[music] flush pending payload", payload)
         resolved_payload = self.music_service.resolve_payload(self.music_object, payload)
+        self.log_music_debug("[music] resolved payload", resolved_payload)
         if not self.music_service.should_process(resolved_payload, drop_duplicates=self.music_drop_duplicate_payloads):
-            logger.debug("Skipping duplicate music payload.")
+            self.log_music_debug("[music] duplicate payload dropped", resolved_payload)
             return
+        self.log_music_debug("[music] applying payload", resolved_payload)
         self.update_music_object(resolved_payload)
         self.display_controller.update_menu_states()
 
@@ -542,6 +557,17 @@ class MainApp:
             self.music_object.album = album
             self.music_object.album_art_api_url = album_art_api_url
         
+        self.log_music_debug(
+            "[music] object after update",
+            {
+                "state": self.music_object.state,
+                "title": self.music_object.title,
+                "artist": self.music_object.artist,
+                "channel": self.music_object.channel,
+                "album": self.music_object.album,
+                "album_art_api_url": self.music_object.album_art_api_url,
+            },
+        )
         logging.debug("========= Music object updated =========")
         obj = self.music_object
         for key, value in vars(obj).items():
@@ -646,6 +672,17 @@ class MainApp:
             self.event_bus.publish(event)
         except Exception as exc:
             logger.debug(f"Could not publish event '{event_type}': {exc}")
+
+    def log_music_debug(self, message, payload=None):
+        if not self.music_debug_logging:
+            return
+        if payload is None:
+            logger.info(message)
+            return
+        try:
+            logger.info("%s :: %s", message, json.dumps(payload, default=str, ensure_ascii=False))
+        except Exception:
+            logger.info("%s :: %s", message, payload)
 
 if __name__ == "__main__":
     try:
