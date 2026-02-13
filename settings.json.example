@@ -67,6 +67,8 @@
     "music_apply_transport_immediately": true,
     "music_metrics_log_interval_seconds": 30,
     "music_debug_logging": false,
+    "macos_repaint_workaround": true,
+    "macos_repaint_interval_ms": 16,
     "media_show_titles": true,
     "media_get_remote_image_retry_amount": 3,
     "media_clear_image_before_getting_new": true,
