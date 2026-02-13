@@ -728,6 +728,17 @@ class MainApp:
         else:
             self.display_controller.update_print_progress(progress)
 
+    def show_doorbell_camera(self, trigger_remote=True):
+        url = f"http://{self.settings.doorbell_url}{self.settings.doorbell_path}"
+        self.display_controller.show_cam(
+            {},
+            url,
+            self.settings.doorbell_username,
+            self.settings.doorbell_password,
+        )
+        if trigger_remote:
+            self.mqtt_controller.publish_message(topic="screen_commands/doorbell")
+
     def on_mqtt_message(self, topic, data):
         # prevent initial messages @ startup
         time_since_boot = time.time()-self.boot_time
@@ -767,7 +778,12 @@ class MainApp:
         
         # octoPrint/progress/printing = mqtt_topic_printer_progress
         if topic==self.settings.mqtt_topic_doorbell:
-            self.display_controller.show_cam(data,f'http://{self.settings.doorbell_url}{self.settings.doorbell_path}',self.settings.doorbell_username,self.settings.doorbell_password)
+            self.display_controller.show_cam(
+                data,
+                f"http://{self.settings.doorbell_url}{self.settings.doorbell_path}",
+                self.settings.doorbell_username,
+                self.settings.doorbell_password,
+            )
         elif topic==self.settings.mqtt_topic_printer_progress:
             self.check_print_status(data)           
         elif topic==self.settings.mqtt_topic_calendar:
