@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 import subprocess
 import logging
 logger = logging.getLogger(__name__)
+from app.observability.domain_logger import log_event
 
 import time
 
@@ -47,7 +48,7 @@ class TouchController:
         self.main_app.perform_action("down")
 
     def handle_double_click(self, event):
-        logger.debug("Double click performed; no action performed.")
+        log_event(logger, logging.DEBUG, "touch", "gesture.double_click_ignored")
 
     def handle_space_down(self, event):
         self.handle_down(event)
@@ -60,14 +61,14 @@ class TouchController:
         self.click_time = time.time()
         self.start_x = event.x_root
         self.start_y = event.y_root
-        logger.debug(f"Touch down @ {self.click_time}")
+        log_event(logger, logging.DEBUG, "touch", "gesture.down", ts=self.click_time)
 
     def handle_up(self, event):
         self.handle_gestures(event)
         self.click_time = None  # Reset click time
 
     def handle_hold(self, time_held):
-        logger.debug(f"Touch held for more than {self.hold_time} ({time_held}) seconds")
+        log_event(logger, logging.DEBUG, "touch", "gesture.hold", hold_threshold=self.hold_time, held_seconds=time_held)
         self.main_app.perform_action("hold")
 
     def handle_gestures(self, event):
@@ -88,7 +89,7 @@ class TouchController:
         elif x_abs < y_abs and y_dir < -min_movement:
             self.main_app.perform_action("up")
         else:
-            logger.debug(f"Should be single click (click_time = {self.click_time})")
+            log_event(logger, logging.DEBUG, "touch", "gesture.single_click_candidate", click_time=self.click_time)
             # no swipe (click or hold)
             if self.click_time is not None:
                 release_time = time.time()
@@ -97,10 +98,10 @@ class TouchController:
                 if time_elapsed >= self.hold_time:
                     self.handle_hold(time_elapsed)
                 else:
-                    logger.debug(f"Time between click and release: {time_elapsed} seconds")
+                    log_event(logger, logging.DEBUG, "touch", "gesture.single_click", elapsed_seconds=time_elapsed)
                     self.main_app.perform_action("single_click")
             else:
-                logger.error("click_time is NONE")
+                log_event(logger, logging.ERROR, "touch", "gesture.error", reason="click_time_missing")
 
 
     def handle_alt_menu_button(self, action): # hold actions
@@ -119,7 +120,7 @@ class TouchController:
 
 
     def handle_menu_button(self, action):
-        logger.debug(f"handle_menu_button: {action}")
+        log_event(logger, logging.DEBUG, "touch", "menu.button_action", action=action)
         self.ignore_next_click = True
         self.action_dispatcher.dispatch(action)
 
@@ -147,50 +148,50 @@ class TouchController:
             interface (str): The name of the network interface to recover (e.g., 'wlan0').
         """
         if messagebox.askyesno("Recover Network", f"Shall we try to recover network connectivity?"):
-            logger.warning("Starting network recovery process.")
+            log_event(logger, logging.WARNING, "network", "recovery.start")
 
             # Bring the interface down
-            logger.info(f"Bringing down the interface: {interface}")
+            log_event(logger, logging.INFO, "network", "recovery.interface_down", interface=interface)
             self.shell_command(f"ip link set {interface} down", use_sudo=True, ask=False)
 
             # Bring the interface back up
-            logger.info(f"Bringing up the interface: {interface}")
+            log_event(logger, logging.INFO, "network", "recovery.interface_up", interface=interface)
             self.shell_command(f"ip link set {interface} up", use_sudo=True, ask=False)
 
             # Renew the DHCP lease
-            logger.info(f"Renewing DHCP lease on interface: {interface}")
+            log_event(logger, logging.INFO, "network", "recovery.dhcp_renew", interface=interface)
             self.shell_command(f"dhcpcd -k {interface}", use_sudo=True, ask=False)
             self.shell_command(f"dhcpcd {interface}", use_sudo=True, ask=False)
 
             # Reset DNS
-            logger.info("Resetting DNS resolver.")
+            log_event(logger, logging.INFO, "network", "recovery.dns_reset")
             try:
                 self.shell_command("resolvectl flush-caches", use_sudo=True, ask=False)
             except Exception:
                 self.shell_command('echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf', use_sudo=False)
 
             # Rebuild routing table
-            logger.info("Rebuilding routing table.")
+            log_event(logger, logging.INFO, "network", "recovery.route_rebuild")
             self.shell_command("ip route flush table main", use_sudo=True, ask=False)
             self.shell_command("systemctl restart dhcpcd", use_sudo=True, ask=False)
 
             # Step 6: Test connectivity with retries
-            logger.info(f"Testing connectivity to 8.8.8.8 with up to {retries} retries.")
+            log_event(logger, logging.INFO, "network", "recovery.ping_test_start", retries=retries)
             for attempt in range(1, retries + 1):
                 stdout, stderr, return_code = self.shell_command("ping -c 1 8.8.8.8", use_sudo=False)
                 if return_code == 0:
-                    logger.info("Network recovery successful.")
+                    log_event(logger, logging.INFO, "network", "recovery.success")
                     break
                 else:
-                    logger.warning(f"Ping failed (attempt {attempt}/{retries}): {stderr}")
+                    log_event(logger, logging.WARNING, "network", "recovery.ping_failed", attempt=attempt, retries=retries, error=stderr)
                     if attempt < retries:
-                        logger.info(f"Retrying in {delay} seconds...")
+                        log_event(logger, logging.INFO, "network", "recovery.retry_scheduled", delay_seconds=delay)
                         time.sleep(delay)
                     else:
-                        logger.error("Network recovery failed after multiple attempts.")
-            logger.warning("Network recovery process completed.")
+                        log_event(logger, logging.ERROR, "network", "recovery.failed")
+            log_event(logger, logging.WARNING, "network", "recovery.completed")
         else:
-            logger.info("Network recovery process canceled.")
+            log_event(logger, logging.INFO, "network", "recovery.canceled")
 
     def shell_command(self, command, use_sudo=False, ask=True):
         """
@@ -206,7 +207,7 @@ class TouchController:
         try:
             # Prepend sudo if needed
             command = f"sudo {command}" if use_sudo else command
-            logger.info(f"Executing shell command: {command}, ask: {ask}")
+            log_event(logger, logging.INFO, "touch", "shell.command", command=command, ask=ask)
 
             # Execute the command
             process = subprocess.Popen(
@@ -224,5 +225,5 @@ class TouchController:
             # Return the results
             return stdout, stderr, process.returncode
         except Exception as e:
-            logger.critical(f"Failed to execute command '{command}': {e}")
+            log_event(logger, logging.CRITICAL, "touch", "shell.command_failed", command=command, error=e)
             return "", str(e), -1  # Always return a tuple, even on failure

@@ -73,11 +73,17 @@ class StructuredConsoleFormatter(logging.Formatter):
         super().__init__()
         self.use_colors = bool(use_colors)
 
+    def _wrap_color(self, text: str, color: str) -> str:
+        return f"{color}{text}{self.MSG_COLOR}"
+
     def _colorize_values(self, message: str) -> str:
-        message = re.sub(r"'([^']*)'", rf"{self.VALUE_COLOR}'\1'{self.MSG_COLOR}", message)
-        message = re.sub(r'"([^"]*)"', rf'{self.VALUE_COLOR}"\1"{self.MSG_COLOR}', message)
-        message = re.sub(r"\b(True|False|None)\b", rf"{self.BOOL_COLOR}\1{self.MSG_COLOR}", message)
-        message = re.sub(r"(?<![\w.])(-?\d+(?:\.\d+)?)", rf"{self.NUMBER_COLOR}\1{self.MSG_COLOR}", message)
+        message = re.sub(
+            r"\b(True|False|None|true|false|null)\b",
+            lambda m: self._wrap_color(m.group(0), self.BOOL_COLOR),
+            message,
+        )
+        message = re.sub(r"'([^']*)'", lambda m: self._wrap_color(m.group(0), self.VALUE_COLOR), message)
+        message = re.sub(r'"([^"]*)"', lambda m: self._wrap_color(m.group(0), self.VALUE_COLOR), message)
         return message
 
     def format(self, record):

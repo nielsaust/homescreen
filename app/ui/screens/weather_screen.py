@@ -14,6 +14,7 @@ from io import BytesIO
 
 from app.services.weather_service import WeatherService
 from app.viewmodels.weather_view_model import build_weather_view_model
+from app.observability.domain_logger import log_event
 
 logger = logging.getLogger(__name__)
 
@@ -130,19 +131,22 @@ class WeatherScreen:
         try:
             if self.weather_update_job is not None:
                 self.main_frame.after_cancel(self.weather_update_job)
-                logger.debug("Existing weather update job canceled.")
+                log_event(logger, logging.DEBUG, "weather", "update.job_canceled")
 
             self.update_weather()
             self.weather_update_job = self.main_frame.after(
                 self.main_app.settings.weather_update_interval * 1000,
                 self.update_weather_loop,
             )
-            logger.debug(
-                "Weather update job scheduled %s seconds from now.",
-                self.main_app.settings.weather_update_interval,
+            log_event(
+                logger,
+                logging.DEBUG,
+                "weather",
+                "update.job_scheduled",
+                interval_seconds=self.main_app.settings.weather_update_interval,
             )
         except Exception as e:
-            logger.error(f"Error in update_weather_loop: {e}")
+            log_event(logger, logging.ERROR, "weather", "update.loop_failed", error=e)
             self.weather_update_job = None
 
     def update_time_loop(self):
@@ -151,7 +155,7 @@ class WeatherScreen:
 
     def update_network_availability(self, network_available):
         if not network_available:
-            logger.warning("Network unavailable.")
+            log_event(logger, logging.WARNING, "network", "weather.network_unavailable")
         self.main_app.publish_event(
             "network.status",
             {"online": bool(network_available)},
@@ -176,17 +180,20 @@ class WeatherScreen:
 
         if result.recovery_action:
             threshold = getattr(self.main_app.settings, "weather_api_call_reboot_after_retries", 0)
-            logger.critical(
-                "API failure count exceeded limit (%s). Recovery action: %s",
-                threshold,
-                result.recovery_action,
+            log_event(
+                logger,
+                logging.CRITICAL,
+                "weather",
+                "update.recovery_action",
+                threshold=threshold,
+                action=result.recovery_action,
             )
             if result.recovery_action == "reboot":
                 self.main_app.touch_controller.reboot(ask=True)
             elif result.recovery_action == "restart_app":
                 self.main_app.touch_controller.quit_app()
             else:
-                logger.warning("Keeping app running in degraded weather mode.")
+                log_event(logger, logging.WARNING, "weather", "update.degraded_mode_continue")
 
         if result.payload is None:
             self.main_app.publish_event(
@@ -194,9 +201,12 @@ class WeatherScreen:
                 {"source": "none", "cached_at_text": None},
                 source="weather_screen",
             )
-            logger.error(
-                "No response from weather and no cache available; retry in %s seconds.",
-                self.main_app.settings.weather_update_interval,
+            log_event(
+                logger,
+                logging.ERROR,
+                "weather",
+                "update.no_data_no_cache",
+                retry_seconds=self.main_app.settings.weather_update_interval,
             )
             return
 
@@ -221,7 +231,7 @@ class WeatherScreen:
                 )
                 self.weather_now_image = ImageTk.PhotoImage(condition_image)
         except Exception as e:
-            logger.error(f"Could not open weather image: {e}")
+            log_event(logger, logging.ERROR, "weather", "icon.decode_failed", error=e)
             self.weather_now_image = None
 
         if self.weather_now_image is not None:
@@ -247,7 +257,7 @@ class WeatherScreen:
             self.label_time.configure(text=time_string)
             self.label_date.configure(text=date_string)
         except Exception as e:
-            logger.error(f"Could not update datetime GUI elements: {e}")
+            log_event(logger, logging.ERROR, "weather", "time.render_failed", error=e)
 
     def set_idle(self, idle=True):
         if idle:

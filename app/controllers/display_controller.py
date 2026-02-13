@@ -7,6 +7,7 @@ from app.hardware.hyperpixel_backlight import Backlight
 from app.controllers.overlay_commands import OverlayCommand
 from app.controllers.overlay_manager import OverlayManager
 from app.ui.ui_render_service import UiRenderService
+from app.observability.domain_logger import log_event
 
 class DisplayController:
     def __init__(self, main_app):
@@ -92,7 +93,7 @@ class DisplayController:
         Wrapper around AlertScreen.show()
         Allows showing alerts directly with simple params.
         """
-        logger.debug(f"show_alert(data: {data})")
+        log_event(logger, logging.DEBUG, "display", "overlay.alert.show", has_data=bool(data))
 
         self.overlay_manager.show_alert(data)
         self.check_idle(True)
@@ -186,7 +187,15 @@ class DisplayController:
             current=self.get_screen_state(),
             time_between_switches=round(time_between_switches, 4),
         )
-        logger.debug(f"show_screen({screen_name}) time_between_switches: {time_between_switches} - forced = {force}")
+        log_event(
+            logger,
+            logging.DEBUG,
+            "display",
+            "screen.show.request",
+            screen=screen_name,
+            time_between_switches=round(time_between_switches, 4),
+            force=bool(force),
+        )
         if self._should_block_screen_switch(time_between_switches, force, screen_name):
             return
 
@@ -197,7 +206,7 @@ class DisplayController:
         self.previous_screen = self.current_screen
         self.current_screen = self.screens.get(screen_name)
         if self.current_screen is None:
-            logger.error(f"No current screen; screen '{screen_name}' was not yet created")
+            log_event(logger, logging.ERROR, "display", "screen.current_missing", screen=screen_name)
         elif not self._show_selected_screen(screen_name):
             self.current_screen = self.previous_screen
 
@@ -208,8 +217,13 @@ class DisplayController:
 
     def _should_block_screen_switch(self, time_between_switches, force, screen_name):
         if time_between_switches < self.main_app.settings.min_time_between_actions and not force:
-            logger.warning(
-                f"Switched screens too fast ({time_between_switches}ms); could result in errors so abording. (self.current_screen = {self.current_screen})"
+            log_event(
+                logger,
+                logging.WARNING,
+                "display",
+                "screen.show.blocked_too_fast",
+                time_between_switches=round(time_between_switches, 4),
+                current_screen=str(self.current_screen),
             )
             self._trace_ui("screen.show.blocked_too_fast", screen=screen_name)
             return True
@@ -218,48 +232,54 @@ class DisplayController:
     def _hide_current_screen_for_switch(self, screen_name):
         allow_forget = (self.current_screen is not None) and (self.current_screen != self.screens.get(screen_name))
         if allow_forget:
-            logger.debug(f"forgetting {self.current_screen}")
+            log_event(logger, logging.DEBUG, "display", "screen.forget", current_screen=str(self.current_screen))
             self._trace_widget_state("screen.before_forget", self.current_screen)
             self.current_screen.pack_forget()
             self.force_screen_update()
             self._trace_widget_state("screen.after_forget", self.current_screen)
         else:
-            logger.debug(f"can't forget {self.current_screen} for it is the current screen already")
+            log_event(logger, logging.DEBUG, "display", "screen.forget_skipped", reason="already_current")
 
     def _show_selected_screen(self, screen_name):
-        logger.debug(f"Showing {screen_name}")
+        log_event(logger, logging.DEBUG, "display", "screen.show.start", screen=screen_name)
         screen_object = self._get_screen_object(screen_name)
         if screen_object is None:
-            logger.error(f"No screen object ({screen_name}) to show/found in self.screen_objects {self.screen_objects}")
+            log_event(logger, logging.ERROR, "display", "screen.object_missing", screen=screen_name)
             return False
 
         try:
-            logger.debug(f"trying to show {screen_name}")
+            log_event(logger, logging.DEBUG, "display", "screen.object_show", screen=screen_name)
             show_ok = bool(screen_object.show())
             self._trace_ui("screen.object.show", screen=screen_name, show_ok=show_ok)
             if not show_ok:
-                logger.error(f"Error showing screen {screen_name}")
+                log_event(logger, logging.ERROR, "display", "screen.object_show_failed", screen=screen_name)
                 return False
 
-            logger.info(f"Showing {screen_name} screen")
+            log_event(logger, logging.INFO, "display", "screen.show.success", screen=screen_name)
             self.current_screen.pack(fill=tk.BOTH, expand=True)
             self.time_in_screen = time.time()
             self._trace_widget_state("screen.after_pack", self.current_screen)
             self._schedule_trace_widget_state("screen.after_delay", self.current_screen)
-            logger.debug(
-                f"screen_object {screen_object} at {screen_object.__class__.__name__} created and updated ({self.time_in_screen})"
+            log_event(
+                logger,
+                logging.DEBUG,
+                "display",
+                "screen.object_ready",
+                screen=screen_name,
+                class_name=screen_object.__class__.__name__,
+                updated_at=self.time_in_screen,
             )
             return True
         except Exception as e:
-            logger.error(f"Error creating screen {screen_name}: {e}")
+            log_event(logger, logging.ERROR, "display", "screen.create_failed", screen=screen_name, error=e)
             return False
 
     def _get_screen_object(self, screen_name):
         try:
-            logger.debug(f"trying get screen object of {screen_name}")
+            log_event(logger, logging.DEBUG, "display", "screen.object_get", screen=screen_name)
             return self.screen_objects.get(screen_name)
         except Exception as e:
-            logger.error(f"Error getting screen object {screen_name}: {e}")
+            log_event(logger, logging.ERROR, "display", "screen.object_get_failed", screen=screen_name, error=e)
             return None
 
     def show_music_overlays(self):
@@ -339,13 +359,13 @@ class DisplayController:
             self.turn_off()
 
     def turn_on(self):
-        logger.info("turning screeen on")
+        log_event(logger, logging.INFO, "display", "power.on")
         self.is_showing = True
         if(not self.main_app.system_info["is_desktop"]):
             self.backlight.set_power(True)
 
     def turn_off(self):
-        logger.info("turning screeen off")
+        log_event(logger, logging.INFO, "display", "power.off")
         self.is_showing = False
         self.close_open_windows()
         if not self.main_app.settings.show_weather_on_idle and self.get_screen_state() != "off":

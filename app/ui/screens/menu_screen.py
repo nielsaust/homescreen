@@ -19,6 +19,7 @@ import os
 from tkinter import font as tkFont
 
 from app.ui.menu_button import MenuButton
+from app.observability.domain_logger import log_event
 
 class MenuScreen:
     def __init__(self, main_app: MainApp, frame):
@@ -137,13 +138,13 @@ class MenuScreen:
                 button_image = tk.PhotoImage(file=image_path)
             except FileNotFoundError as file_not_found_error:
                 # Handle FileNotFoundError (file not found)
-                logger.error(f"Button image file not found error: {file_not_found_error}")
+                log_event(logger, logging.ERROR, "menu", "button.image_missing", error=file_not_found_error)
             except OSError as os_error:
                 # Handle OSError (e.g., permission or file system error)
-                logger.error(f"OS error: {os_error}")
+                log_event(logger, logging.ERROR, "menu", "button.image_os_error", error=os_error)
             except Exception as e:
                 # Handle other exceptions that may occur
-                logger.error(f"An unexpected error occurred getting button image: {e}")
+                log_event(logger, logging.ERROR, "menu", "button.image_load_failed", error=e)
 
             label = tk.Label(self.frame, 
                             image=button_image, 
@@ -194,7 +195,7 @@ class MenuScreen:
             if(button.label is not None):
                 label = button.label
             else:
-                logger.critical(f"Critical error: No label found for button (make real error)")
+                log_event(logger, logging.CRITICAL, "menu", "button.label_missing", button_id=button.id)
             
             #label.configure(bg = "white")
             row = i // 2  # Calculate the row (0 or 1)
@@ -211,7 +212,7 @@ class MenuScreen:
 
         if(self.main_app.display_controller):
             self.main_app.display_controller.place_action_label(f"{page_nr}/{self.max_page}",anchor="se")
-            logger.debug(f"Placing action label: {page_nr}/{self.max_page}")
+            log_event(logger, logging.DEBUG, "menu", "page.indicator", page=page_nr, max_page=self.max_page)
             self.main_app.display_controller.force_screen_update()
 
         self._trace_menu_render("menu.render.complete")
@@ -310,7 +311,7 @@ class MenuScreen:
         min_movement = self.main_app.settings.gesture_min_movement
         
         if(max_movement>min_movement):
-            logger.debug(f"Will not be seen as button click; moved more than {min_movement} ({max_movement})")
+            log_event(logger, logging.DEBUG, "menu", "gesture.swipe_detected", min_movement=min_movement, movement=max_movement)
             # Consume menu widget event and route swipe explicitly so root handlers
             # do not need to receive this event.
             x_abs = abs(x_dir)
@@ -345,7 +346,15 @@ class MenuScreen:
         return "break"
 
     def handle_button_hold(self, button, time_held):
-        logger.debug(f"Button held for more than {self.main_app.settings.hold_time} ({time_held}) seconds")
+        log_event(
+            logger,
+            logging.DEBUG,
+            "menu",
+            "button.hold",
+            hold_threshold=self.main_app.settings.hold_time,
+            held_seconds=time_held,
+            action=button.action,
+        )
         self.main_app.touch_controller.handle_alt_menu_button(button.action)
 
     def update_buttons(self):
@@ -501,7 +510,15 @@ class MenuScreen:
             new_text = button.text.replace(action_text, on_text if button.is_active else off_text)
             button.label.configure(text=new_text)
         button.label.configure(bg=disabled_color if not available else active_color if button.is_active else inactive_color)
-        logger.debug(f"Button {button.text} is {'active' if button.is_active else 'inactive'}")
+        log_event(
+            logger,
+            logging.DEBUG,
+            "menu",
+            "button.state",
+            button_text=button.text,
+            active=button.is_active,
+            available=available,
+        )
         if(ignore_screen_update==False):
             self.main_app.display_controller.force_screen_update()
 
