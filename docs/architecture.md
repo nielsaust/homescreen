@@ -119,6 +119,12 @@ This project now has a minimal core layer to support gradual migration to a stat
 - `MainApp` maps these events to a `menu.refresh` UI intent.
 - Menu button state recalculation now runs via Tk-thread intent apply, consistent with other UI updates.
 
+## State-driven menu navigation (Phase 6.5)
+
+- Menu navigation actions now publish `menu.navigation.requested` events (`page_prev`, `page_next`, `back`, `exit`).
+- `MainApp` maps these to `menu.navigate` UI intents and applies them on Tk thread.
+- Gesture and action-dispatcher paths no longer call menu navigation methods directly.
+
 ## Local state testing without UI
 
 Use replay tool with JSONL:
