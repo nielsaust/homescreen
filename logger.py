@@ -40,7 +40,7 @@ class DateRotatingFileHandler(logging.FileHandler):
                 self.current_date = today
             super().emit(record)
         except Exception as e:
-            self.logger.error(f"Error during emit: ", e)
+            self.log_to_fallback_file("[ERROR] Error during emit.", e)
 
     def doRollover(self, today):
         if self._in_rollover:
@@ -79,22 +79,22 @@ class DateRotatingFileHandler(logging.FileHandler):
             try:
                 file_date = datetime.strptime(log_file.stem, self.DATE_FORMAT)
                 if file_date < cutoff_date:
-                    self.logger.info(f"Deleting old log file: {log_file}")
+                    self.log_to_fallback_file(f"[INFO] Deleting old log file: {log_file}")
                     log_file.unlink()
             except ValueError:
-                self.logger.warning(f"Not deleting non-matching file: {log_file}")
+                self.log_to_fallback_file(f"[WARN] Not deleting non-matching file: {log_file}")
             except Exception as e:
-                self.logger.error(f"Error deleting file {log_file}: {e}")
+                self.log_to_fallback_file(f"[ERROR] Error deleting file {log_file}.", e)
 
     def create_log_directory(self):
         try:
             # alleen loggen als de map nog niet bestaat
             if not os.path.exists(self.log_path):
                 os.makedirs(self.log_path)
-                self.logger.info(f"Created log directory: {self.log_path}")
+                self.log_to_fallback_file(f"[INFO] Created log directory: {self.log_path}")
         except Exception as e:
             # bij fouten (bijv. permissies) log je die
-            self.logger.error(f"Error creating log directory: {e}")
+            self.log_to_fallback_file("[ERROR] Error creating log directory.", e)
 
     def log_to_fallback_file(self, message, exception=None):
         """
