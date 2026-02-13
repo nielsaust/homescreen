@@ -98,9 +98,6 @@ class MainApp:
         self.ui_intent_poll_interval_ms = 50
         self.ui_trace_logging = _to_bool(getattr(self.settings, "ui_trace_logging", False), False)
         self.ui_trace_followup_ms = int(getattr(self.settings, "ui_trace_followup_ms", 80) or 80)
-        self.macos_repaint_workaround = _to_bool(getattr(self.settings, "macos_repaint_workaround", False), False)
-        self.macos_repaint_interval_ms = int(getattr(self.settings, "macos_repaint_interval_ms", 16) or 16)
-        self._macos_repaint_after_id = None
         self._last_network_ui_state = None
         self._last_cached_weather_label_text = None
         self._last_music_ui_signature = None
@@ -334,26 +331,7 @@ class MainApp:
                 handled=handled,
                 pending=self.ui_intent_queue.qsize(),
             )
-        if handled > 0:
-            self._schedule_macos_repaint()
         self.root.after(self.ui_intent_poll_interval_ms, self._pump_ui_intents)
-
-    def _schedule_macos_repaint(self):
-        if not self.macos_repaint_workaround:
-            return
-        if platform.system() != "Darwin":
-            return
-        if self._macos_repaint_after_id is not None:
-            return
-        delay_ms = max(1, self.macos_repaint_interval_ms)
-        self._macos_repaint_after_id = self.root.after(delay_ms, self._apply_macos_repaint)
-
-    def _apply_macos_repaint(self):
-        self._macos_repaint_after_id = None
-        try:
-            self.root.update_idletasks()
-        except Exception as exc:
-            logger.debug("macOS repaint workaround failed: %s", exc)
 
     def _apply_ui_intent(self, intent):
         intent_type = intent.get("type")

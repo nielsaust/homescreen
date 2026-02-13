@@ -69,8 +69,6 @@
     "music_debug_logging": false,
     "ui_trace_logging": false,
     "ui_trace_followup_ms": 80,
-    "macos_repaint_workaround": false,
-    "macos_repaint_interval_ms": 16,
     "media_show_titles": true,
     "media_get_remote_image_retry_amount": 3,
     "media_clear_image_before_getting_new": true,

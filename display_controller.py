@@ -23,14 +23,26 @@ class DisplayController:
         self.music_screen = None
         self.menu_screen = None
         # switching/state screens
-        self.create_screen("off")
-        self.create_screen("weather")
-        self.create_screen("music")
-        self.create_screen("menu")
+        self._create_base_screens()
 
         self.current_overlay_label = None
         # overlapping screens
-        
+        self._create_overlay_screens()
+
+        self.time_in_screen = time.time() - 1000 # offset for start
+
+        # display options for Pi Screen
+        self.backlight = None
+        self.is_showing = False
+        if(not self.main_app.system_info["is_desktop"]):
+            self.backlight = Backlight()
+            self.main_app.root.attributes("-fullscreen", True)
+
+    def _create_base_screens(self):
+        for screen_name in ("off", "weather", "music", "menu"):
+            self.create_screen(screen_name)
+
+    def _create_overlay_screens(self):
         from app.ui.screens.cam_screen import CamScreen
         self.cam_screen = CamScreen(self.main_app)
         from app.ui.screens.calendar_screen import CalendarScreen
@@ -41,15 +53,6 @@ class DisplayController:
         self.slideshow = SlideShow(self.main_app)
         from app.ui.screens.alert_screen import AlertScreen
         self.alert_screen = AlertScreen(self.main_app)
-
-        self.time_in_screen = time.time() - 1000 # offset for start
-
-        # display options for Pi Screen
-        self.backlight = None
-        self.is_showing = False
-        if(not self.main_app.system_info["is_desktop"]):
-            self.backlight = Backlight()
-            self.main_app.root.attributes("-fullscreen", True)
 
     def create_screen(self, screen_name):
         # Create a frame for the screen
@@ -174,14 +177,36 @@ class DisplayController:
             time_between_switches=round(time_between_switches, 4),
         )
         logger.debug(f"show_screen({screen_name}) time_between_switches: {time_between_switches} - forced = {force}")
-        if (time_between_switches<self.main_app.settings.min_time_between_actions and not force):
-            logger.warning(f"Switched screens too fast ({time_between_switches}ms); could result in errors so abording. (self.current_screen = {self.current_screen})")
-            self._trace_ui("screen.show.blocked_too_fast", screen=screen_name)
+        if self._should_block_screen_switch(time_between_switches, force, screen_name):
             return
 
         self._screen_state = screen_name
-        # Hide the current screen if there is one and it's not the same as currently active
-        allow_forget = (self.current_screen is not None) and (self.current_screen!=self.screens.get(screen_name))
+        self._hide_current_screen_for_switch(screen_name)
+
+        # Show the selected screen
+        self.previous_screen = self.current_screen
+        self.current_screen = self.screens.get(screen_name)
+        if self.current_screen is None:
+            logger.error(f"No current screen; screen '{screen_name}' was not yet created")
+        elif not self._show_selected_screen(screen_name):
+            self.current_screen = self.previous_screen
+
+        if screen_name != "off":
+            self.check_idle()
+        self.force_screen_update()
+        self._trace_widget_state("screen.after_force_update", self.current_screen)
+
+    def _should_block_screen_switch(self, time_between_switches, force, screen_name):
+        if time_between_switches < self.main_app.settings.min_time_between_actions and not force:
+            logger.warning(
+                f"Switched screens too fast ({time_between_switches}ms); could result in errors so abording. (self.current_screen = {self.current_screen})"
+            )
+            self._trace_ui("screen.show.blocked_too_fast", screen=screen_name)
+            return True
+        return False
+
+    def _hide_current_screen_for_switch(self, screen_name):
+        allow_forget = (self.current_screen is not None) and (self.current_screen != self.screens.get(screen_name))
         if allow_forget:
             logger.debug(f"forgetting {self.current_screen}")
             self._trace_widget_state("screen.before_forget", self.current_screen)
@@ -191,44 +216,41 @@ class DisplayController:
         else:
             logger.debug(f"can't forget {self.current_screen} for it is the current screen already")
 
-        # Show the selected screen
-        self.previous_screen = self.current_screen
-        self.current_screen = self.screens.get(screen_name)
-        if self.current_screen:
-            logger.debug(f"Showing {screen_name}")
-            screen_object = None
-            try:
-                logger.debug(f"trying get screen object of {screen_name}")
-                screen_object = self.screen_objects.get(screen_name)
-            except Exception as e:
-                logger.error(f"Error getting screen object {screen_name}: {e}")
+    def _show_selected_screen(self, screen_name):
+        logger.debug(f"Showing {screen_name}")
+        screen_object = self._get_screen_object(screen_name)
+        if screen_object is None:
+            logger.error(f"No screen object ({screen_name}) to show/found in self.screen_objects {self.screen_objects}")
+            return False
 
-            if screen_object:
-                try:
-                    logger.debug(f"trying to show {screen_name}")
-                    show_ok = bool(screen_object.show())
-                    self._trace_ui("screen.object.show", screen=screen_name, show_ok=show_ok)
-                    if show_ok:
-                        logger.info(f"Showing {screen_name} screen")
-                        self.current_screen.pack(fill=tk.BOTH, expand=True)
-                        self.time_in_screen = time.time()
-                        self._trace_widget_state("screen.after_pack", self.current_screen)
-                        self._schedule_trace_widget_state("screen.after_delay", self.current_screen)
-                        logger.debug(f"screen_object {screen_object} at {screen_object.__class__.__name__} created and updated ({self.time_in_screen})")
-                    else:
-                        self.current_screen = self.previous_screen
-                        logger.error(f"Error showing screen {screen_name}")
-                except Exception as e:
-                    logger.error(f"Error creating screen {screen_name}: {e}")
-            else:
-                logger.error(f"No screen object ({screen_name}) to show/found in self.screen_objects {self.screen_objects}")
-        else:
-            logger.error(f"No current screen; screen '{screen_name}' was not yet created")
+        try:
+            logger.debug(f"trying to show {screen_name}")
+            show_ok = bool(screen_object.show())
+            self._trace_ui("screen.object.show", screen=screen_name, show_ok=show_ok)
+            if not show_ok:
+                logger.error(f"Error showing screen {screen_name}")
+                return False
 
-        if screen_name != "off":
-            self.check_idle()
-        self.force_screen_update()
-        self._trace_widget_state("screen.after_force_update", self.current_screen)
+            logger.info(f"Showing {screen_name} screen")
+            self.current_screen.pack(fill=tk.BOTH, expand=True)
+            self.time_in_screen = time.time()
+            self._trace_widget_state("screen.after_pack", self.current_screen)
+            self._schedule_trace_widget_state("screen.after_delay", self.current_screen)
+            logger.debug(
+                f"screen_object {screen_object} at {screen_object.__class__.__name__} created and updated ({self.time_in_screen})"
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Error creating screen {screen_name}: {e}")
+            return False
+
+    def _get_screen_object(self, screen_name):
+        try:
+            logger.debug(f"trying get screen object of {screen_name}")
+            return self.screen_objects.get(screen_name)
+        except Exception as e:
+            logger.error(f"Error getting screen object {screen_name}: {e}")
+            return None
 
     def show_music_overlays(self):
         music_screen = self.screen_objects.get("music")

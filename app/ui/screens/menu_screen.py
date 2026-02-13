@@ -118,8 +118,6 @@ class MenuScreen:
         self.click_y = None
 
         self.fullscreen_image_window = None
-        self._desktop_repaint_after_id = None
-        self._menu_render_nudge_ids = []
 
         self.create_buttons(self.buttons)
         for i, button in enumerate(self.buttons):
@@ -217,8 +215,6 @@ class MenuScreen:
             self.main_app.display_controller.force_screen_update()
 
         self._trace_menu_render("menu.render.complete")
-        self._schedule_desktop_repaint()
-        self._schedule_menu_render_nudges()
 
     def enter_submenu(self):
         self.remove_current_menu()
@@ -509,23 +505,6 @@ class MenuScreen:
         if(ignore_screen_update==False):
             self.main_app.display_controller.force_screen_update()
 
-    def _schedule_desktop_repaint(self):
-        if not self.main_app.system_info.get("is_desktop", False):
-            return
-        if self._desktop_repaint_after_id is not None:
-            return
-        # Flush layout on idle to reduce delayed/blank menu draws on desktop Tk.
-        self._desktop_repaint_after_id = self.frame.after_idle(self._apply_desktop_repaint)
-
-    def _apply_desktop_repaint(self):
-        self._desktop_repaint_after_id = None
-        try:
-            self.frame.update_idletasks()
-            self.main_app.root.update_idletasks()
-            self._trace_menu_render("menu.repaint.applied")
-        except Exception as exc:
-            logger.debug("Menu desktop repaint failed: %s", exc)
-
     def _trace_menu_render(self, event_name):
         if not getattr(self.main_app, "ui_trace_logging", False):
             return
@@ -548,35 +527,6 @@ class MenuScreen:
                 active_buttons=button_ids,
                 visible_children=visible_children,
             )
-
-    def _schedule_menu_render_nudges(self):
-        if not self.main_app.system_info.get("is_desktop", False):
-            return
-        self._cancel_menu_render_nudges()
-        # Extra short repaint nudges for intermittent desktop Tk delayed paints.
-        for delay_ms in (30, 90):
-            after_id = self.frame.after(delay_ms, self._menu_render_nudge_tick)
-            self._menu_render_nudge_ids.append(after_id)
-
-    def _cancel_menu_render_nudges(self):
-        if not self._menu_render_nudge_ids:
-            return
-        for after_id in self._menu_render_nudge_ids:
-            try:
-                self.frame.after_cancel(after_id)
-            except Exception:
-                pass
-        self._menu_render_nudge_ids = []
-
-    def _menu_render_nudge_tick(self):
-        if self.main_app.display_controller.get_screen_state() != "menu":
-            return
-        try:
-            self.frame.update_idletasks()
-            self.main_app.root.update_idletasks()
-            self._trace_menu_render("menu.repaint.nudge")
-        except Exception as exc:
-            logger.debug("Menu repaint nudge failed: %s", exc)
 
     def close_timeout(self,new_timeout=True):
         # Cancel the previously scheduled job, if any
