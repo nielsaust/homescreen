@@ -60,6 +60,12 @@ This project now has a minimal core layer to support gradual migration to a stat
 - Weather IO/cache/retry logic moved to `app/services/weather_service.py`.
 - Display text mapping moved to `app/viewmodels/weather_view_model.py`.
 
+## Music event coalescing (Phase 5.5)
+
+- Incoming music MQTT payloads are now debounced and coalesced (`latest wins`) before UI updates.
+- Duplicate payloads can be dropped via `music_drop_duplicate_payloads`.
+- Normalization/signature logic lives in `app/services/music_service.py`.
+
 ## Local state testing without UI
 
 Use replay tool with JSONL:

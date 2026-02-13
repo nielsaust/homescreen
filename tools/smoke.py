@@ -29,6 +29,7 @@ CORE_MODULES = [
     "core.store",
     "app.controllers.action_dispatcher",
     "app.services.weather_service",
+    "app.services.music_service",
     "app.ui.widgets.network_status_widget",
     "app.viewmodels.weather_view_model",
 ]
@@ -50,6 +51,7 @@ CORE_FILES = [
     "core/store.py",
     "app/controllers/action_dispatcher.py",
     "app/services/weather_service.py",
+    "app/services/music_service.py",
     "app/ui/widgets/network_status_widget.py",
     "app/viewmodels/weather_view_model.py",
 ]
