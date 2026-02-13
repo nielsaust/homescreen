@@ -102,6 +102,10 @@ class MainApp:
         self.music_update_after_id = None
         self.music_update_debounce_ms = int(getattr(self.settings, "music_update_debounce_ms", 150) or 150)
         self.music_drop_duplicate_payloads = _to_bool(getattr(self.settings, "music_drop_duplicate_payloads", True), True)
+        self.music_apply_transport_immediately = _to_bool(
+            getattr(self.settings, "music_apply_transport_immediately", True),
+            True,
+        )
         self.music_debug_logging = _to_bool(getattr(self.settings, "music_debug_logging", False), False)
         self.music_update_seq = 0
         logger.info("[music] debug logging enabled=%s", self.music_debug_logging)
@@ -269,6 +273,16 @@ class MainApp:
         )
         normalized = self.music_service.normalize_payload(data or {})
         self.log_music_debug(f"[music] normalized seq={update_seq}", normalized)
+        has_transport = self.music_service.has_transport_update(normalized)
+        if has_transport and self.music_apply_transport_immediately:
+            self.log_music_debug(f"[music] transport-priority seq={update_seq}")
+            self.pending_music_payload = normalized
+            if self.music_update_after_id:
+                self.root.after_cancel(self.music_update_after_id)
+                self.music_update_after_id = None
+            self.flush_music_update(reason="transport")
+            return
+
         if self.pending_music_payload is None:
             self.pending_music_payload = normalized
         else:
@@ -280,14 +294,14 @@ class MainApp:
             self.log_music_debug(f"[music] debounce reset seq={update_seq}")
         self.music_update_after_id = self.root.after(self.music_update_debounce_ms, self.flush_music_update)
 
-    def flush_music_update(self):
+    def flush_music_update(self, reason="debounced"):
         self.music_update_after_id = None
         payload = self.pending_music_payload
         self.pending_music_payload = None
         if payload is None:
             self.log_music_debug("[music] flush skipped: no pending payload")
             return
-        self.log_music_debug("[music] flush pending payload", payload)
+        self.log_music_debug(f"[music] flush pending payload reason={reason}", payload)
         resolved_payload = self.music_service.resolve_payload(self.music_object, payload)
         self.log_music_debug("[music] resolved payload", resolved_payload)
         if not self.music_service.should_process(resolved_payload, drop_duplicates=self.music_drop_duplicate_payloads):
