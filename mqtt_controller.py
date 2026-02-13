@@ -82,7 +82,10 @@ class MqttController:
         if payload:
             try:
                 data = json.loads(payload)
-                self.main_app.on_mqtt_message(topic, data)
+                if hasattr(self.main_app, "enqueue_mqtt_message"):
+                    self.main_app.enqueue_mqtt_message(topic, data)
+                else:
+                    self.main_app.on_mqtt_message(topic, data)
             except json.JSONDecodeError as e:
                 logger.error(f"Error in MQTT payload ({payload if payload is not None else 'None'}): {e}")
 

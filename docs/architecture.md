@@ -22,6 +22,12 @@ This project now has a minimal core layer to support gradual migration to a stat
   - music/device state updates
 - Store updates in parallel, but UI and services still run legacy flow.
 
+## Thread safety improvement (Phase 3)
+
+- MQTT callback thread no longer updates UI state directly.
+- MQTT messages are queued in `MainApp.enqueue_mqtt_message(...)`.
+- `MainApp` drains queue on Tk main thread via `root.after(...)` pump.
+
 ## Local state testing without UI
 
 Use replay tool with JSONL:

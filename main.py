@@ -3,6 +3,7 @@ import datetime
 import json
 import logging
 import logger as log_setup
+from queue import Empty, Queue
 import time
 import sys
 
@@ -59,6 +60,8 @@ class MainApp:
         # Set up the root window
         self.root = root
         self.root.geometry(f"{self.settings.screen_width}x{self.settings.screen_height}")
+        self.mqtt_message_queue = Queue()
+        self.mqtt_queue_poll_interval_ms = 50
 
         # Set up system info
         self.system_info = self.checksystem()
@@ -95,6 +98,7 @@ class MainApp:
         signal.signal(signal.SIGINT, self.signal_handler)
 
         self.switch_to_idle()
+        self.start_mqtt_queue_pump()
         self.init_mqtt()
 
 
@@ -117,6 +121,28 @@ class MainApp:
     def init_mqtt(self):
         from mqtt_controller import MqttController
         self.mqtt_controller = MqttController(self, self.settings.mqtt_broker, self.settings.mqtt_port, self.settings.mqtt_user, self.settings.mqtt_password)
+
+    def enqueue_mqtt_message(self, topic, data):
+        self.mqtt_message_queue.put((topic, data))
+
+    def start_mqtt_queue_pump(self):
+        self.root.after(self.mqtt_queue_poll_interval_ms, self._pump_mqtt_queue)
+
+    def _pump_mqtt_queue(self):
+        handled = 0
+        while handled < 50:
+            try:
+                topic, data = self.mqtt_message_queue.get_nowait()
+            except Empty:
+                break
+
+            try:
+                self.on_mqtt_message(topic, data)
+            except Exception as exc:
+                logger.error(f"Error handling queued MQTT message ({topic}): {exc}")
+            handled += 1
+
+        self.root.after(self.mqtt_queue_poll_interval_ms, self._pump_mqtt_queue)
 
     def perform_action(self, interaction_type):
         self.publish_event("interaction.received", {"interaction_type": interaction_type})
