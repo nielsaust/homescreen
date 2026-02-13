@@ -164,7 +164,7 @@ class DisplayController:
 
     def show_show_slider(self,entity,title,type="light"):
         self.stop_menu_timer()
-        from slider_screen import SliderScreen
+        from app.ui.screens.slider_screen import SliderScreen
         SliderScreen(self.main_app,entity,title,type)
         
     def start_menu_timer(self):

@@ -180,6 +180,12 @@ This project now has a minimal core layer to support gradual migration to a stat
 - Added opt-in UI trace logging for screen transitions and widget mapping snapshots.
 - Trace data is emitted as `[ui-trace]` structured log lines for local diagnosis of delayed/blank Tk renders.
 
+## Slider screen move (Phase 8.7)
+
+- `slider_screen.py` implementation was moved to `app/ui/screens/slider_screen.py`.
+- `DisplayController` now imports `SliderScreen` from `app.ui.screens.slider_screen`.
+- Root `slider_screen.py` shim/implementation was removed.
+
 ## Local state testing without UI
 
 Use replay tool with JSONL:
