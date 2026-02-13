@@ -22,9 +22,29 @@ CORE_MODULES = [
     "weather_screen",
     "music_screen",
     "menu_screen",
+    "core.event_bus",
+    "core.events",
+    "core.reducer",
+    "core.state",
+    "core.store",
 ]
 
-CORE_FILES = [f"{name}.py" for name in CORE_MODULES]
+CORE_FILES = [
+    "main.py",
+    "settings.py",
+    "device_states.py",
+    "display_controller.py",
+    "touch_controller.py",
+    "mqtt_controller.py",
+    "weather_screen.py",
+    "music_screen.py",
+    "menu_screen.py",
+    "core/event_bus.py",
+    "core/events.py",
+    "core/reducer.py",
+    "core/state.py",
+    "core/store.py",
+]
 
 
 def _compile_files() -> list[str]:

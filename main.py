@@ -11,6 +11,10 @@ import psutil
 import signal
 import ping3
 
+from core.event_bus import EventBus
+from core.events import AppEvent
+from core.state import AppState
+from core.store import AppStore
 from device_states import DeviceStates
 from settings import Settings
 from sentry_setup import init_sentry
@@ -28,6 +32,9 @@ class MainApp:
         # load settings
         self.settings = Settings("settings.json")
         init_sentry(self.settings)
+        self.event_bus = EventBus()
+        self.store = AppStore(AppState())
+        self.event_bus.subscribe(self.store.dispatch)
 
         # Get the log level from settings and convert it to a logging level
         try:
@@ -55,12 +62,22 @@ class MainApp:
 
         # Set up system info
         self.system_info = self.checksystem()
+        self.publish_event(
+            "app.started",
+            {
+                "system_platform": self.system_info["system_platform"],
+                "is_desktop": self.system_info["is_desktop"],
+                "startup_queue_size": 0,
+                "version": getattr(self.settings, "version", None),
+            },
+        )
         self.music_object = None
         self.boot_time = time.time()
         self.time_last_action = time.time()
         self.bed_time_timeout_future = None
         self.music_pause_timeout = None
         self.startup_mqtt_messages = {self.settings.mqtt_topic_devices: self.update_device_states, self.settings.mqtt_topic_music: self.check_music_status}
+        self.publish_event("startup.queue.size", {"size": len(self.startup_mqtt_messages)})
 
         # LOGGING asyncio - Check to see if still needed
         asyncio_logger = logging.getLogger('asyncio')
@@ -90,9 +107,11 @@ class MainApp:
 
     def wait_for_internet_connection(self):
         while not self.is_internet_connected():
+            self.publish_event("network.status", {"online": False})
             logger.info("Waiting for an internet connection...")
             time.sleep(5)  # Wait for 5 seconds before checking again
 
+        self.publish_event("network.status", {"online": True})
         logger.info("Internet connection is available!")
 
     def init_mqtt(self):
@@ -100,6 +119,7 @@ class MainApp:
         self.mqtt_controller = MqttController(self, self.settings.mqtt_broker, self.settings.mqtt_port, self.settings.mqtt_user, self.settings.mqtt_password)
 
     def perform_action(self, interaction_type):
+        self.publish_event("interaction.received", {"interaction_type": interaction_type})
         logger.debug(f"Perform_action: {interaction_type}")
         current_time = time.time()
 
@@ -175,6 +195,7 @@ class MainApp:
 
     ###### SCREEENS ######
     def switch_to_idle(self,force=False):
+        self.publish_event("ui.screen.changed", {"screen": "weather" if self.settings.show_weather_on_idle else "off", "is_display_on": self.settings.show_weather_on_idle})
         if self.settings.show_weather_on_idle:
             self.display_controller.show_screen("weather", force=force)
         else:
@@ -182,12 +203,14 @@ class MainApp:
 
     def switch_to_music(self,force=False):
         if not self.display_controller.get_screen_state() == "menu" or force:
+            self.publish_event("ui.screen.changed", {"screen": "music", "is_display_on": True})
             logger.debug(f"Switch_to_music, current screen: {self.display_controller.get_screen_state()}")
             self.display_controller.show_screen("music", force=force)
 
 
     def switch_to_menu(self):
         if self.display_controller.menu_ready():
+            self.publish_event("ui.screen.changed", {"screen": "menu", "is_display_on": True})
             logger.debug(f"Menu ready; show menu")
             self.display_controller.show_screen("menu")
         else:
@@ -230,6 +253,7 @@ class MainApp:
                 logger.debug("The self.startup_mqtt_messages dictionary is empty.")
 
             logger.debug(f"Checked mqtt message queue (size: {len(self.startup_mqtt_messages)})")
+            self.publish_event("startup.queue.size", {"size": len(self.startup_mqtt_messages)})
     
     def update_device_states(self):
         logger.debug(f"Asking mqtt for device states")
@@ -252,6 +276,7 @@ class MainApp:
     def on_mqtt_message(self, topic, data):
         # prevent initial messages @ startup
         time_since_boot = time.time()-self.boot_time
+        self.publish_event("mqtt.message.received", {"topic": topic})
         logger.debug(f"On MQTT message: {topic}, with data: {data}")
         self.check_mqtt_message_queue(topic)
 
@@ -262,6 +287,13 @@ class MainApp:
         elif topic==self.settings.mqtt_topic_devices:
             try:
                 self.device_states.update_states(data)
+                self.publish_event(
+                    "device.state.updated",
+                    {
+                        "in_bed": self.device_states.in_bed,
+                        "printer_progress": self.device_states.printer_progress,
+                    },
+                )
                 self.display_controller.update_menu_states()
                 self.check_bed_time()
                 return
@@ -371,6 +403,14 @@ class MainApp:
             logging.info("music_object.%s = %r", key, value)
         
         logger.debug(f'{state} - {title}')
+        self.publish_event(
+            "music.updated",
+            {
+                "state": state,
+                "title": title,
+                "artist": artist,
+            },
+        )
 
         if(state!="playing"):
             self.switch_to_idle()
@@ -450,6 +490,17 @@ class MainApp:
         current_datetime = datetime.datetime.now()
         formatted_datetime = current_datetime.strftime("%d %b %Y - %H:%M")
         return formatted_datetime
+
+    def publish_event(self, event_type, payload=None, source="main"):
+        try:
+            event = AppEvent(
+                event_type=event_type,
+                payload=payload or {},
+                source=source,
+            )
+            self.event_bus.publish(event)
+        except Exception as exc:
+            logger.debug(f"Could not publish event '{event_type}': {exc}")
 
 if __name__ == "__main__":
     try:

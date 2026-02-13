@@ -23,3 +23,7 @@ More detail: `docs/testing.md`
 
 - Local logs: enabled by default
 - Optional Sentry: see `docs/observability.md`
+
+## Architecture
+
+- Core event/state skeleton: `docs/architecture.md`
