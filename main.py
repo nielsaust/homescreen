@@ -19,6 +19,7 @@ from core.state import AppState
 from core.store import AppStore
 from device_states import DeviceStates
 from app.controllers.mqtt_message_router import MqttMessageRouter
+from app.controllers.media_controller import MediaController
 from app.controllers.screen_state_controller import ScreenStateController
 from app.controllers.ui_intent_handler import UiIntentHandler
 from app.services.music_service import MusicService
@@ -180,6 +181,7 @@ class MainApp:
         self.display_controller = DisplayController(self)
         self.screen_state_controller = ScreenStateController(self)
         self.mqtt_message_router = MqttMessageRouter(self)
+        self.media_controller = MediaController(self)
         self.ui_intent_handler = UiIntentHandler(self)
         self.touch_controller.bind_events(self.root)
 
@@ -620,37 +622,16 @@ class MainApp:
 
     ###### MEDIA ######
     def show_music_overlays(self):
-        self.display_controller.show_music_overlays()
+        self.media_controller.show_music_overlays()
 
     def media_play_pause(self):
-        data = {
-            "action": "media-play-pause"
-        }
-        payload = json.dumps(data)
-        self.mqtt_controller.publish_action("media-play-pause")
-        if self.music_object and self.music_object.state=="playing":
-            self.display_controller.place_action_label(image="pause-white.png")
-        else:
-            self.display_controller.place_action_label(image="play-white.png")
+        self.media_controller.media_play_pause()
 
     def media_skip_song(self,next_previous):
-        if self.music_object and self.music_object.channel is None:
-            if next_previous=="next":
-                self.mqtt_controller.publish_action("media-next")
-                self.display_controller.place_action_label(image="forward-white.png")
-            else:
-                self.mqtt_controller.publish_action("media-previous")
-                self.display_controller.place_action_label(image="backward-white.png")
-        else:
-            logger.info("Can't skip song; radio is playing.")
+        self.media_controller.media_skip_song(next_previous)
 
     def media_volume(self,up_down):
-        if up_down=="up":
-            self.mqtt_controller.publish_action("media-volume-up")
-            self.display_controller.place_action_label(image="volume-up-white.png")
-        else:
-            self.mqtt_controller.publish_action("media-volume-down")
-            self.display_controller.place_action_label(image="volume-down-white.png")
+        self.media_controller.media_volume(up_down)
 
     def update_music_object(self, data):
         state = data.get('state')

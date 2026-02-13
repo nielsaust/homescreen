@@ -146,34 +146,33 @@ This project now has a minimal core layer to support gradual migration to a stat
 
 - Added `app/ui/screens/` package as the target namespace for screen modules.
 - `DisplayController` now imports screens from `app.ui.screens.*`.
-- Current screen modules are compatibility wrappers to keep behavior stable before physically moving screen implementations out of root.
+- Migration used temporary compatibility wrappers, later removed after stabilization.
 
 ## Weather screen move (Phase 8.1)
 
 - `weather_screen.py` implementation was moved to `app/ui/screens/weather_screen.py`.
-- Root `weather_screen.py` now acts as a backward-compatible shim import.
-- This keeps runtime behavior stable while reducing root-level module ownership.
+- Root shim was removed after migration stabilized.
 
 ## Music screen move (Phase 8.2)
 
 - `music_screen.py` implementation was moved to `app/ui/screens/music_screen.py`.
-- Root `music_screen.py` now acts as a backward-compatible shim import.
+- Root shim was removed after migration stabilized.
 
 ## Menu screen move (Phase 8.3)
 
 - `menu_screen.py` implementation was moved to `app/ui/screens/menu_screen.py`.
-- Root `menu_screen.py` now acts as a backward-compatible shim import.
+- Root shim was removed after migration stabilized.
 
 ## Off screen move (Phase 8.4)
 
 - `turned_off_screen.py` implementation was moved to `app/ui/screens/turned_off_screen.py`.
-- Root `turned_off_screen.py` now acts as a backward-compatible shim import.
+- Root shim was removed after migration stabilized.
 - Off-screen icon path now resolves via project root assets.
 
 ## Overlay screens move (Phase 8.5)
 
 - `cam_screen.py`, `calendar_screen.py`, `print_screen.py`, `alert_screen.py`, and `slideshow.py` implementations were moved to `app/ui/screens/`.
-- Root modules now act as backward-compatible shim imports.
+- Root shims were removed after migration stabilized.
 - `DisplayController` now imports all overlay screens from `app.ui.screens.*`.
 
 ## UI trace instrumentation (Phase 8.6)
