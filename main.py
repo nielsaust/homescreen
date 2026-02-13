@@ -536,6 +536,9 @@ class MainApp:
             self.print_memory_usage()
 
     def check_bed_time(self,force=False):
+        in_bed_before = bool(getattr(self.device_states, "in_bed", False))
+        display_before = self.display_controller.get_screen_state()
+        showing_before = bool(getattr(self.display_controller, "is_showing", False))
         if self.device_states.in_bed_changed or force:
             if self.device_states.in_bed:
                 self.display_controller.turn_off()  
@@ -544,6 +547,18 @@ class MainApp:
             self.device_states.in_bed_changed = False
 
         self.display_controller.check_idle()
+        log_event(
+            logger,
+            logging.INFO,
+            "display",
+            "power.sync_with_in_bed",
+            force=bool(force),
+            in_bed=in_bed_before,
+            screen_before=display_before,
+            showing_before=showing_before,
+            showing_after=bool(getattr(self.display_controller, "is_showing", False)),
+            screen_after=self.display_controller.get_screen_state(),
+        )
 
     def check_idle_timer(self,startnew=True):
         if self.bed_time_timeout_future:
