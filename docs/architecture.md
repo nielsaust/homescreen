@@ -106,6 +106,13 @@ This project now has a minimal core layer to support gradual migration to a stat
 - Tk-thread intent apply decides `switch_to_music()` vs `switch_to_idle()` based on music state.
 - Playback-state dedupe avoids repeated screen switch calls for unchanged state.
 
+## State-driven screen apply (Phase 6.3)
+
+- `ui.screen.changed` is now translated to a dedicated `ui.screen.changed` UI intent.
+- `switch_to_idle`, `switch_to_music`, and `switch_to_menu` publish intent-driving events only.
+- Tk-thread intent apply is now the single path that calls `display_controller.show_screen(...)` / `turn_off()`.
+- Screen intent dedupe keeps screen transitions stable and avoids repeated re-apply on identical state.
+
 ## Local state testing without UI
 
 Use replay tool with JSONL:
