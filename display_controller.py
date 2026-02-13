@@ -32,15 +32,15 @@ class DisplayController:
         self.current_overlay_label = None
         # overlapping screens
         
-        from cam_screen import CamScreen
+        from app.ui.screens.cam_screen import CamScreen
         self.cam_screen = CamScreen(self.main_app)
-        from calendar_screen import CalendarScreen
+        from app.ui.screens.calendar_screen import CalendarScreen
         self.calendar_screen = CalendarScreen(self.main_app)
-        from print_screen import PrintScreen
+        from app.ui.screens.print_screen import PrintScreen
         self.print_screen = PrintScreen(self.main_app)
-        from slideshow import SlideShow
+        from app.ui.screens.slideshow import SlideShow
         self.slideshow = SlideShow(self.main_app)
-        from alert_screen import AlertScreen
+        from app.ui.screens.alert_screen import AlertScreen
         self.alert_screen = AlertScreen(self.main_app)
 
         self.time_in_screen = time.time() - 1000 # offset for start

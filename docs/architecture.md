@@ -170,6 +170,12 @@ This project now has a minimal core layer to support gradual migration to a stat
 - Root `turned_off_screen.py` now acts as a backward-compatible shim import.
 - Off-screen icon path now resolves via project root assets.
 
+## Overlay screens move (Phase 8.5)
+
+- `cam_screen.py`, `calendar_screen.py`, `print_screen.py`, `alert_screen.py`, and `slideshow.py` implementations were moved to `app/ui/screens/`.
+- Root modules now act as backward-compatible shim imports.
+- `DisplayController` now imports all overlay screens from `app.ui.screens.*`.
+
 ## Local state testing without UI
 
 Use replay tool with JSONL:
