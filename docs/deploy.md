@@ -2,61 +2,76 @@
 
 ## Goal
 
-On every push to `main`, deploy the latest code to the Raspberry Pi and restart the app service.
+On updates to `main`, pull latest code on the Pi and restart the app safely.
 
-## Recommended setup
+## Files in this repo
 
-Use GitHub Actions as the trigger and SSH into the Pi.
+- Workflow (GitHub -> Pi over SSH): `.github/workflows/deploy-main-to-pi.yml`
+- Deploy script (runs on Pi): `tools/deploy_on_pi.sh`
+- `systemd` templates:
+  - `deploy/systemd/homescreen.service.example`
+  - `deploy/systemd/homescreen-deploy.service.example`
+  - `deploy/systemd/homescreen-deploy.timer.example`
 
-Why this setup:
-- simple and reliable
-- no inbound webhook listener needed on your home network
-- easy to audit in GitHub Actions logs
+## Option A: Pi listens (recommended for home networks)
 
-## Added in this repo
+This mode does not require inbound SSH from GitHub to your Pi.
+The Pi checks `main` every 2 minutes and deploys itself.
 
-- Workflow: `.github/workflows/deploy-main-to-pi.yml`
-- Pi deploy script: `tools/deploy_on_pi.sh`
-
-The script does:
-1. `git fetch` + `git pull --ff-only` on `main`
-2. installs/updates Python deps in `.venv`
-3. runs `make baseline`
-4. restarts `systemd` service (for example `homescreen.service`)
-
-## What to prepare in GitHub (Repository Secrets)
-
-1. `PI_HOST`: IP or hostname of the Pi
-2. `PI_USER`: SSH user on the Pi
-3. `PI_SSH_KEY`: private key (recommended: dedicated deploy key)
-4. `PI_APP_DIR`: absolute path of this repo on the Pi
-5. `PI_SERVICE_NAME`: systemd service name, for example `homescreen.service`
-
-## What to prepare on the Pi
-
-1. Repo cloned at `PI_APP_DIR`
-2. SSH public key from GitHub added to `~/.ssh/authorized_keys` for `PI_USER`
-3. `sudo` rights for restarting the service, for example:
-   - allow `systemctl restart <service>` without password for deploy user
-4. A working `systemd` unit for the app
-
-## First dry run
-
-Run on Pi directly:
+### 1) Install app service on Pi
 
 ```bash
-bash tools/deploy_on_pi.sh "/absolute/path/to/homescreen" "main" "homescreen.service"
+cd /home/pi/homescreen
+sudo cp deploy/systemd/homescreen.service.example /etc/systemd/system/homescreen.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now homescreen.service
 ```
 
-When this works, push to `main` and verify workflow run in GitHub Actions.
+### 2) Install deploy timer on Pi
 
-## Rollback strategy
+```bash
+cd /home/pi/homescreen
+sudo cp deploy/systemd/homescreen-deploy.service.example /etc/systemd/system/homescreen-deploy.service
+sudo cp deploy/systemd/homescreen-deploy.timer.example /etc/systemd/system/homescreen-deploy.timer
+sudo systemctl daemon-reload
+sudo systemctl enable --now homescreen-deploy.timer
+```
 
-Minimal rollback:
-1. SSH into Pi
-2. `cd $PI_APP_DIR`
-3. `git log --oneline -n 5`
-4. `git checkout <previous-commit>`
-5. `sudo systemctl restart $PI_SERVICE_NAME`
+### 3) Verify
 
-For safer production rollback later, we can move to release tags and pin deploys to tags.
+```bash
+systemctl status homescreen.service --no-pager
+systemctl status homescreen-deploy.timer --no-pager
+systemctl list-timers --all | grep homescreen-deploy
+```
+
+### 4) Dry run deploy
+
+```bash
+cd /home/pi/homescreen
+bash tools/deploy_on_pi.sh "/home/pi/homescreen" "main" "homescreen.service"
+```
+
+## Option B: GitHub Actions pushes deploy over SSH
+
+Use this only if your Pi is reachable from GitHub runners (public endpoint, VPN tunnel, or similar).
+
+Prepare repository secrets:
+1. `PI_HOST`
+2. `PI_USER`
+3. `PI_SSH_KEY`
+4. `PI_APP_DIR`
+5. `PI_SERVICE_NAME`
+
+Then push to `main`; workflow `.github/workflows/deploy-main-to-pi.yml` runs:
+1. SSH to Pi
+2. Execute `tools/deploy_on_pi.sh`
+
+## Rollback
+
+```bash
+cd /home/pi/homescreen
+git log --oneline -n 5
+git checkout <previous-commit>
+sudo systemctl restart homescreen.service
+```

@@ -3,7 +3,7 @@ set -euo pipefail
 
 APP_DIR="${1:-$PWD}"
 BRANCH="${2:-main}"
-SERVICE_NAME="${3:-homescreen.service}"
+SERVICE_NAME="${3-homescreen.service}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 echo "[deploy] app_dir=${APP_DIR}"
@@ -39,12 +39,17 @@ pip install -r requirements.txt
 echo "[deploy] running baseline checks"
 make baseline
 
-if command -v systemctl >/dev/null 2>&1; then
+if [[ -n "${SERVICE_NAME}" ]] && command -v systemctl >/dev/null 2>&1; then
   echo "[deploy] restarting ${SERVICE_NAME}"
-  sudo systemctl restart "${SERVICE_NAME}"
-  sudo systemctl --no-pager --full status "${SERVICE_NAME}" -n 20 || true
+  if [[ "${EUID}" -eq 0 ]]; then
+    systemctl restart "${SERVICE_NAME}"
+    systemctl --no-pager --full status "${SERVICE_NAME}" -n 20 || true
+  else
+    sudo systemctl restart "${SERVICE_NAME}"
+    sudo systemctl --no-pager --full status "${SERVICE_NAME}" -n 20 || true
+  fi
 else
-  echo "[deploy] systemctl not available; skipped restart"
+  echo "[deploy] restart skipped (no service name or systemctl unavailable)"
 fi
 
 echo "[deploy] completed"

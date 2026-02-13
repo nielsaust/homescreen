@@ -1,6 +1,6 @@
 PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 
-.PHONY: install baseline doctor smoke test-local test-device run net-down net-up net-status settings-check settings-update-example settings-update-local settings-prune-local-preview settings-prune-local
+.PHONY: install baseline doctor smoke test-local test-device run net-down net-up net-status settings-check settings-update-example settings-update-local settings-prune-local-preview settings-prune-local deploy-dry-run
 
 install:
 	bash tools/bootstrap.sh
@@ -45,3 +45,6 @@ settings-prune-local-preview:
 
 settings-prune-local:
 	$(PYTHON) tools/settings_sync.py prune-local --apply
+
+deploy-dry-run:
+	bash tools/deploy_on_pi.sh "$(PWD)" "main" ""
