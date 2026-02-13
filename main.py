@@ -13,6 +13,7 @@ import ping3
 
 from device_states import DeviceStates
 from settings import Settings
+from sentry_setup import init_sentry
 from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 
 import tkinter as tk
@@ -26,6 +27,7 @@ class MainApp:
         logger.info(f"========= NEW STARTUP @ {self.print_current_datetime()} =========")
         # load settings
         self.settings = Settings("settings.json")
+        init_sentry(self.settings)
 
         # Get the log level from settings and convert it to a logging level
         try:

@@ -18,3 +18,8 @@ make run
 - Device baseline (Pi): `make test-device`
 
 More detail: `docs/testing.md`
+
+## Observability
+
+- Local logs: enabled by default
+- Optional Sentry: see `docs/observability.md`
