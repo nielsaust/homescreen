@@ -153,6 +153,12 @@ This project now has a minimal core layer to support gradual migration to a stat
 - `menu_screen.py` implementation was moved to `app/ui/screens/menu_screen.py`.
 - Root `menu_screen.py` now acts as a backward-compatible shim import.
 
+## Off screen move (Phase 8.4)
+
+- `turned_off_screen.py` implementation was moved to `app/ui/screens/turned_off_screen.py`.
+- Root `turned_off_screen.py` now acts as a backward-compatible shim import.
+- Off-screen icon path now resolves via project root assets.
+
 ## Local state testing without UI
 
 Use replay tool with JSONL:
