@@ -22,6 +22,8 @@ from PIL import Image, ImageTk
 from io import BytesIO
 import aiohttp
 import asyncio
+import requests
+import certifi
 
 class MusicScreen:
     def __init__(self, main_app: MainApp, frame):
@@ -47,6 +49,7 @@ class MusicScreen:
         self.current_album_art_url = None
         self.loading_animation_frames = []
         self.loading_animation_frames_cycle = None  # This will be an iterator
+        self.current_album_art_request_id = 0
 
         self.create()
 
@@ -209,10 +212,86 @@ class MusicScreen:
         await self._current_task
 
     def load_image(self, image_url, num_of_tries=3):
-        # Run the async task within an asyncio loop
         if getattr(self.main_app, "music_debug_logging", False):
             logger.info("[music-screen] load_image start url=%s tries=%s", image_url, num_of_tries)
-        asyncio.run(self.run_image_task(image_url, num_of_tries))
+        self.current_album_art_request_id += 1
+        request_id = self.current_album_art_request_id
+        self.start_loading_animation()
+
+        thread = threading.Thread(
+            target=self._load_image_background,
+            args=(image_url, num_of_tries, request_id),
+            daemon=True,
+        )
+        thread.start()
+
+    def _resolve_ssl_verify_for_requests(self):
+        if not self.main_app.settings.verify_ssl_on_trusted_sources:
+            return False
+        try:
+            return certifi.where()
+        except Exception:
+            return True
+
+    def _load_image_background(self, url, max_retries, request_id):
+        verify = self._resolve_ssl_verify_for_requests()
+        image_bytes = None
+
+        for retry in range(max_retries):
+            try:
+                response = requests.get(url, timeout=10, verify=verify)
+                response.raise_for_status()
+                image_bytes = response.content
+                break
+            except requests.RequestException as e:
+                logger.error(
+                    "Error retrieving album art from Home Assistant API (Attempt %s/%s): %s",
+                    retry + 1,
+                    max_retries,
+                    e,
+                )
+
+        if image_bytes is None:
+            self.frame.after(0, lambda rid=request_id: self._apply_placeholder_if_current(rid))
+            return
+
+        self.frame.after(0, lambda data=image_bytes, image_url=url, rid=request_id: self._apply_remote_image_if_current(data, image_url, rid))
+
+    def _apply_remote_image_if_current(self, image_bytes, url, request_id):
+        if request_id != self.current_album_art_request_id:
+            return
+        try:
+            image = Image.open(BytesIO(image_bytes))
+            img_org_width, img_org_height = image.size
+            aspect_ratio = img_org_width / img_org_height
+            target_size = (self.main_app.settings.screen_width, math.floor(self.main_app.settings.screen_width / aspect_ratio))
+
+            new_image = image.resize(target_size, Image.LANCZOS)
+            new_size = (self.main_app.settings.screen_width, self.main_app.settings.screen_height)
+            if aspect_ratio != 1.0:
+                new_image.thumbnail(new_size, Image.LANCZOS)
+
+            self.album_art_image = ImageTk.PhotoImage(new_image)
+            self.album_art_label.configure(image=self.album_art_image)
+            self.current_album_art_url = url
+            if getattr(self.main_app, "music_debug_logging", False):
+                logger.info("[music-screen] loaded remote image successfully url=%s", url)
+        except Exception as e:
+            logger.error("Error applying album art image: %s", e)
+            self._apply_placeholder_if_current(request_id)
+            return
+        finally:
+            self.stop_loading_animation()
+            self.main_app.root.update_idletasks()
+
+    def _apply_placeholder_if_current(self, request_id):
+        if request_id != self.current_album_art_request_id:
+            return
+        self.stop_loading_animation()
+        if getattr(self.main_app, "music_debug_logging", False):
+            logger.info("[music-screen] using local placeholder image")
+        self.load_local_image(pathlib.Path(__file__).parent / 'images/no_album_art.jpeg')
+        self.main_app.root.update_idletasks()
 
     # Add this method to load and display a remote image
     async def load_and_display_remote_image(self, url, max_retries=3):

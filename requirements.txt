@@ -1,4 +1,5 @@
 aiohttp
+certifi
 frozenlist
 paho-mqtt
 ping3
