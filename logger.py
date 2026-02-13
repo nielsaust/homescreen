@@ -1,188 +1,175 @@
-import os
+from __future__ import annotations
+
 import logging
+import os
 import pathlib
+import sys
 from datetime import datetime, timedelta
+from typing import Iterable
+
+DEFAULT_DATE_FORMAT = "%Y-%m-%d"
+DEFAULT_MESSAGE_FORMAT = "%(asctime)s [%(name)s] %(levelname)s - %(message)s"
+DEFAULT_NOISY_LOGGERS = (
+    "PIL.PngImagePlugin",
+    "urllib3.connectionpool",
+)
+
+
+def _parse_level(value, default=logging.INFO) -> int:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        return int(getattr(logging, value.upper(), default))
+    return int(default)
+
 
 class ColoredFormatter(logging.Formatter):
     COLORS = {
-        logging.DEBUG: "\033[38;5;159m",    # Blue
-        logging.INFO: "\033[38;5;113m",     # Green
-        logging.WARNING: "\033[38;5;172m",  # Yellow
-        logging.ERROR: "\033[38;5;1m",    # Red
-        logging.CRITICAL: "\033[38;5;13m"  # Magenta
+        logging.DEBUG: "\033[38;5;159m",
+        logging.INFO: "\033[38;5;113m",
+        logging.WARNING: "\033[38;5;172m",
+        logging.ERROR: "\033[38;5;1m",
+        logging.CRITICAL: "\033[38;5;13m",
     }
-
     RESET = "\033[0m"
 
+    def __init__(self, fmt: str, *, use_colors: bool = True):
+        super().__init__(fmt)
+        self.use_colors = bool(use_colors)
+
     def format(self, record):
-        # Apply color based on log level
-        color = self.COLORS.get(record.levelno, self.RESET)
         message = super().format(record)
+        if not self.use_colors:
+            return message
+        color = self.COLORS.get(record.levelno, self.RESET)
         return f"{color}{message}{self.RESET}"
 
-class DateRotatingFileHandler(logging.FileHandler):
-    DATE_FORMAT = "%Y-%m-%d"
-    def __init__(self, log_path, log_file_path, fallback_log_path=None, mode='a', encoding=None, delay=False, *args, **kwargs):
-        self._in_rollover = False  # Add a flag to track rollover state
-        self.fallback_log_path = fallback_log_path
-        self.logger = None
-        self.log_path = log_path
-        self.current_date = datetime.now().strftime(self.DATE_FORMAT)
 
-        # Call the parent class constructor
-        super().__init__(log_file_path, mode, encoding, delay)
+class DateRotatingFileHandler(logging.FileHandler):
+    def __init__(
+        self,
+        log_dir: pathlib.Path,
+        *,
+        retention_days: int = 7,
+        mode: str = "a",
+        encoding: str | None = "utf-8",
+        delay: bool = False,
+    ):
+        self.log_dir = pathlib.Path(log_dir)
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+        self.retention_days = max(1, int(retention_days))
+        self.current_date = datetime.now().strftime(DEFAULT_DATE_FORMAT)
+        self.fallback_log_path = self.log_dir / "rollover_logs.txt"
+        self._in_rollover = False
+        super().__init__(self._build_log_filename(self.current_date), mode, encoding, delay)
 
     def emit(self, record):
         try:
-            today = datetime.now().strftime(self.DATE_FORMAT)
+            today = datetime.now().strftime(DEFAULT_DATE_FORMAT)
             if today != self.current_date:
-                self.doRollover(today)
-                self.current_date = today
+                self._rollover(today)
             super().emit(record)
-        except Exception as e:
-            self.log_to_fallback_file("[ERROR] Error during emit.", e)
+        except Exception as exc:
+            self._fallback_write("[ERROR] Error during emit", exc)
 
-    def doRollover(self, today):
+    def _rollover(self, today: str):
         if self._in_rollover:
-            self.log_to_fallback_file(f"Exiting re-entrant rollover.")
-            return  # Prevent re-entrant rollovers
-
+            self._fallback_write("[WARN] Ignoring re-entrant rollover")
+            return
         self._in_rollover = True
         try:
             if self.stream:
-                self.log_to_fallback_file("[INFO] Closing current log stream.")
                 self.stream.close()
                 self.stream = None
-
-            # Update base filename to the new date-based filename
-            log_file_path = DateRotatingFileHandler.get_log_filename(self.log_path, today)
-            self.baseFilename = log_file_path
-            self.stream = self._open()
-
-            # Clean up old logs
-            self.delete_old_logs()
+            self.baseFilename = self._build_log_filename(today)
             self.current_date = today
-
-            # Log to test and indicate successful rollover
-            self.log_to_fallback_file(f"[INFO] Opening new logger stream @ {log_file_path}.")
-        except Exception as e:
-            self.log_to_fallback_file(f"[ERROR] Error during rollover: ", e)
+            self.stream = self._open()
+            self._delete_old_logs()
+        except Exception as exc:
+            self._fallback_write("[ERROR] Error during rollover", exc)
         finally:
             self._in_rollover = False
 
-    def delete_old_logs(self):
-        cutoff_date = datetime.now() - timedelta(weeks=1)
-        fallback_name = pathlib.Path(self.fallback_log_path).name  # "rollover_logs.txt"
-        for log_file in pathlib.Path(self.log_path).glob("*.log"):
-            if log_file.name == fallback_name:
-                continue  # sla het fallback-bestand over
+    def _delete_old_logs(self):
+        cutoff = datetime.now() - timedelta(days=self.retention_days)
+        for log_file in self.log_dir.glob("*.log"):
             try:
-                file_date = datetime.strptime(log_file.stem, self.DATE_FORMAT)
-                if file_date < cutoff_date:
-                    self.log_to_fallback_file(f"[INFO] Deleting old log file: {log_file}")
+                if datetime.strptime(log_file.stem, DEFAULT_DATE_FORMAT) < cutoff:
                     log_file.unlink()
             except ValueError:
-                self.log_to_fallback_file(f"[WARN] Not deleting non-matching file: {log_file}")
-            except Exception as e:
-                self.log_to_fallback_file(f"[ERROR] Error deleting file {log_file}.", e)
+                # Ignore files that are not date-based logs.
+                continue
+            except Exception as exc:
+                self._fallback_write(f"[ERROR] Error deleting log file {log_file}", exc)
 
-    def create_log_directory(self):
+    def _build_log_filename(self, date_str: str) -> str:
+        return os.fspath(self.log_dir / f"{date_str}.log")
+
+    def _fallback_write(self, message: str, exc: Exception | None = None):
         try:
-            # alleen loggen als de map nog niet bestaat
-            if not os.path.exists(self.log_path):
-                os.makedirs(self.log_path)
-                self.log_to_fallback_file(f"[INFO] Created log directory: {self.log_path}")
-        except Exception as e:
-            # bij fouten (bijv. permissies) log je die
-            self.log_to_fallback_file("[ERROR] Error creating log directory.", e)
+            self.log_dir.mkdir(parents=True, exist_ok=True)
+            with open(self.fallback_log_path, "a", encoding="utf-8") as fh:
+                fh.write(f"{datetime.now().isoformat()} {message}\n")
+                if exc is not None:
+                    fh.write(f"Exception: {exc}\n")
+        except Exception:
+            # Last resort: avoid recursive logger usage in logger setup path.
+            print(message, file=sys.stderr)
+            if exc is not None:
+                print(exc, file=sys.stderr)
 
-    def log_to_fallback_file(self, message, exception=None):
-        """
-        Write a fallback log message directly to a file, bypassing the logging framework.
-        """
-        try:
-            with open(self.fallback_log_path, "a") as error_log:
-                error_log.write(f"{datetime.now()} - {message}\n")
-                if exception:
-                    error_log.write(f"Exception: {exception}\n")
-        except Exception as e:
-            # If even the fallback logging fails, print to console as a last resort
-            print(f"Critical error: Failed to write to fallback log: {e}")
-
-    @staticmethod
-    def get_log_filename(log_path, date=None):
-        try:
-            date_str = date or datetime.now().strftime(DateRotatingFileHandler.DATE_FORMAT)
-            filename = os.path.join(log_path, f"{date_str}.log")
-            return filename
-        except Exception as e:
-            DateRotatingFileHandler.log_to_fallback_file(f"Error generating log filename: ", e)
-            return None
-
-def _test_logging_setup(logger, log_path):
-    """
-    Test the logging setup and handle potential issues with the configuration.
-    """
-    logger.info("Testing logging setup...")
-    
-    # Check if the log handlers are correctly attached
-    date_handler = next((h for h in logger.handlers if isinstance(h, DateRotatingFileHandler)), None)
-    if not date_handler:
-        logger.error("DateRotatingFileHandler is not properly attached.")
-    else:
-        logger.info("DateRotatingFileHandler is properly attached.")
-
-        # Simulate a rollover test
-        test_date = (datetime.now() + timedelta(days=1)).strftime(DateRotatingFileHandler.DATE_FORMAT)
-        logger.info(f"Simulating log rollover for date: {test_date}")
-        date_handler.doRollover(test_date)
-
-        # Verify that the new log file is created
-        new_log_file = pathlib.Path(date_handler.baseFilename)
-        if new_log_file.exists():
-            logger.info(f"Log rollover successful. New log file created: {new_log_file}")
-        else:
-            logger.error(f"Log rollover failed. New log file not created: {new_log_file}")
-
-    # Log final test message
-    logger.info("Logging setup test completed.")
 
 def setup_logging():
-    log_level = logging.DEBUG
-    log_path = pathlib.Path(__file__).parent / 'logs'
-    log_file_name = DateRotatingFileHandler.get_log_filename(log_path)
-    log_file_path = pathlib.Path(log_file_name)
-    formatter = ColoredFormatter("%(asctime)s [%(name)s] %(levelname)s - %(message)s")
-    fallback_log_path = log_path / "rollover_logs.txt"  # geef je fallback geen .log-extensie
-
     root_logger = logging.getLogger()
-    handler = None  # initialiseer altijd
+    if getattr(root_logger, "_homescreen_logging_configured", False):
+        return
 
-    # date-based filehandler alleen toevoegen als hij nog niet bestaat
-    if not any(isinstance(h, DateRotatingFileHandler) for h in root_logger.handlers):
-        handler = DateRotatingFileHandler(log_path, log_file_path, fallback_log_path)
-        handler.setFormatter(formatter)
-        handler.logger = root_logger
-        # maak de map aan, en log alleen als het echt nieuw is
-        if not log_path.exists():
-            log_path.mkdir(parents=True)
-            root_logger.info(f"Created log directory: {log_path}")
-        root_logger.addHandler(handler)
-        root_logger.setLevel(log_level)
+    project_root = pathlib.Path(__file__).parent
+    log_dir = project_root / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
 
-    # console handler slechts één keer toevoegen
-    if not any(isinstance(h, logging.StreamHandler) for h in root_logger.handlers):
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(log_level)
-        console_handler.setFormatter(formatter)
-        root_logger.addHandler(console_handler)
+    file_handler = DateRotatingFileHandler(log_dir, retention_days=7)
+    file_handler._homescreen_handler = "file"
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(logging.Formatter(DEFAULT_MESSAGE_FORMAT))
+    root_logger.addHandler(file_handler)
 
-    # oude logs opruimen (alleen op nieuw aangemaakte handler)
-    if handler is not None:
-        try:
-            handler.delete_old_logs()
-        except Exception:
-            root_logger.exception("Error during initial log cleanup")
+    console_handler = logging.StreamHandler()
+    console_handler._homescreen_handler = "console"
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(
+        ColoredFormatter(
+            DEFAULT_MESSAGE_FORMAT,
+            use_colors=bool(getattr(sys.stderr, "isatty", lambda: False)()),
+        )
+    )
+    root_logger.addHandler(console_handler)
 
-    # Test logging setup
-    #_test_logging_setup(logger, log_path)
+    root_logger.setLevel(logging.DEBUG)
+    root_logger._homescreen_logging_configured = True
+
+
+def apply_runtime_logging_policy(settings):
+    root_logger = logging.getLogger()
+    root_level = _parse_level(getattr(settings, "log_level", "INFO"), logging.INFO)
+    console_level = _parse_level(getattr(settings, "console_log_level", "INFO"), logging.INFO)
+    file_level = _parse_level(getattr(settings, "file_log_level", "DEBUG"), logging.DEBUG)
+
+    root_logger.setLevel(root_level)
+    for handler in root_logger.handlers:
+        handler_name = getattr(handler, "_homescreen_handler", None)
+        if handler_name == "console":
+            handler.setLevel(console_level)
+        elif handler_name == "file":
+            handler.setLevel(file_level)
+        else:
+            handler.setLevel(root_level)
+
+    noisy_debug_enabled = bool(getattr(settings, "log_noisy_third_party_debug", False))
+    noisy_logger_names: Iterable[str] = tuple(getattr(settings, "log_noisy_loggers", DEFAULT_NOISY_LOGGERS))
+    for logger_name in noisy_logger_names:
+        target_logger = logging.getLogger(str(logger_name))
+        if noisy_debug_enabled:
+            target_logger.setLevel(logging.DEBUG)
+        else:
+            target_logger.setLevel(logging.WARNING)

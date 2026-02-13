@@ -57,6 +57,14 @@ def _before_send(event: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any]:
     return event
 
 
+def _level_from_settings(value: Any, default: int) -> int:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        return int(getattr(logging, value.upper(), default))
+    return int(default)
+
+
 def init_sentry(settings: Any) -> bool:
     enabled = bool(getattr(settings, "do_sentry_logging", False))
     dsn = str(getattr(settings, "sentry_dsn", "") or "").strip()
@@ -81,9 +89,12 @@ def init_sentry(settings: Any) -> bool:
     traces_sample_rate = float(getattr(settings, "sentry_traces_sample_rate", 0.0))
     send_default_pii = bool(getattr(settings, "sentry_send_default_pii", False))
 
+    breadcrumbs_level = _level_from_settings(getattr(settings, "sentry_breadcrumb_level", "INFO"), logging.INFO)
+    event_level = _level_from_settings(getattr(settings, "sentry_event_level", "ERROR"), logging.ERROR)
+
     logging_integration = LoggingIntegration(
-        level=logging.INFO,
-        event_level=logging.ERROR,
+        level=breadcrumbs_level,
+        event_level=event_level,
     )
 
     sentry_sdk.init(
@@ -101,5 +112,11 @@ def init_sentry(settings: Any) -> bool:
     )
 
     sentry_sdk.set_tag("platform", "homescreen")
-    logger.info("Sentry initialized (env=%s, release=%s).", environment, release)
+    logger.info(
+        "Sentry initialized (env=%s, release=%s, breadcrumbs=%s, event=%s).",
+        environment,
+        release,
+        logging.getLevelName(breadcrumbs_level),
+        logging.getLevelName(event_level),
+    )
     return True

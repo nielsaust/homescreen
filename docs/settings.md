@@ -42,6 +42,15 @@ make settings-prune-local
 4. Run `make settings-check` to confirm both files are aligned.
 5. Optionally run `make settings-prune-local-preview` and `make settings-prune-local` to remove stale local-only keys.
 
+## Logging-related settings
+
+Useful runtime keys:
+- `log_level`: root logger level
+- `console_log_level`: console/journal verbosity
+- `file_log_level`: date-based file log verbosity
+- `log_noisy_third_party_debug`: enable noisy third-party debug logs
+- `log_noisy_loggers`: list of logger names to treat as noisy
+
 ## Secret safety
 
 - `settings.json` is gitignored.

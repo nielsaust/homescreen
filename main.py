@@ -69,27 +69,18 @@ class MainApp:
         logger.info(f"========= NEW STARTUP @ {self.print_current_datetime()} =========")
         # load settings
         self.settings = Settings("settings.json")
+        log_setup.apply_runtime_logging_policy(self.settings)
         init_sentry(self.settings)
         self.event_bus = EventBus()
         self.store = AppStore(AppState())
         self.event_bus.subscribe(self.store.dispatch)
 
-        # Get the log level from settings and convert it to a logging level
-        try:
-            log_level_str = self.settings.log_level.upper()
-            log_level = getattr(logging, log_level_str, logging.DEBUG)
-
-            tmp_logger = logging.getLogger()
-            tmp_logger.setLevel(log_level)
-            logger.info(f"Log level set to: {log_level_str} ({log_level})")
-
-            # Update handler levels
-            for handler in tmp_logger.handlers:
-                logger.debug(f"Log handlerlevel set to: {log_level_str} ({log_level})")
-                handler.setLevel(log_level)
-                
-        except Exception as e:
-            logger.error(f"Error setting log level: {e}")
+        logger.info(
+            "Log policy applied (root=%s, console=%s, file=%s)",
+            getattr(self.settings, "log_level", "INFO"),
+            getattr(self.settings, "console_log_level", "INFO"),
+            getattr(self.settings, "file_log_level", "DEBUG"),
+        )
 
         # Wait for an internet connection
         self.wait_for_internet_connection()

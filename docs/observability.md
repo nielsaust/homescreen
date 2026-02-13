@@ -17,6 +17,8 @@ Add these settings in `settings.json`:
   "do_sentry_logging": true,
   "sentry_dsn": "https://<public_key>@o<org>.ingest.sentry.io/<project_id>",
   "sentry_environment": "development",
+  "sentry_breadcrumb_level": "INFO",
+  "sentry_event_level": "ERROR",
   "sentry_traces_sample_rate": 0.0,
   "sentry_send_default_pii": false
 }
@@ -24,6 +26,8 @@ Add these settings in `settings.json`:
 
 Recommended values:
 - `do_sentry_logging`: `true` on test/prod devices, `false` when debugging offline
+- `sentry_breadcrumb_level`: default `INFO`; set to `WARNING` on noisy devices
+- `sentry_event_level`: keep `ERROR` (or `CRITICAL` for very strict signal-only mode)
 - `sentry_traces_sample_rate`: start with `0.0` (errors only), later `0.05` if you want performance traces
 - `sentry_send_default_pii`: keep `false` unless you explicitly need user identifiers
 
@@ -44,6 +48,24 @@ Collect:
 
 - Logging events at `ERROR` and above are forwarded to Sentry.
 - A redaction filter masks common sensitive fields (`password`, `token`, `secret`, `authorization`, `api_key`, `dsn`) before sending.
+
+## Local Log Verbosity
+
+For local verbosity control, these settings are available:
+
+```json
+{
+  "log_level": "INFO",
+  "console_log_level": "INFO",
+  "file_log_level": "DEBUG",
+  "log_noisy_third_party_debug": false,
+  "log_noisy_loggers": ["PIL.PngImagePlugin", "urllib3.connectionpool"]
+}
+```
+
+- `console_log_level`: keep lower noise on Pi terminal/journal.
+- `file_log_level`: usually `DEBUG` to preserve diagnostics in log files.
+- `log_noisy_third_party_debug`: when `false`, noisy third-party loggers are set to `WARNING`.
 
 ## UI Trace Logging (local diagnosis)
 

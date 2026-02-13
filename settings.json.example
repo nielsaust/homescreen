@@ -1,9 +1,18 @@
 {
     "version": "0.1.2",
     "log_level": "DEBUG",
+    "console_log_level": "INFO",
+    "file_log_level": "DEBUG",
+    "log_noisy_third_party_debug": false,
+    "log_noisy_loggers": [
+        "PIL.PngImagePlugin",
+        "urllib3.connectionpool"
+    ],
     "do_sentry_logging": false,
     "sentry_dsn": "",
     "sentry_environment": "development",
+    "sentry_breadcrumb_level": "INFO",
+    "sentry_event_level": "ERROR",
     "sentry_traces_sample_rate": 0.0,
     "sentry_send_default_pii": false,
     "startup_wait_for_internet_seconds": 10,
