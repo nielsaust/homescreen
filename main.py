@@ -20,6 +20,7 @@ from core.store import AppStore
 from device_states import DeviceStates
 from app.controllers.mqtt_message_router import MqttMessageRouter
 from app.controllers.screen_state_controller import ScreenStateController
+from app.controllers.ui_intent_handler import UiIntentHandler
 from app.services.music_service import MusicService
 from app.ui.widgets.network_status_widget import NetworkStatusWidget
 from settings import Settings
@@ -100,11 +101,6 @@ class MainApp:
         self.ui_intent_poll_interval_ms = 50
         self.ui_trace_logging = _to_bool(getattr(self.settings, "ui_trace_logging", False), False)
         self.ui_trace_followup_ms = int(getattr(self.settings, "ui_trace_followup_ms", 80) or 80)
-        self._last_network_ui_state = None
-        self._last_cached_weather_label_text = None
-        self._last_music_ui_signature = None
-        self._last_music_playback_state = None
-        self._last_screen_ui_signature = None
         self.mqtt_queue_poll_interval_ms = 50
         self.mqtt_controller = DeferredMqttController()
         self.mqtt_initialized = False
@@ -184,6 +180,7 @@ class MainApp:
         self.display_controller = DisplayController(self)
         self.screen_state_controller = ScreenStateController(self)
         self.mqtt_message_router = MqttMessageRouter(self)
+        self.ui_intent_handler = UiIntentHandler(self)
         self.touch_controller.bind_events(self.root)
 
         # Register the signal handler for Ctrl-C
@@ -351,136 +348,7 @@ class MainApp:
         self.root.after(self.ui_intent_poll_interval_ms, self._pump_ui_intents)
 
     def _apply_ui_intent(self, intent):
-        intent_type = intent.get("type")
-        if intent_type == "network.status":
-            online = intent.get("online")
-            if online is None or online == self._last_network_ui_state:
-                return
-            self._last_network_ui_state = online
-            self.update_network_status_ui(online)
-            return
-
-        if intent_type == "weather.cache.status":
-            weather_screen = self.display_controller.screen_objects.get("weather")
-            if weather_screen is None:
-                return
-
-            source = intent.get("source")
-            cached_at_text = intent.get("cached_at_text")
-            if source == "cache" and cached_at_text:
-                if cached_at_text == self._last_cached_weather_label_text:
-                    return
-                self._last_cached_weather_label_text = cached_at_text
-                weather_screen.show_cached_weather_label(cached_at_text)
-            else:
-                if self._last_cached_weather_label_text is None:
-                    return
-                self._last_cached_weather_label_text = None
-                weather_screen.hide_cached_weather_label()
-            return
-
-        if intent_type == "music.render":
-            signature = (
-                intent.get("state"),
-                intent.get("title"),
-                intent.get("artist"),
-                intent.get("channel"),
-                intent.get("album"),
-                intent.get("album_art_api_url"),
-            )
-            if signature == self._last_music_ui_signature:
-                return
-            self._last_music_ui_signature = signature
-
-            music_screen = self.display_controller.screen_objects.get("music")
-            if music_screen is None:
-                return
-            music_screen.apply_state_update(
-                state=intent.get("state"),
-                title=intent.get("title"),
-                artist=intent.get("artist"),
-                channel=intent.get("channel"),
-                album=intent.get("album"),
-                album_art_api_url=intent.get("album_art_api_url"),
-            )
-            return
-
-        if intent_type == "ui.music.playback":
-            playback_state = intent.get("state")
-            if playback_state == self._last_music_playback_state:
-                return
-            self._last_music_playback_state = playback_state
-            current_screen = self.display_controller.get_screen_state()
-            menu_open = current_screen == "menu"
-            if playback_state == "playing":
-                self._cancel_music_pause_timeout()
-                self.switch_to_music()
-            elif playback_state == "paused":
-                if not menu_open:
-                    self._schedule_music_pause_idle()
-            else:
-                self._cancel_music_pause_timeout()
-                if not menu_open:
-                    self.switch_to_idle()
-            return
-
-        if intent_type == "ui.screen.changed":
-            screen = intent.get("screen")
-            is_display_on = bool(intent.get("is_display_on"))
-            force = bool(intent.get("force", False))
-            self.trace_ui_event(
-                "ui.screen.intent",
-                screen=screen,
-                is_display_on=is_display_on,
-                force=force,
-            )
-            signature = (screen, is_display_on)
-            if not force and signature == self._last_screen_ui_signature:
-                return
-            self._last_screen_ui_signature = signature
-
-            if not is_display_on or screen == "off":
-                self.display_controller.turn_off()
-                return
-            if screen == "weather":
-                self.display_controller.show_screen("weather", force=force)
-                return
-            if screen == "music":
-                self.display_controller.show_screen("music", force=force)
-                return
-            if screen == "menu":
-                self.display_controller.show_screen("menu", force=force)
-                return
-            logger.warning("Unknown screen intent received: %s", screen)
-            return
-
-        if intent_type == "menu.refresh":
-            self.display_controller.update_menu_states()
-            return
-
-        if intent_type == "menu.navigate":
-            command = intent.get("command")
-            if command == "page_prev":
-                self.display_controller.switch_menu_page(-1)
-                return
-            if command == "page_next":
-                self.display_controller.switch_menu_page(1)
-                return
-            if command == "back":
-                self.display_controller.menu_back()
-                return
-            if command == "exit":
-                self.display_controller.exit_menu()
-                return
-            logger.warning("Unknown menu navigation command: %s", command)
-            return
-
-        if intent_type == "ui.overlay.requested":
-            command = intent.get("command")
-            handled = self.display_controller.handle_overlay_command(command, intent)
-            if not handled:
-                logger.warning("Unknown overlay command: %s", command)
-            return
+        self.ui_intent_handler.apply(intent)
 
     def _network_sim_flag_path(self):
         return pathlib.Path(__file__).parent / ".sim" / "network_down.flag"
