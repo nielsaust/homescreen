@@ -8,6 +8,7 @@ import time
 import tkinter as tk
 from PIL import Image, ImageTk
 from hyperpixel_backlight import Backlight
+from app.controllers.overlay_manager import OverlayManager
 
 class DisplayController:
     def __init__(self, main_app):
@@ -26,8 +27,7 @@ class DisplayController:
         self._create_base_screens()
 
         self.current_overlay_label = None
-        # overlapping screens
-        self._create_overlay_screens()
+        self.overlay_manager = OverlayManager(self.main_app)
 
         self.time_in_screen = time.time() - 1000 # offset for start
 
@@ -41,18 +41,6 @@ class DisplayController:
     def _create_base_screens(self):
         for screen_name in ("off", "weather", "music", "menu"):
             self.create_screen(screen_name)
-
-    def _create_overlay_screens(self):
-        from app.ui.screens.cam_screen import CamScreen
-        self.cam_screen = CamScreen(self.main_app)
-        from app.ui.screens.calendar_screen import CalendarScreen
-        self.calendar_screen = CalendarScreen(self.main_app)
-        from app.ui.screens.print_screen import PrintScreen
-        self.print_screen = PrintScreen(self.main_app)
-        from app.ui.screens.slideshow import SlideShow
-        self.slideshow = SlideShow(self.main_app)
-        from app.ui.screens.alert_screen import AlertScreen
-        self.alert_screen = AlertScreen(self.main_app)
 
     def create_screen(self, screen_name):
         # Create a frame for the screen
@@ -84,11 +72,7 @@ class DisplayController:
             menu_screen.exit_menu()
 
     def close_open_windows(self):
-        self.print_screen.destroy()
-        self.cam_screen.destroy()
-        self.calendar_screen.destroy()
-        self.alert_screen.destroy()
-        self.slideshow.destroy()
+        self.overlay_manager.close_open_windows()
 
     def show_fullscreen_image(self, image):
         menu_screen = self.screen_objects.get("menu")
@@ -96,21 +80,15 @@ class DisplayController:
             menu_screen.show_fullscreen_image(image)
 
     def open_slideshow(self):
-        if self.slideshow:
-            self.close_open_windows()
-            self.slideshow.show()
+        self.overlay_manager.open_slideshow()
 
     def show_cam(self, data, url, username=None, password=None):
-        if self.cam_screen:
-            self.close_open_windows()
-            self.cam_screen.show(data, url, username, password)
-            self.check_idle(True)
+        self.overlay_manager.show_cam(data, url, username, password)
+        self.check_idle(True)
 
     def show_calendar(self,data):
-        if self.calendar_screen:
-            self.close_open_windows()
-            self.calendar_screen.show(data)
-            self.check_idle(True)
+        self.overlay_manager.show_calendar(data)
+        self.check_idle(True)
 
     def show_alert(self, data):
         """
@@ -119,38 +97,35 @@ class DisplayController:
         """
         logger.debug(f"show_alert(data: {data})")
 
-        if self.alert_screen:
-            self.close_open_windows()
-            self.alert_screen.show(data)
-            self.check_idle(True)
+        self.overlay_manager.show_alert(data)
+        self.check_idle(True)
 
     def close_alert_screen(self):
-        if self.alert_screen:
-            self.alert_screen.destroy()
+        self.overlay_manager.close_alert_screen()
 
     def show_print_status(self,progress,reset=False):
-        if self.print_screen and progress is not None:
-            self.close_open_windows()
-            self.print_screen.show(progress)
+        self.overlay_manager.show_print_status(progress, reset)
+        if progress is not None:
             self.check_idle(True)
-            if reset:
-                self.print_screen.cancel_blink()
 
     def close_print_screen(self):
-        if self.print_screen:
-            self.print_screen.destroy()
+        self.overlay_manager.close_print_screen()
 
     def update_print_progress(self,progress):
-        if self.print_screen and self.print_screen.is_showing:
-            self.print_screen.update(progress)
+        self.overlay_manager.update_print_progress(progress)
 
     def print_screen_attention(self):
-        if self.print_screen and self.main_app.settings.printer_screen_blink_on_complete:
-            self.print_screen.blink_percentage()
+        self.overlay_manager.print_screen_attention()
 
     def cancel_attention(self):
-        if self.print_screen and self.print_screen.is_blinking:
-            self.print_screen.cancel_blink()
+        self.overlay_manager.cancel_attention()
+
+    @property
+    def cam_screen(self):
+        return self.overlay_manager.cam_screen
+
+    def is_cam_showing(self):
+        return self.overlay_manager.is_cam_showing()
 
     def show_show_slider(self,entity,title,type="light"):
         self.stop_menu_timer()
