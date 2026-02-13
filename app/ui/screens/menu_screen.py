@@ -310,6 +310,18 @@ class MenuScreen:
         
         if(max_movement>min_movement):
             logger.debug(f"Will not be seen as button click; moved more than {min_movement} ({max_movement})")
+            # Consume menu widget event and route swipe explicitly so root handlers
+            # do not need to receive this event.
+            x_abs = abs(x_dir)
+            y_abs = abs(y_dir)
+            if x_abs > y_abs and x_dir > min_movement:
+                self.main_app.perform_action("left")
+            elif x_abs > y_abs and x_dir < min_movement:
+                self.main_app.perform_action("right")
+            elif x_abs < y_abs and y_dir > min_movement:
+                self.main_app.perform_action("down")
+            elif x_abs < y_abs and y_dir < min_movement:
+                self.main_app.perform_action("up")
             return "break"
 
         sub_button_amount = 0
