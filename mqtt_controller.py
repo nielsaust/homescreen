@@ -22,7 +22,11 @@ class MqttController:
         self.username = username
         self.password = password
         self.client = mqtt.Client()
-        self.reconnect_interval = 10  # Reconnect every 10 seconds
+        self.reconnect_interval = max(1, int(getattr(self.main_app.settings, "mqtt_reconnect_interval_seconds", 2)))
+        self.reconnect_max_interval = max(
+            self.reconnect_interval,
+            int(getattr(self.main_app.settings, "mqtt_reconnect_max_interval_seconds", 60)),
+        )
         self.running = True
 
         # Set up callback functions for MQTT events
@@ -40,17 +44,28 @@ class MqttController:
 
     def connect_to_broker(self):
         """Attempts to connect to the broker."""
+        retry_delay = self.reconnect_interval
         while self.running:
+            if hasattr(self.main_app, "is_network_available") and not self.main_app.is_network_available(timeout=1):
+                logger.warning("Network unavailable; delaying MQTT connect attempt.")
+                if hasattr(self.main_app, "publish_event"):
+                    self.main_app.publish_event("network.status", {"online": False}, source="mqtt")
+                time.sleep(retry_delay)
+                retry_delay = min(self.reconnect_max_interval, retry_delay * 2)
+                continue
             try:
                 self.client.connect(self.broker_address, self.broker_port, 60)
                 logger.info("Successfully connected to the MQTT broker.")
+                if hasattr(self.main_app, "publish_event"):
+                    self.main_app.publish_event("network.status", {"online": True}, source="mqtt")
                 break
             except socket.error as e:
                 logger.error(f"Socket error. Broker: {self.broker_address}, error: {e}")
             except Exception as e:
                 logger.error(f"Unexpected exception during MQTT connection: {e}")
-            time.sleep(self.reconnect_interval)
-            logger.warning("Could not connect to the MQTT broker. Retrying...")
+            time.sleep(retry_delay)
+            retry_delay = min(self.reconnect_max_interval, retry_delay * 2)
+            logger.warning("Could not connect to the MQTT broker. Retrying in %ss...", retry_delay)
 
     def custom_loop_start(self):
         self.thread = threading.Thread(target=self.custom_loop)
@@ -68,21 +83,35 @@ class MqttController:
 
     def reconnect(self):
         """Attempts to reconnect to the MQTT broker with retries."""
+        retry_delay = self.reconnect_interval
         while self.running:
+            if hasattr(self.main_app, "is_network_available") and not self.main_app.is_network_available(timeout=1):
+                logger.warning("Network unavailable; delaying MQTT reconnect attempt.")
+                if hasattr(self.main_app, "publish_event"):
+                    self.main_app.publish_event("network.status", {"online": False}, source="mqtt")
+                time.sleep(retry_delay)
+                retry_delay = min(self.reconnect_max_interval, retry_delay * 2)
+                continue
             try:
                 self.client.reconnect()
                 logger.info("Reconnected to the MQTT broker.")
+                if hasattr(self.main_app, "publish_event"):
+                    self.main_app.publish_event("network.status", {"online": True}, source="mqtt")
                 break
             except Exception as e:
                 logger.error(f"MQTT reconnect failed: {e}")
-                time.sleep(self.reconnect_interval)
+                time.sleep(retry_delay)
+                retry_delay = min(self.reconnect_max_interval, retry_delay * 2)
 
     def handle_message(self, topic, payload):
         """Processes incoming MQTT messages and logs any deserialization issues."""
         if payload:
             try:
                 data = json.loads(payload)
-                self.main_app.on_mqtt_message(topic, data)
+                if hasattr(self.main_app, "enqueue_mqtt_message"):
+                    self.main_app.enqueue_mqtt_message(topic, data)
+                else:
+                    self.main_app.on_mqtt_message(topic, data)
             except json.JSONDecodeError as e:
                 logger.error(f"Error in MQTT payload ({payload if payload is not None else 'None'}): {e}")
 

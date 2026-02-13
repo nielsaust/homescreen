@@ -21,7 +21,10 @@ class Settings:
                     #logger.debug(f"Loading variable '{key}' = {value}")
                     setattr(self, key, value)
         except FileNotFoundError:
-            logger.critical(f"Settings file '{json_file}' not found. Be sure to copy 'settings.json.example' and edit it to your needs. to 'settings.json' before you edit. You can do this with the command: cp settings.py.example settings.py")
+            logger.critical(
+                f"Settings file '{json_file}' not found. Copy 'settings.json.example' to "
+                f"'settings.json' first. Example: cp settings.json.example settings.json"
+            )
             sys.exit(1)
         except json.JSONDecodeError as e:
             logger.critical(f"Error parsing JSON: {e}. Check your settings.json file.")
@@ -29,12 +32,21 @@ class Settings:
 
     def save_settings(self):
         try:
+            serializable = self.to_serializable_dict()
             with open(self.json_file, 'w') as file:
-                # Serialize the current attributes of the instance
-                json.dump(self.__dict__, file, indent=4)
+                json.dump(serializable, file, indent=4)
             logger.info(f"Settings successfully saved to '{self.json_file}'.")
         except Exception as e:
             logger.error(f"Error saving settings: {e}")
+
+    def to_serializable_dict(self):
+        data = {}
+        for key, value in self.__dict__.items():
+            # Runtime/internal fields should not be persisted to settings.json
+            if key == "json_file" or key.startswith("_"):
+                continue
+            data[key] = value
+        return data
 
     def __repr__(self):
         # Show all settings dynamically

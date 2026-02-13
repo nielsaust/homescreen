@@ -1,0 +1,10 @@
+class OverlayCommand:
+    OPEN_SLIDESHOW = "open_slideshow"
+    SHOW_CAM = "show_cam"
+    SHOW_CALENDAR = "show_calendar"
+    SHOW_ALERT = "show_alert"
+    SHOW_PRINT_STATUS = "show_print_status"
+    UPDATE_PRINT_PROGRESS = "update_print_progress"
+    PRINT_SCREEN_ATTENTION = "print_screen_attention"
+    CLOSE_PRINT_SCREEN = "close_print_screen"
+    CANCEL_ATTENTION = "cancel_attention"

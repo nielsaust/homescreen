@@ -1,0 +1,10 @@
+[Unit]
+Description=Homescreen Deploy (pull main + restart app)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+WorkingDirectory=/home/pi/homescreen
+ExecStart=/usr/bin/bash /home/pi/homescreen/tools/deploy_on_pi.sh /home/pi/homescreen main homescreen.service

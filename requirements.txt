@@ -1,8 +1,10 @@
-paho-mqtt
 aiohttp
-yarl
+certifi
 frozenlist
-requests
-aiohttp
-psutil
+paho-mqtt
+ping3
 pillow
+psutil
+requests
+sentry-sdk
+yarl

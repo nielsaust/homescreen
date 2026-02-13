@@ -1,14 +1,12 @@
-import math
-import os
-import pathlib
-import sys
 import logging
 logger = logging.getLogger(__name__)
 
 import time
 import tkinter as tk
-from PIL import Image, ImageTk
 from hyperpixel_backlight import Backlight
+from app.controllers.overlay_commands import OverlayCommand
+from app.controllers.overlay_manager import OverlayManager
+from app.ui.ui_render_service import UiRenderService
 
 class DisplayController:
     def __init__(self, main_app):
@@ -18,30 +16,15 @@ class DisplayController:
         self._screen_state = None
         self.screens = {}
         self.screen_objects = {}
-        self.action_labels = []
 
         # Create screens
         self.music_screen = None
         self.menu_screen = None
         # switching/state screens
-        self.create_screen("off")
-        self.create_screen("weather")
-        self.create_screen("music")
-        self.create_screen("menu")
+        self._create_base_screens()
 
-        self.current_overlay_label = None
-        # overlapping screens
-        
-        from cam_screen import CamScreen
-        self.cam_screen = CamScreen(self.main_app)
-        from calendar_screen import CalendarScreen
-        self.calendar_screen = CalendarScreen(self.main_app)
-        from print_screen import PrintScreen
-        self.print_screen = PrintScreen(self.main_app)
-        from slideshow import SlideShow
-        self.slideshow = SlideShow(self.main_app)
-        from alert_screen import AlertScreen
-        self.alert_screen = AlertScreen(self.main_app)
+        self.overlay_manager = OverlayManager(self.main_app)
+        self.ui_render = UiRenderService(self.main_app)
 
         self.time_in_screen = time.time() - 1000 # offset for start
 
@@ -52,6 +35,10 @@ class DisplayController:
             self.backlight = Backlight()
             self.main_app.root.attributes("-fullscreen", True)
 
+    def _create_base_screens(self):
+        for screen_name in ("off", "weather", "music", "menu"):
+            self.create_screen(screen_name)
+
     def create_screen(self, screen_name):
         # Create a frame for the screen
         frame_background_color = self.main_app.settings.menu_background_color.get(screen_name)
@@ -60,16 +47,16 @@ class DisplayController:
         screen_frame = tk.Frame(self.main_app.root, bg=frame_background_color)
         # Add widgets and logic specific to each screen here
         if screen_name == "off":
-            from turned_off_screen import TurnedOffScreen
+            from app.ui.screens.turned_off_screen import TurnedOffScreen
             screen_object = TurnedOffScreen(self.main_app,screen_frame)
         elif screen_name == "weather":         
-            from weather_screen import WeatherScreen   
+            from app.ui.screens.weather_screen import WeatherScreen
             screen_object = WeatherScreen(self.main_app,screen_frame,self.main_app.settings.weather_api_key, self.main_app.settings.weather_city_id, self.main_app.settings.weather_langage)
         elif screen_name == "music":
-            from music_screen import MusicScreen
+            from app.ui.screens.music_screen import MusicScreen
             screen_object = MusicScreen(self.main_app,screen_frame)
         elif screen_name == "menu":
-            from menu_screen import MenuScreen
+            from app.ui.screens.menu_screen import MenuScreen
             screen_object = MenuScreen(self.main_app,screen_frame)
         
         # Store the screen frame in the dictionary
@@ -82,11 +69,7 @@ class DisplayController:
             menu_screen.exit_menu()
 
     def close_open_windows(self):
-        self.print_screen.destroy()
-        self.cam_screen.destroy()
-        self.calendar_screen.destroy()
-        self.alert_screen.destroy()
-        self.slideshow.destroy()
+        self.overlay_manager.close_open_windows()
 
     def show_fullscreen_image(self, image):
         menu_screen = self.screen_objects.get("menu")
@@ -94,21 +77,15 @@ class DisplayController:
             menu_screen.show_fullscreen_image(image)
 
     def open_slideshow(self):
-        if self.slideshow:
-            self.close_open_windows()
-            self.slideshow.show()
+        self.overlay_manager.open_slideshow()
 
     def show_cam(self, data, url, username=None, password=None):
-        if self.cam_screen:
-            self.close_open_windows()
-            self.cam_screen.show(data, url, username, password)
-            self.check_idle(True)
+        self.overlay_manager.show_cam(data, url, username, password)
+        self.check_idle(True)
 
     def show_calendar(self,data):
-        if self.calendar_screen:
-            self.close_open_windows()
-            self.calendar_screen.show(data)
-            self.check_idle(True)
+        self.overlay_manager.show_calendar(data)
+        self.check_idle(True)
 
     def show_alert(self, data):
         """
@@ -117,42 +94,77 @@ class DisplayController:
         """
         logger.debug(f"show_alert(data: {data})")
 
-        if self.alert_screen:
-            self.close_open_windows()
-            self.alert_screen.show(data)
-            self.check_idle(True)
+        self.overlay_manager.show_alert(data)
+        self.check_idle(True)
 
     def close_alert_screen(self):
-        if self.alert_screen:
-            self.alert_screen.destroy()
+        self.overlay_manager.close_alert_screen()
 
     def show_print_status(self,progress,reset=False):
-        if self.print_screen and progress is not None:
-            self.close_open_windows()
-            self.print_screen.show(progress)
+        self.overlay_manager.show_print_status(progress, reset)
+        if progress is not None:
             self.check_idle(True)
-            if reset:
-                self.print_screen.cancel_blink()
 
     def close_print_screen(self):
-        if self.print_screen:
-            self.print_screen.destroy()
+        self.overlay_manager.close_print_screen()
 
     def update_print_progress(self,progress):
-        if self.print_screen and self.print_screen.is_showing:
-            self.print_screen.update(progress)
+        self.overlay_manager.update_print_progress(progress)
 
     def print_screen_attention(self):
-        if self.print_screen and self.main_app.settings.printer_screen_blink_on_complete:
-            self.print_screen.blink_percentage()
+        self.overlay_manager.print_screen_attention()
 
     def cancel_attention(self):
-        if self.print_screen and self.print_screen.is_blinking:
-            self.print_screen.cancel_blink()
+        self.overlay_manager.cancel_attention()
+
+    @property
+    def cam_screen(self):
+        return self.overlay_manager.cam_screen
+
+    def is_cam_showing(self):
+        return self.overlay_manager.is_cam_showing()
+
+    def handle_overlay_command(self, command, payload):
+        if command == OverlayCommand.OPEN_SLIDESHOW:
+            self.open_slideshow()
+            return True
+        if command == OverlayCommand.SHOW_CAM:
+            self.show_cam(
+                payload.get("data") or {},
+                payload.get("url"),
+                payload.get("username"),
+                payload.get("password"),
+            )
+            return True
+        if command == OverlayCommand.SHOW_CALENDAR:
+            self.show_calendar(payload.get("data") or {})
+            return True
+        if command == OverlayCommand.SHOW_ALERT:
+            self.show_alert(payload.get("data") or {})
+            return True
+        if command == OverlayCommand.SHOW_PRINT_STATUS:
+            self.show_print_status(
+                payload.get("progress"),
+                bool(payload.get("reset", False)),
+            )
+            return True
+        if command == OverlayCommand.UPDATE_PRINT_PROGRESS:
+            self.update_print_progress(payload.get("progress"))
+            return True
+        if command == OverlayCommand.PRINT_SCREEN_ATTENTION:
+            self.print_screen_attention()
+            return True
+        if command == OverlayCommand.CLOSE_PRINT_SCREEN:
+            self.close_print_screen()
+            return True
+        if command == OverlayCommand.CANCEL_ATTENTION:
+            self.cancel_attention()
+            return True
+        return False
 
     def show_show_slider(self,entity,title,type="light"):
         self.stop_menu_timer()
-        from slider_screen import SliderScreen
+        from app.ui.screens.slider_screen import SliderScreen
         SliderScreen(self.main_app,entity,title,type)
         
     def start_menu_timer(self):
@@ -167,58 +179,101 @@ class DisplayController:
 
     def show_screen(self, screen_name, init=False, force=False):
         time_between_switches = time.time() - self.time_in_screen
+        self._trace_ui(
+            "screen.show.request",
+            screen=screen_name,
+            force=force,
+            current=self.get_screen_state(),
+            time_between_switches=round(time_between_switches, 4),
+        )
         logger.debug(f"show_screen({screen_name}) time_between_switches: {time_between_switches} - forced = {force}")
-        if (time_between_switches<self.main_app.settings.min_time_between_actions and not force):
-            logger.warning(f"Switched screens too fast ({time_between_switches}ms); could result in errors so abording. (self.current_screen = {self.current_screen})")
+        if self._should_block_screen_switch(time_between_switches, force, screen_name):
             return
 
         self._screen_state = screen_name
-        # Hide the current screen if there is one and it's not the same as currently active
-        allow_forget = (self.current_screen is not None) and (self.current_screen!=self.screens.get(screen_name))
-        if allow_forget:
-            logger.debug(f"forgetting {self.current_screen}")
-            self.current_screen.pack_forget()
-            self.force_screen_update()
-        else:
-            logger.debug(f"can't forget {self.current_screen} for it is the current screen already")
+        self._hide_current_screen_for_switch(screen_name)
 
         # Show the selected screen
         self.previous_screen = self.current_screen
         self.current_screen = self.screens.get(screen_name)
-        if self.current_screen:
-            logger.debug(f"Showing {screen_name}")
-            screen_object = None
-            try:
-                logger.debug(f"trying get screen object of {screen_name}")
-                screen_object = self.screen_objects.get(screen_name)
-            except Exception as e:
-                logger.error(f"Error getting screen object {screen_name}: {e}")
-
-            if screen_object:
-                try:
-                    logger.debug(f"trying to show {screen_name}")
-                    if(screen_object.show()):
-                        logger.info(f"Showing {screen_name} screen")
-                        self.current_screen.pack(fill=tk.BOTH, expand=True)
-                        self.time_in_screen = time.time()
-                        logger.debug(f"screen_object {screen_object} at {screen_object.__class__.__name__} created and updated ({self.time_in_screen})")
-                    else:
-                        self.current_screen = self.previous_screen
-                        logger.error(f"Error showing screen {screen_name}")
-                except Exception as e:
-                    logger.error(f"Error creating screen {screen_name}: {e}")
-            else:
-                logger.error(f"No screen object ({screen_name}) to show/found in self.screen_objects {self.screen_objects}")
-        else:
+        if self.current_screen is None:
             logger.error(f"No current screen; screen '{screen_name}' was not yet created")
+        elif not self._show_selected_screen(screen_name):
+            self.current_screen = self.previous_screen
 
-        self.check_idle()
+        if screen_name != "off":
+            self.check_idle()
         self.force_screen_update()
+        self._trace_widget_state("screen.after_force_update", self.current_screen)
+
+    def _should_block_screen_switch(self, time_between_switches, force, screen_name):
+        if time_between_switches < self.main_app.settings.min_time_between_actions and not force:
+            logger.warning(
+                f"Switched screens too fast ({time_between_switches}ms); could result in errors so abording. (self.current_screen = {self.current_screen})"
+            )
+            self._trace_ui("screen.show.blocked_too_fast", screen=screen_name)
+            return True
+        return False
+
+    def _hide_current_screen_for_switch(self, screen_name):
+        allow_forget = (self.current_screen is not None) and (self.current_screen != self.screens.get(screen_name))
+        if allow_forget:
+            logger.debug(f"forgetting {self.current_screen}")
+            self._trace_widget_state("screen.before_forget", self.current_screen)
+            self.current_screen.pack_forget()
+            self.force_screen_update()
+            self._trace_widget_state("screen.after_forget", self.current_screen)
+        else:
+            logger.debug(f"can't forget {self.current_screen} for it is the current screen already")
+
+    def _show_selected_screen(self, screen_name):
+        logger.debug(f"Showing {screen_name}")
+        screen_object = self._get_screen_object(screen_name)
+        if screen_object is None:
+            logger.error(f"No screen object ({screen_name}) to show/found in self.screen_objects {self.screen_objects}")
+            return False
+
+        try:
+            logger.debug(f"trying to show {screen_name}")
+            show_ok = bool(screen_object.show())
+            self._trace_ui("screen.object.show", screen=screen_name, show_ok=show_ok)
+            if not show_ok:
+                logger.error(f"Error showing screen {screen_name}")
+                return False
+
+            logger.info(f"Showing {screen_name} screen")
+            self.current_screen.pack(fill=tk.BOTH, expand=True)
+            self.time_in_screen = time.time()
+            self._trace_widget_state("screen.after_pack", self.current_screen)
+            self._schedule_trace_widget_state("screen.after_delay", self.current_screen)
+            logger.debug(
+                f"screen_object {screen_object} at {screen_object.__class__.__name__} created and updated ({self.time_in_screen})"
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Error creating screen {screen_name}: {e}")
+            return False
+
+    def _get_screen_object(self, screen_name):
+        try:
+            logger.debug(f"trying get screen object of {screen_name}")
+            return self.screen_objects.get(screen_name)
+        except Exception as e:
+            logger.error(f"Error getting screen object {screen_name}: {e}")
+            return None
 
     def show_music_overlays(self):
         music_screen = self.screen_objects.get("music")
-        if(music_screen and self.get_screen_state()=="music"):
-            music_screen.show_overlays()
+        if music_screen and self.get_screen_state() == "music":
+            obj = getattr(self.main_app, "music_object", None)
+            if obj is None:
+                return
+            music_screen.show_overlays(
+                getattr(obj, "artist", None),
+                getattr(obj, "title", None),
+                getattr(obj, "album", None),
+                getattr(obj, "channel", None),
+            )
 
     def clear_album_art(self):
         music_screen = self.screen_objects.get("music")
@@ -255,60 +310,19 @@ class DisplayController:
                 menu_screen.back()
 
     def force_screen_update(self):
-        if(self.main_app.settings.force_update):
-            logger.debug("Forcing screen update")
-            self.main_app.root.update()
-            self.main_app.root.update_idletasks()
-        else:
-            logger.debug("Not forcing screen update; force_update is false")
+        self.ui_render.force_screen_update()
+
+    def _trace_ui(self, event_name, **fields):
+        self.ui_render.trace_ui(event_name, **fields)
+
+    def _trace_widget_state(self, event_name, widget):
+        self.ui_render.trace_widget_state(event_name, widget)
+
+    def _schedule_trace_widget_state(self, event_name, widget):
+        self.ui_render.schedule_trace_widget_state(event_name, widget)
 
     def place_action_label(self, text=None, anchor="center", image=None, bg='black', fg='white', bordercolor='black'): 
-        if self.main_app.settings.show_feedback_label_timeout==0:
-            logger.info(f"Settings disallow for feedback label to be shown.")   
-            return
-        
-        def remove(label):
-            self.action_labels.remove(label)
-            label.destroy()
-
-        label_options = {
-            "fg": fg,
-            "bg": bg,
-            "padx": self.main_app.settings.feedback_label_padx,
-            "pady": self.main_app.settings.feedback_label_pady,
-            "wraplength": self.main_app.settings.feedback_label_width-10,
-            "highlightbackground": bordercolor,
-            "highlightthickness": self.main_app.settings.feedback_label_border,
-        }
-
-        if text is not None:
-            label_options["text"] = text
-            label_options["compound"] = "top"
-            label_options["font"] = "Helvetica 20"
-
-        label = tk.Label(self.main_app.root, **label_options)
-        self.current_overlay_label = label
-
-        if image is not None:
-            image_path= os.fspath(pathlib.Path(__file__).parent / f'images/buttons/{image}')
-            image = Image.open(image_path)
-            image = image.resize(self.main_app.settings.feedback_icon_size)
-            label_image = ImageTk.PhotoImage(image)
-            label.image = label_image
-            label.configure(image=label_image,width=self.main_app.settings.feedback_label_width,height=self.main_app.settings.feedback_label_height)
-        
-        label_x = math.floor((self.main_app.settings.screen_width-self.main_app.settings.feedback_label_width)/2)-self.main_app.settings.feedback_label_border
-        label_y = math.floor((self.main_app.settings.screen_height-self.main_app.settings.feedback_label_height)/2)-self.main_app.settings.feedback_label_border
-        
-        if anchor!="center":
-            label.place(x=self.main_app.root.winfo_width() - label.winfo_reqwidth(), y=self.main_app.root.winfo_height() - label.winfo_reqheight())
-        else:
-            label.place(x=label_x, y=label_y)
-
-        self.action_labels.append(label)
-
-        # Destroy the label after 3 seconds
-        self.current_overlay_label_timeout = self.main_app.root.after(self.main_app.settings.show_feedback_label_timeout, lambda: remove(label))
+        self.ui_render.place_action_label(text, anchor, image, bg, fg, bordercolor)
 
     def check_idle(self,turn_on=False):
         screen = self.get_screen_state()
@@ -334,7 +348,7 @@ class DisplayController:
         logger.info("turning screeen off")
         self.is_showing = False
         self.close_open_windows()
-        if not self.main_app.settings.show_weather_on_idle:
+        if not self.main_app.settings.show_weather_on_idle and self.get_screen_state() != "off":
             self.show_screen("off")
         if(not self.main_app.system_info["is_desktop"]):
             self.backlight.set_power(False)
@@ -342,4 +356,3 @@ class DisplayController:
     # Getter method for screen_state
     def get_screen_state(self):
         return self._screen_state
-
