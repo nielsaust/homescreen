@@ -71,3 +71,14 @@ Then run app and reproduce play/skip behavior.
 Share log lines containing:
 - `[music] ...`
 - `[music-screen] ...`
+
+With debug enabled, periodic counters are logged, for example:
+- `received`
+- `coalesced`
+- `dropped`
+- `applied`
+- `art_requests`
+- `art_success`
+- `art_stale_dropped`
+- `art_placeholder`
+- `art_errors`

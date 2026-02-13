@@ -72,6 +72,11 @@ This project now has a minimal core layer to support gradual migration to a stat
 - Metadata/art updates remain debounced/coalesced.
 - This keeps play/pause/track state responsive while reducing event-burst churn.
 
+## Music stale-art guard + counters (Phase 5.8)
+
+- Album-art apply now validates track signature before rendering to avoid stale images.
+- Music pipeline and artwork counters are tracked and periodically logged.
+
 ## Local state testing without UI
 
 Use replay tool with JSONL:

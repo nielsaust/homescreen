@@ -60,3 +60,27 @@ class MusicService:
 
     def has_transport_update(self, payload: dict[str, Any]) -> bool:
         return "state" in payload
+
+    def art_signature(self, payload_or_obj: Any) -> tuple[Any, ...]:
+        if isinstance(payload_or_obj, dict):
+            title = payload_or_obj.get("title")
+            artist = payload_or_obj.get("artist")
+            channel = payload_or_obj.get("channel")
+            album = payload_or_obj.get("album")
+            album_art_api_url = payload_or_obj.get("album_art_api_url")
+        else:
+            title = getattr(payload_or_obj, "title", None)
+            artist = getattr(payload_or_obj, "artist", None)
+            channel = getattr(payload_or_obj, "channel", None)
+            album = getattr(payload_or_obj, "album", None)
+            album_art_api_url = getattr(payload_or_obj, "album_art_api_url", None)
+
+        if not artist and channel:
+            artist = channel
+
+        return (
+            title,
+            artist,
+            album,
+            album_art_api_url,
+        )

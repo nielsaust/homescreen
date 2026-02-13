@@ -108,6 +108,20 @@ class MainApp:
         )
         self.music_debug_logging = _to_bool(getattr(self.settings, "music_debug_logging", False), False)
         self.music_update_seq = 0
+        self.music_metrics = {
+            "received": 0,
+            "coalesced": 0,
+            "dropped": 0,
+            "applied": 0,
+            "art_requests": 0,
+            "art_success": 0,
+            "art_stale_dropped": 0,
+            "art_placeholder": 0,
+            "art_errors": 0,
+        }
+        self.music_metrics_interval_ms = int(
+            (getattr(self.settings, "music_metrics_log_interval_seconds", 30) or 30) * 1000
+        )
         logger.info("[music] debug logging enabled=%s", self.music_debug_logging)
         self.network_status_widget = NetworkStatusWidget(self.root, self.settings.feedback_icon_size)
         network_interval = int(
@@ -157,6 +171,7 @@ class MainApp:
         self.switch_to_idle()
         self.start_mqtt_queue_pump()
         self.start_network_status_poll()
+        self.start_music_metrics_log()
         self.maybe_init_mqtt_if_online()
 
 
@@ -265,6 +280,7 @@ class MainApp:
         self.root.after(self.mqtt_queue_poll_interval_ms, self._pump_mqtt_queue)
 
     def queue_music_update(self, data):
+        self.record_music_metric("received")
         self.music_update_seq += 1
         update_seq = self.music_update_seq
         self.log_music_debug(
@@ -287,6 +303,7 @@ class MainApp:
             self.pending_music_payload = normalized
         else:
             # Merge partial updates so fast event bursts don't drop fields.
+            self.record_music_metric("coalesced")
             self.pending_music_payload.update(normalized)
         self.log_music_debug(f"[music] pending merged seq={update_seq}", self.pending_music_payload)
         if self.music_update_after_id:
@@ -306,8 +323,10 @@ class MainApp:
         self.log_music_debug("[music] resolved payload", resolved_payload)
         if not self.music_service.should_process(resolved_payload, drop_duplicates=self.music_drop_duplicate_payloads):
             self.log_music_debug("[music] duplicate payload dropped", resolved_payload)
+            self.record_music_metric("dropped")
             return
         self.log_music_debug("[music] applying payload", resolved_payload)
+        self.record_music_metric("applied")
         self.update_music_object(resolved_payload)
         self.display_controller.update_menu_states()
 
@@ -712,6 +731,19 @@ class MainApp:
             logger.info("%s :: %s", message, json.dumps(payload, default=str, ensure_ascii=False))
         except Exception:
             logger.info("%s :: %s", message, payload)
+
+    def record_music_metric(self, key, amount=1):
+        if key not in self.music_metrics:
+            self.music_metrics[key] = 0
+        self.music_metrics[key] += amount
+
+    def start_music_metrics_log(self):
+        self.root.after(self.music_metrics_interval_ms, self._log_music_metrics)
+
+    def _log_music_metrics(self):
+        if self.music_debug_logging:
+            self.log_music_debug("[music] metrics", self.music_metrics)
+        self.root.after(self.music_metrics_interval_ms, self._log_music_metrics)
 
 if __name__ == "__main__":
     try:
