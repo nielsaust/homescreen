@@ -12,3 +12,4 @@ __pycache__/
 logs/*.log
 logs/rollover_logs.txt
 settings.json
+.sim/

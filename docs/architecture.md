@@ -28,6 +28,13 @@ This project now has a minimal core layer to support gradual migration to a stat
 - MQTT messages are queued in `MainApp.enqueue_mqtt_message(...)`.
 - `MainApp` drains queue on Tk main thread via `root.after(...)` pump.
 
+## Network resilience + simulation (Phase 4)
+
+- Startup internet wait is bounded (`startup_wait_for_internet_seconds`).
+- App can continue in degraded mode when internet is unavailable.
+- MQTT connect/reconnect uses exponential backoff with configurable min/max intervals.
+- Network outage can be simulated via `.sim/network_down.flag` (see `tools/network_sim.py`).
+
 ## Local state testing without UI
 
 Use replay tool with JSONL:

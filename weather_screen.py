@@ -197,13 +197,20 @@ class WeatherScreen:
         self.api_failure_count += 1
         logger.error(f"API request failed after {self.main_app.settings.weather_api_call_direct_retries} retries. Failure count: {self.api_failure_count}")
 
-        # Trigger reboot if failure count reaches the limit
+        # Handle repeated failures with configurable action (default: no restart)
         if self.main_app.settings.weather_api_call_reboot_after_retries>0 and self.api_failure_count >= self.main_app.settings.weather_api_call_reboot_after_retries:
-            logger.critical("API failure count exceeded limit. Triggering system reboot.")
-            if self.main_app.settings.restart_program_style == 'application':
+            failure_action = getattr(self.main_app.settings, "weather_api_failure_action", "none")
+            logger.critical(
+                "API failure count exceeded limit (%s). Recovery action: %s",
+                self.main_app.settings.weather_api_call_reboot_after_retries,
+                failure_action,
+            )
+            if failure_action == "reboot":
                 self.main_app.touch_controller.reboot(ask=True)
+            elif failure_action == "restart_app":
+                self.main_app.touch_controller.quit_app()
             else:
-                self.main_app.touch_controller.quit_app(ask=False)
+                logger.warning("Keeping app running in degraded weather mode.")
             
         return None
 
