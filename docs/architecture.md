@@ -77,6 +77,12 @@ This project now has a minimal core layer to support gradual migration to a stat
 - Album-art apply now validates track signature before rendering to avoid stale images.
 - Music pipeline and artwork counters are tracked and periodically logged.
 
+## Music split (Phase 5.9)
+
+- `music_screen.py` now focuses on Tk render/orchestration.
+- Album-art HTTP fetch logic moved to `app/services/music_art_service.py`.
+- Overlay text composition/sanitization moved to `app/viewmodels/music_view_model.py`.
+
 ## Local state testing without UI
 
 Use replay tool with JSONL:
