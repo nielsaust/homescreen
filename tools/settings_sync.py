@@ -90,6 +90,32 @@ def get_nested(data: dict[str, Any], path: str) -> Any:
     return cur
 
 
+def delete_nested(data: dict[str, Any], path: str) -> bool:
+    parts = path.split(".")
+    cur: Any = data
+    stack: list[tuple[dict[str, Any], str]] = []
+    for part in parts[:-1]:
+        if not isinstance(cur, dict) or part not in cur:
+            return False
+        stack.append((cur, part))
+        cur = cur[part]
+
+    if not isinstance(cur, dict) or parts[-1] not in cur:
+        return False
+
+    del cur[parts[-1]]
+
+    # Cleanup empty parent dicts up the chain.
+    while stack:
+        parent, key = stack.pop()
+        child = parent.get(key)
+        if isinstance(child, dict) and len(child) == 0:
+            del parent[key]
+        else:
+            break
+    return True
+
+
 def order_like_template(target: Any, template: Any) -> Any:
     """Recursively order target dict keys to match template key order first."""
     if not isinstance(target, dict):
@@ -204,6 +230,39 @@ def command_update_local() -> int:
     return 0
 
 
+def command_prune_local(apply: bool) -> int:
+    try:
+        local = load_json(LOCAL_FILE)
+        example = load_json(EXAMPLE_FILE)
+    except ValueError as exc:
+        print(f"[settings-sync][error] {exc}")
+        return 1
+
+    local_paths = flatten_paths(local)
+    example_paths = flatten_paths(example)
+    extra_paths = sorted(set(local_paths) - set(example_paths))
+
+    print("[settings-sync] prune-local")
+    print(f"- extra keys in settings.json: {len(extra_paths)}")
+    if extra_paths:
+        for path in extra_paths:
+            print(f"  - {path}")
+
+    if not apply:
+        print("\n[settings-sync] dry-run only. Use '--apply' to remove these keys from settings.json.")
+        return 0
+
+    removed = 0
+    for path in extra_paths:
+        if delete_nested(local, path):
+            removed += 1
+
+    local = order_like_template(local, example)
+    save_json(LOCAL_FILE, local)
+    print(f"[settings-sync] removed {removed} keys from {LOCAL_FILE.name}")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Sync and check settings files")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -211,6 +270,15 @@ def main() -> int:
     sub.add_parser("check", help="Show key/type differences")
     sub.add_parser("update-example", help="Add missing keys from settings.json to settings.json.example")
     sub.add_parser("update-local", help="Add missing keys from settings.json.example to settings.json")
+    prune_local = sub.add_parser(
+        "prune-local",
+        help="Preview/remove keys in settings.json that do not exist in settings.json.example",
+    )
+    prune_local.add_argument(
+        "--apply",
+        action="store_true",
+        help="Actually remove extra keys from settings.json (default is dry-run preview).",
+    )
 
     args = parser.parse_args()
     if args.command == "check":
@@ -219,6 +287,8 @@ def main() -> int:
         return command_update_example()
     if args.command == "update-local":
         return command_update_local()
+    if args.command == "prune-local":
+        return command_prune_local(apply=bool(args.apply))
     return 1
 
 
