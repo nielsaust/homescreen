@@ -13,6 +13,33 @@ DEFAULT_NOISY_LOGGERS = (
     "PIL.PngImagePlugin",
     "urllib3.connectionpool",
 )
+DEFAULT_LOG_PROFILE = "default"
+DEFAULT_LOG_PROFILES = {
+    "default": {
+        "log_level": "INFO",
+        "console_log_level": "INFO",
+        "file_log_level": "DEBUG",
+        "log_noisy_third_party_debug": False,
+    },
+    "dev": {
+        "log_level": "DEBUG",
+        "console_log_level": "DEBUG",
+        "file_log_level": "DEBUG",
+        "log_noisy_third_party_debug": False,
+    },
+    "pi": {
+        "log_level": "INFO",
+        "console_log_level": "INFO",
+        "file_log_level": "INFO",
+        "log_noisy_third_party_debug": False,
+    },
+    "quiet": {
+        "log_level": "WARNING",
+        "console_log_level": "WARNING",
+        "file_log_level": "INFO",
+        "log_noisy_third_party_debug": False,
+    },
+}
 
 
 def _parse_level(value, default=logging.INFO) -> int:
@@ -21,6 +48,12 @@ def _parse_level(value, default=logging.INFO) -> int:
     if isinstance(value, str):
         return int(getattr(logging, value.upper(), default))
     return int(default)
+
+
+def _resolve_profile(settings):
+    profile_name = str(getattr(settings, "log_profile", DEFAULT_LOG_PROFILE) or DEFAULT_LOG_PROFILE).strip().lower()
+    profile = DEFAULT_LOG_PROFILES.get(profile_name, DEFAULT_LOG_PROFILES[DEFAULT_LOG_PROFILE])
+    return profile_name, profile
 
 
 class ColoredFormatter(logging.Formatter):
@@ -151,9 +184,11 @@ def setup_logging():
 
 def apply_runtime_logging_policy(settings):
     root_logger = logging.getLogger()
-    root_level = _parse_level(getattr(settings, "log_level", "INFO"), logging.INFO)
-    console_level = _parse_level(getattr(settings, "console_log_level", "INFO"), logging.INFO)
-    file_level = _parse_level(getattr(settings, "file_log_level", "DEBUG"), logging.DEBUG)
+    profile_name, profile = _resolve_profile(settings)
+
+    root_level = _parse_level(getattr(settings, "log_level", profile["log_level"]), logging.INFO)
+    console_level = _parse_level(getattr(settings, "console_log_level", profile["console_log_level"]), logging.INFO)
+    file_level = _parse_level(getattr(settings, "file_log_level", profile["file_log_level"]), logging.DEBUG)
 
     root_logger.setLevel(root_level)
     for handler in root_logger.handlers:
@@ -165,7 +200,9 @@ def apply_runtime_logging_policy(settings):
         else:
             handler.setLevel(root_level)
 
-    noisy_debug_enabled = bool(getattr(settings, "log_noisy_third_party_debug", False))
+    noisy_debug_enabled = bool(
+        getattr(settings, "log_noisy_third_party_debug", profile["log_noisy_third_party_debug"])
+    )
     noisy_logger_names: Iterable[str] = tuple(getattr(settings, "log_noisy_loggers", DEFAULT_NOISY_LOGGERS))
     for logger_name in noisy_logger_names:
         target_logger = logging.getLogger(str(logger_name))
@@ -173,3 +210,17 @@ def apply_runtime_logging_policy(settings):
             target_logger.setLevel(logging.DEBUG)
         else:
             target_logger.setLevel(logging.WARNING)
+
+    logger_levels = getattr(settings, "logger_levels", {}) or {}
+    if isinstance(logger_levels, dict):
+        for logger_name, configured_level in logger_levels.items():
+            logging.getLogger(str(logger_name)).setLevel(_parse_level(configured_level, logging.INFO))
+
+    logging.getLogger(__name__).info(
+        "Logging policy profile='%s' applied (root=%s, console=%s, file=%s, noisy_debug=%s).",
+        profile_name,
+        logging.getLevelName(root_level),
+        logging.getLevelName(console_level),
+        logging.getLevelName(file_level),
+        noisy_debug_enabled,
+    )

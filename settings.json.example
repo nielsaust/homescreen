@@ -1,5 +1,6 @@
 {
     "version": "0.1.2",
+    "log_profile": "default",
     "log_level": "DEBUG",
     "console_log_level": "INFO",
     "file_log_level": "DEBUG",
@@ -8,6 +9,7 @@
         "PIL.PngImagePlugin",
         "urllib3.connectionpool"
     ],
+    "logger_levels": {},
     "do_sentry_logging": false,
     "sentry_dsn": "",
     "sentry_environment": "development",
@@ -15,6 +17,10 @@
     "sentry_event_level": "ERROR",
     "sentry_traces_sample_rate": 0.0,
     "sentry_send_default_pii": false,
+    "sentry_ignore_loggers": [
+        "PIL.PngImagePlugin",
+        "urllib3.connectionpool"
+    ],
     "startup_wait_for_internet_seconds": 10,
     "startup_wait_check_interval_seconds": 5,
     "mqtt_reconnect_interval_seconds": 2,

@@ -20,7 +20,8 @@ Add these settings in `settings.json`:
   "sentry_breadcrumb_level": "INFO",
   "sentry_event_level": "ERROR",
   "sentry_traces_sample_rate": 0.0,
-  "sentry_send_default_pii": false
+  "sentry_send_default_pii": false,
+  "sentry_ignore_loggers": ["PIL.PngImagePlugin", "urllib3.connectionpool"]
 }
 ```
 
@@ -30,6 +31,7 @@ Recommended values:
 - `sentry_event_level`: keep `ERROR` (or `CRITICAL` for very strict signal-only mode)
 - `sentry_traces_sample_rate`: start with `0.0` (errors only), later `0.05` if you want performance traces
 - `sentry_send_default_pii`: keep `false` unless you explicitly need user identifiers
+- `sentry_ignore_loggers`: ignore noisy loggers for breadcrumbs/events in Sentry
 
 ## What to prepare in Sentry
 
@@ -55,17 +57,24 @@ For local verbosity control, these settings are available:
 
 ```json
 {
+  "log_profile": "default",
   "log_level": "INFO",
   "console_log_level": "INFO",
   "file_log_level": "DEBUG",
   "log_noisy_third_party_debug": false,
-  "log_noisy_loggers": ["PIL.PngImagePlugin", "urllib3.connectionpool"]
+  "log_noisy_loggers": ["PIL.PngImagePlugin", "urllib3.connectionpool"],
+  "logger_levels": {
+    "app.controllers.mqtt_controller": "WARNING",
+    "app.ui.screens.music_screen": "INFO"
+  }
 }
 ```
 
+- `log_profile`: baseline preset (`default`, `dev`, `pi`, `quiet`).
 - `console_log_level`: keep lower noise on Pi terminal/journal.
 - `file_log_level`: usually `DEBUG` to preserve diagnostics in log files.
 - `log_noisy_third_party_debug`: when `false`, noisy third-party loggers are set to `WARNING`.
+- `logger_levels`: per-logger overrides after profile/global levels are applied.
 
 ## UI Trace Logging (local diagnosis)
 

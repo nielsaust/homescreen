@@ -77,7 +77,7 @@ def init_sentry(settings: Any) -> bool:
 
     try:
         import sentry_sdk
-        from sentry_sdk.integrations.logging import LoggingIntegration
+        from sentry_sdk.integrations.logging import LoggingIntegration, ignore_logger
         from sentry_sdk.integrations.threading import ThreadingIntegration
         from sentry_sdk.integrations.tkinter import TkinterIntegration
     except Exception as exc:
@@ -96,6 +96,10 @@ def init_sentry(settings: Any) -> bool:
         level=breadcrumbs_level,
         event_level=event_level,
     )
+    sentry_ignore_loggers = getattr(settings, "sentry_ignore_loggers", []) or []
+    if isinstance(sentry_ignore_loggers, (list, tuple)):
+        for logger_name in sentry_ignore_loggers:
+            ignore_logger(str(logger_name))
 
     sentry_sdk.init(
         dsn=dsn,
@@ -113,10 +117,11 @@ def init_sentry(settings: Any) -> bool:
 
     sentry_sdk.set_tag("platform", "homescreen")
     logger.info(
-        "Sentry initialized (env=%s, release=%s, breadcrumbs=%s, event=%s).",
+        "Sentry initialized (env=%s, release=%s, breadcrumbs=%s, event=%s, ignored_loggers=%s).",
         environment,
         release,
         logging.getLevelName(breadcrumbs_level),
         logging.getLevelName(event_level),
+        len(sentry_ignore_loggers) if isinstance(sentry_ignore_loggers, (list, tuple)) else 0,
     )
     return True
