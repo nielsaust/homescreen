@@ -176,6 +176,11 @@ This project now has a minimal core layer to support gradual migration to a stat
 - Root modules now act as backward-compatible shim imports.
 - `DisplayController` now imports all overlay screens from `app.ui.screens.*`.
 
+## UI trace instrumentation (Phase 8.6)
+
+- Added opt-in UI trace logging for screen transitions and widget mapping snapshots.
+- Trace data is emitted as `[ui-trace]` structured log lines for local diagnosis of delayed/blank Tk renders.
+
 ## Local state testing without UI
 
 Use replay tool with JSONL:

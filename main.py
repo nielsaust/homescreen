@@ -96,6 +96,8 @@ class MainApp:
         self.mqtt_message_queue = Queue()
         self.ui_intent_queue = Queue()
         self.ui_intent_poll_interval_ms = 50
+        self.ui_trace_logging = _to_bool(getattr(self.settings, "ui_trace_logging", False), False)
+        self.ui_trace_followup_ms = int(getattr(self.settings, "ui_trace_followup_ms", 80) or 80)
         self.macos_repaint_workaround = _to_bool(getattr(self.settings, "macos_repaint_workaround", False), False)
         self.macos_repaint_interval_ms = int(getattr(self.settings, "macos_repaint_interval_ms", 16) or 16)
         self._macos_repaint_after_id = None
@@ -327,6 +329,12 @@ class MainApp:
                 logger.error("Error applying UI intent (%s): %s", intent, exc)
             handled += 1
         if handled > 0:
+            self.trace_ui_event(
+                "ui.intent.pump",
+                handled=handled,
+                pending=self.ui_intent_queue.qsize(),
+            )
+        if handled > 0:
             self._schedule_macos_repaint()
         self.root.after(self.ui_intent_poll_interval_ms, self._pump_ui_intents)
 
@@ -421,6 +429,12 @@ class MainApp:
             screen = intent.get("screen")
             is_display_on = bool(intent.get("is_display_on"))
             force = bool(intent.get("force", False))
+            self.trace_ui_event(
+                "ui.screen.intent",
+                screen=screen,
+                is_display_on=is_display_on,
+                force=force,
+            )
             signature = (screen, is_display_on)
             if not force and signature == self._last_screen_ui_signature:
                 return
@@ -1040,6 +1054,19 @@ class MainApp:
         if self.music_debug_logging:
             self.log_music_debug("[music] metrics", self.music_metrics)
         self.root.after(self.music_metrics_interval_ms, self._log_music_metrics)
+
+    def trace_ui_event(self, event_name, **fields):
+        if not self.ui_trace_logging:
+            return
+        payload = {
+            "event": event_name,
+            "ts_ms": int(time.time() * 1000),
+            **fields,
+        }
+        try:
+            logger.info("[ui-trace] %s", json.dumps(payload, default=str, ensure_ascii=False))
+        except Exception:
+            logger.info("[ui-trace] %s", payload)
 
 if __name__ == "__main__":
     try:

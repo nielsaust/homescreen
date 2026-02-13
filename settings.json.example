@@ -67,6 +67,8 @@
     "music_apply_transport_immediately": true,
     "music_metrics_log_interval_seconds": 30,
     "music_debug_logging": false,
+    "ui_trace_logging": false,
+    "ui_trace_followup_ms": 80,
     "macos_repaint_workaround": false,
     "macos_repaint_interval_ms": 16,
     "media_show_titles": true,
