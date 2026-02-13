@@ -137,6 +137,11 @@ This project now has a minimal core layer to support gradual migration to a stat
 - Root `weather_screen.py` now acts as a backward-compatible shim import.
 - This keeps runtime behavior stable while reducing root-level module ownership.
 
+## Music screen move (Phase 8.2)
+
+- `music_screen.py` implementation was moved to `app/ui/screens/music_screen.py`.
+- Root `music_screen.py` now acts as a backward-compatible shim import.
+
 ## Local state testing without UI
 
 Use replay tool with JSONL:
