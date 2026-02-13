@@ -47,6 +47,13 @@ This project now has a minimal core layer to support gradual migration to a stat
 - Weather screen no longer owns the network indicator widget.
 - Network status polling and visualization are now controlled in `MainApp`.
 
+## Offline weather cache + deferred MQTT (Phase 5.2)
+
+- Weather payload is cached to `.cache/weather_last.json`.
+- On offline boot/outage, weather screen renders last known data from cache.
+- MQTT initialization is deferred until network is available.
+- Before MQTT init, a no-op controller prevents crashes on user actions.
+
 ## Local state testing without UI
 
 Use replay tool with JSONL:
