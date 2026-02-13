@@ -111,11 +111,16 @@ class MusicScreen:
         logger.debug(f"album url = {album_art_api_url}, current url = {self.current_album_art_url}")
         if album_art_api_url is not None:
             image_url = self.main_app.settings.home_assistant_api_base_url + album_art_api_url
+            track_signature = self.main_app.music_service.art_signature(self.main_app.music_object)
             if getattr(self.main_app, "music_debug_logging", False):
-                logger.info("[music-screen] computed image_url=%s", image_url)
+                logger.info("[music-screen] computed image_url=%s signature=%s", image_url, track_signature)
             if image_url != self.current_album_art_url:
                 self.clear_album_art()
-                self.load_image(image_url,self.main_app.settings.media_get_remote_image_retry_amount)  # Use asyncio.run to create an event loop
+                self.load_image(
+                    image_url,
+                    self.main_app.settings.media_get_remote_image_retry_amount,
+                    track_signature=track_signature,
+                )
             else:
                 logger.debug(f"Album art already loaded: {self.main_app.music_object.album_art_api_url}")
         else:
@@ -213,16 +218,17 @@ class MusicScreen:
         self._current_task = asyncio.create_task(self.load_and_display_remote_image(image_url, num_of_tries))
         await self._current_task
 
-    def load_image(self, image_url, num_of_tries=3):
+    def load_image(self, image_url, num_of_tries=3, track_signature=None):
         if getattr(self.main_app, "music_debug_logging", False):
             logger.info("[music-screen] load_image start url=%s tries=%s", image_url, num_of_tries)
         self.current_album_art_request_id += 1
         request_id = self.current_album_art_request_id
+        self.main_app.record_music_metric("art_requests")
         self.start_loading_animation()
 
         thread = threading.Thread(
             target=self._load_image_background,
-            args=(image_url, num_of_tries, request_id),
+            args=(image_url, num_of_tries, request_id, track_signature),
             daemon=True,
         )
         thread.start()
@@ -235,7 +241,7 @@ class MusicScreen:
         except Exception:
             return True
 
-    def _load_image_background(self, url, max_retries, request_id):
+    def _load_image_background(self, url, max_retries, request_id, track_signature):
         verify = self._resolve_ssl_verify_for_requests()
         image_bytes = None
 
@@ -252,15 +258,32 @@ class MusicScreen:
                     max_retries,
                     e,
                 )
+                self.main_app.record_music_metric("art_errors")
 
         if image_bytes is None:
             self.frame.after(0, lambda rid=request_id: self._apply_placeholder_if_current(rid))
             return
 
-        self.frame.after(0, lambda data=image_bytes, image_url=url, rid=request_id: self._apply_remote_image_if_current(data, image_url, rid))
+        self.frame.after(
+            0,
+            lambda data=image_bytes, image_url=url, rid=request_id, sig=track_signature: self._apply_remote_image_if_current(
+                data, image_url, rid, sig
+            ),
+        )
 
-    def _apply_remote_image_if_current(self, image_bytes, url, request_id):
+    def _apply_remote_image_if_current(self, image_bytes, url, request_id, requested_signature):
         if request_id != self.current_album_art_request_id:
+            return
+        current_signature = self.main_app.music_service.art_signature(self.main_app.music_object)
+        if requested_signature is not None and current_signature != requested_signature:
+            self.main_app.record_music_metric("art_stale_dropped")
+            if getattr(self.main_app, "music_debug_logging", False):
+                logger.info(
+                    "[music-screen] stale art dropped requested=%s current=%s",
+                    requested_signature,
+                    current_signature,
+                )
+            self.stop_loading_animation()
             return
         try:
             image = Image.open(BytesIO(image_bytes))
@@ -276,10 +299,12 @@ class MusicScreen:
             self.album_art_image = ImageTk.PhotoImage(new_image)
             self.album_art_label.configure(image=self.album_art_image)
             self.current_album_art_url = url
+            self.main_app.record_music_metric("art_success")
             if getattr(self.main_app, "music_debug_logging", False):
                 logger.info("[music-screen] loaded remote image successfully url=%s", url)
         except Exception as e:
             logger.error("Error applying album art image: %s", e)
+            self.main_app.record_music_metric("art_errors")
             self._apply_placeholder_if_current(request_id)
             return
         finally:
@@ -290,6 +315,7 @@ class MusicScreen:
         if request_id != self.current_album_art_request_id:
             return
         self.stop_loading_animation()
+        self.main_app.record_music_metric("art_placeholder")
         if getattr(self.main_app, "music_debug_logging", False):
             logger.info("[music-screen] using local placeholder image")
         self.load_local_image(pathlib.Path(__file__).parent / 'images/no_album_art.jpeg')
