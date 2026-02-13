@@ -8,7 +8,13 @@
         "PIL.PngImagePlugin",
         "urllib3.connectionpool"
     ],
-    "log_domain_levels": {},
+    "log_domain_levels": {
+        "__main__": "INFO",
+        "app.controllers.mqtt_controller": "WARNING",
+        "app.ui.screens.menu_screen": "INFO",
+        "app.ui.screens.music_screen": "INFO",
+        "app.ui.ui_render_service": "INFO"
+    },
     "do_sentry_logging": false,
     "sentry_dsn": "",
     "sentry_environment": "development",

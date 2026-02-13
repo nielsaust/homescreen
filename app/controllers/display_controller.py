@@ -359,6 +359,12 @@ class DisplayController:
             self.turn_off()
 
     def turn_on(self):
+        if bool(getattr(self.main_app.device_states, "in_bed", False)):
+            log_event(logger, logging.INFO, "display", "power.on_skipped", reason="in_bed_active")
+            self.is_showing = False
+            if not self.main_app.system_info["is_desktop"] and self.backlight is not None:
+                self.backlight.set_power(False)
+            return
         log_event(logger, logging.INFO, "display", "power.on")
         self.is_showing = True
         if(not self.main_app.system_info["is_desktop"]):
