@@ -306,6 +306,19 @@ class MainApp:
                     "command": event.payload.get("command"),
                 }
             )
+        elif event.event_type == "ui.overlay.requested":
+            self._enqueue_ui_intent(
+                {
+                    "type": "ui.overlay.requested",
+                    "command": event.payload.get("command"),
+                    "data": event.payload.get("data"),
+                    "url": event.payload.get("url"),
+                    "username": event.payload.get("username"),
+                    "password": event.payload.get("password"),
+                    "progress": event.payload.get("progress"),
+                    "reset": bool(event.payload.get("reset", False)),
+                }
+            )
 
     def _enqueue_ui_intent(self, intent):
         self.ui_intent_queue.put(intent)
@@ -456,6 +469,46 @@ class MainApp:
                 self.display_controller.exit_menu()
                 return
             logger.warning("Unknown menu navigation command: %s", command)
+            return
+
+        if intent_type == "ui.overlay.requested":
+            command = intent.get("command")
+            if command == "open_slideshow":
+                self.display_controller.open_slideshow()
+                return
+            if command == "show_cam":
+                self.display_controller.show_cam(
+                    intent.get("data") or {},
+                    intent.get("url"),
+                    intent.get("username"),
+                    intent.get("password"),
+                )
+                return
+            if command == "show_calendar":
+                self.display_controller.show_calendar(intent.get("data") or {})
+                return
+            if command == "show_alert":
+                self.display_controller.show_alert(intent.get("data") or {})
+                return
+            if command == "show_print_status":
+                self.display_controller.show_print_status(
+                    intent.get("progress"),
+                    bool(intent.get("reset", False)),
+                )
+                return
+            if command == "update_print_progress":
+                self.display_controller.update_print_progress(intent.get("progress"))
+                return
+            if command == "print_screen_attention":
+                self.display_controller.print_screen_attention()
+                return
+            if command == "close_print_screen":
+                self.display_controller.close_print_screen()
+                return
+            if command == "cancel_attention":
+                self.display_controller.cancel_attention()
+                return
+            logger.warning("Unknown overlay command: %s", command)
             return
 
     def _network_sim_flag_path(self):
@@ -695,6 +748,12 @@ class MainApp:
             {"command": command},
             source=source,
         )
+
+    def request_overlay(self, command: str, payload=None, source: str = "main"):
+        event_payload = {"command": command}
+        if payload:
+            event_payload.update(payload)
+        self.publish_event("ui.overlay.requested", event_payload, source=source)
     
 
 
@@ -742,9 +801,17 @@ class MainApp:
             self.device_states.printer_progress = progress
         logger.info(f"Checking print status ({progress}%)")
         if self.settings.show_cam_on_print_percentage>0 and progress and progress >= self.settings.show_cam_on_print_percentage:
-            self.display_controller.show_cam(data,self.settings.printer_url)
+            self.request_overlay(
+                "show_cam",
+                {"data": data, "url": self.settings.printer_url},
+                source="mqtt",
+            )
         else:
-            self.display_controller.update_print_progress(progress)
+            self.request_overlay(
+                "update_print_progress",
+                {"progress": progress},
+                source="mqtt",
+            )
 
     def on_mqtt_message(self, topic, data):
         # prevent initial messages @ startup
@@ -785,29 +852,37 @@ class MainApp:
         
         # octoPrint/progress/printing = mqtt_topic_printer_progress
         if topic==self.settings.mqtt_topic_doorbell:
-            self.display_controller.show_cam(
-                data,
-                f"http://{self.settings.doorbell_url}{self.settings.doorbell_path}",
-                self.settings.doorbell_username,
-                self.settings.doorbell_password,
+            self.request_overlay(
+                "show_cam",
+                {
+                    "data": data,
+                    "url": f"http://{self.settings.doorbell_url}{self.settings.doorbell_path}",
+                    "username": self.settings.doorbell_username,
+                    "password": self.settings.doorbell_password,
+                },
+                source="mqtt",
             )
         elif topic==self.settings.mqtt_topic_printer_progress:
             self.check_print_status(data)           
         elif topic==self.settings.mqtt_topic_calendar:
-            self.display_controller.show_calendar(data)
+            self.request_overlay("show_calendar", {"data": data}, source="mqtt")
         elif topic==self.settings.mqtt_topic_alert:
             logger.debug(f"Received alert: {data}")
-            self.display_controller.show_alert(data)
+            self.request_overlay("show_alert", {"data": data}, source="mqtt")
         elif topic==self.settings.mqtt_topic_print_start:
-            self.display_controller.show_print_status(self.device_states.printer_progress,True)
+            self.request_overlay(
+                "show_print_status",
+                {"progress": self.device_states.printer_progress, "reset": True},
+                source="mqtt",
+            )
         elif topic==self.settings.mqtt_topic_print_done:
-            self.display_controller.print_screen_attention()
+            self.request_overlay("print_screen_attention", source="mqtt")
         elif topic==self.settings.mqtt_topic_print_cancelled:
-            self.display_controller.close_print_screen()
+            self.request_overlay("close_print_screen", source="mqtt")
         elif topic==self.settings.mqtt_topic_print_change_filament:
-            self.display_controller.print_screen_attention()
+            self.request_overlay("print_screen_attention", source="mqtt")
         elif topic==self.settings.mqtt_topic_print_change_z:
-            self.display_controller.cancel_attention()
+            self.request_overlay("cancel_attention", source="mqtt")
         else:
             logger.warning(f"Unknown or untimely topic received: {topic}")
         
