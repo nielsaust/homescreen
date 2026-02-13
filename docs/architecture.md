@@ -131,6 +131,12 @@ This project now has a minimal core layer to support gradual migration to a stat
 - `DisplayController` now imports screens from `app.ui.screens.*`.
 - Current screen modules are compatibility wrappers to keep behavior stable before physically moving screen implementations out of root.
 
+## Weather screen move (Phase 8.1)
+
+- `weather_screen.py` implementation was moved to `app/ui/screens/weather_screen.py`.
+- Root `weather_screen.py` now acts as a backward-compatible shim import.
+- This keeps runtime behavior stable while reducing root-level module ownership.
+
 ## Local state testing without UI
 
 Use replay tool with JSONL:
