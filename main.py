@@ -26,6 +26,7 @@ from app.services.music_service import MusicService
 from app.ui.widgets.network_status_widget import NetworkStatusWidget
 from app.config.settings import Settings
 from app.observability.sentry_setup import init_sentry
+from app.observability.domain_logger import log_event
 from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 
 import tkinter as tk
@@ -39,10 +40,10 @@ class DeferredMqttController:
     """No-op MQTT controller used until network is available."""
 
     def publish_action(self, action, value=None):
-        logger.warning("MQTT not initialized yet; skipping action '%s'", action)
+        log_event(logger, logging.WARNING, "mqtt", "publish_action.skipped", reason="not_initialized", action=action)
 
     def publish_message(self, payload=None, topic="screen_commands/outgoing"):
-        logger.warning("MQTT not initialized yet; skipping publish to '%s'", topic)
+        log_event(logger, logging.WARNING, "mqtt", "publish_message.skipped", reason="not_initialized", topic=topic)
 
     def start(self):
         return None
@@ -202,27 +203,31 @@ class MainApp:
             online = self.is_network_available(timeout=2)
             self.publish_event("network.status", {"online": online})
             if online:
-                logger.info("Internet connection is available.")
+                log_event(logger, logging.INFO, "network", "startup.online")
             else:
-                logger.warning("Startup continues in degraded mode (no internet at boot).")
+                log_event(logger, logging.WARNING, "network", "startup.degraded_mode", reason="offline_at_boot")
             return
 
         deadline = time.time() + timeout_seconds
         while time.time() < deadline:
             if self.is_network_available(timeout=2):
                 self.publish_event("network.status", {"online": True})
-                logger.info("Internet connection is available.")
+                log_event(logger, logging.INFO, "network", "startup.online")
                 return
 
             self.publish_event("network.status", {"online": False})
             remaining = max(0, int(deadline - time.time()))
-            logger.warning("Waiting for internet connection... %ss remaining", remaining)
+            log_event(logger, logging.WARNING, "network", "startup.waiting_for_connection", remaining_seconds=remaining)
             time.sleep(check_interval_seconds)
 
         self.publish_event("network.status", {"online": False})
-        logger.warning(
-            "No internet after %ss startup wait. Continuing in degraded mode.",
-            timeout_seconds,
+        log_event(
+            logger,
+            logging.WARNING,
+            "network",
+            "startup.degraded_mode",
+            reason="startup_timeout",
+            timeout_seconds=timeout_seconds,
         )
 
     def start_network_status_poll(self):
@@ -330,7 +335,7 @@ class MainApp:
             try:
                 self._apply_ui_intent(intent)
             except Exception as exc:
-                logger.error("Error applying UI intent (%s): %s", intent, exc)
+                log_event(logger, logging.ERROR, "ui", "intent.apply_failed", intent=intent, error=exc)
             handled += 1
         if handled > 0:
             self.trace_ui_event(
@@ -768,10 +773,11 @@ class MainApp:
 
     def signal_handler(self, sig, frame):
         # Perform cleanup and exit gracefully
-        logger.info(f"Exited gracefully by user (ctrl+c) request.")
+        log_event(logger, logging.INFO, "app", "shutdown.requested", reason="ctrl_c")
         sys.exit(0)
 
     def log_unhandled_exception(exc_type, exc_value, exc_traceback):
+        log_event(logger, logging.ERROR, "app", "unhandled_exception", error=exc_value)
         logger.error("Unhandled exception", exc_info=(exc_type, exc_value, exc_traceback))
 
     def print_current_datetime(self):
@@ -788,7 +794,7 @@ class MainApp:
             )
             self.event_bus.publish(event)
         except Exception as exc:
-            logger.debug(f"Could not publish event '{event_type}': {exc}")
+            log_event(logger, logging.DEBUG, "app", "event.publish_failed", event_type=event_type, error=exc)
 
     def log_music_debug(self, message, payload=None):
         if not self.music_debug_logging:

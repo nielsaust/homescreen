@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from app.observability.domain_logger import log_event
+
 logger = logging.getLogger(__name__)
 
 
@@ -43,7 +45,7 @@ class UiIntentHandler:
             command = intent.get("command")
             handled = self.main_app.display_controller.handle_overlay_command(command, intent)
             if not handled:
-                logger.warning("Unknown overlay command: %s", command)
+                log_event(logger, logging.WARNING, "ui", "overlay.unknown_command", command=command)
 
     def _apply_network_status(self, intent):
         online = intent.get("online")
@@ -141,7 +143,7 @@ class UiIntentHandler:
         if screen == "menu":
             self.main_app.display_controller.show_screen("menu", force=force)
             return
-        logger.warning("Unknown screen intent received: %s", screen)
+        log_event(logger, logging.WARNING, "ui", "screen.unknown_intent", screen=screen)
 
     def _apply_menu_navigation(self, intent):
         command = intent.get("command")
@@ -157,4 +159,4 @@ class UiIntentHandler:
         if command == "exit":
             self.main_app.display_controller.exit_menu()
             return
-        logger.warning("Unknown menu navigation command: %s", command)
+        log_event(logger, logging.WARNING, "ui", "menu.unknown_navigation_command", command=command)

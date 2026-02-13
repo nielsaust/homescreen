@@ -11,6 +11,7 @@ import time
 import threading
 import json
 import paho.mqtt.client as mqtt
+from app.observability.domain_logger import log_event
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ class MqttController:
         retry_delay = self.reconnect_interval
         while self.running:
             if hasattr(self.main_app, "is_network_available") and not self.main_app.is_network_available(timeout=1):
-                logger.warning("Network unavailable; delaying MQTT connect attempt.")
+                log_event(logger, logging.WARNING, "mqtt", "connect.delayed.network_unavailable")
                 if hasattr(self.main_app, "publish_event"):
                     self.main_app.publish_event("network.status", {"online": False}, source="mqtt")
                 time.sleep(retry_delay)
@@ -55,17 +56,24 @@ class MqttController:
                 continue
             try:
                 self.client.connect(self.broker_address, self.broker_port, 60)
-                logger.info("Successfully connected to the MQTT broker.")
+                log_event(
+                    logger,
+                    logging.INFO,
+                    "mqtt",
+                    "connect.success",
+                    broker=self.broker_address,
+                    port=self.broker_port,
+                )
                 if hasattr(self.main_app, "publish_event"):
                     self.main_app.publish_event("network.status", {"online": True}, source="mqtt")
                 break
             except socket.error as e:
-                logger.error(f"Socket error. Broker: {self.broker_address}, error: {e}")
+                log_event(logger, logging.ERROR, "mqtt", "connect.socket_error", broker=self.broker_address, error=e)
             except Exception as e:
-                logger.error(f"Unexpected exception during MQTT connection: {e}")
+                log_event(logger, logging.ERROR, "mqtt", "connect.exception", error=e)
             time.sleep(retry_delay)
             retry_delay = min(self.reconnect_max_interval, retry_delay * 2)
-            logger.warning("Could not connect to the MQTT broker. Retrying in %ss...", retry_delay)
+            log_event(logger, logging.WARNING, "mqtt", "connect.retry_scheduled", retry_delay_seconds=retry_delay)
 
     def custom_loop_start(self):
         self.thread = threading.Thread(target=self.custom_loop)
@@ -78,7 +86,7 @@ class MqttController:
             try:
                 self.client.loop(timeout=1.0)
             except (TimeoutError, Exception) as e:
-                logger.warning(f"MQTT connection issue detected: {e}. Attempting to reconnect...")
+                log_event(logger, logging.WARNING, "mqtt", "loop.error_reconnect", error=e)
                 self.reconnect()
 
     def reconnect(self):
@@ -86,7 +94,7 @@ class MqttController:
         retry_delay = self.reconnect_interval
         while self.running:
             if hasattr(self.main_app, "is_network_available") and not self.main_app.is_network_available(timeout=1):
-                logger.warning("Network unavailable; delaying MQTT reconnect attempt.")
+                log_event(logger, logging.WARNING, "mqtt", "reconnect.delayed.network_unavailable")
                 if hasattr(self.main_app, "publish_event"):
                     self.main_app.publish_event("network.status", {"online": False}, source="mqtt")
                 time.sleep(retry_delay)
@@ -94,12 +102,19 @@ class MqttController:
                 continue
             try:
                 self.client.reconnect()
-                logger.info("Reconnected to the MQTT broker.")
+                log_event(
+                    logger,
+                    logging.INFO,
+                    "mqtt",
+                    "reconnect.success",
+                    broker=self.broker_address,
+                    port=self.broker_port,
+                )
                 if hasattr(self.main_app, "publish_event"):
                     self.main_app.publish_event("network.status", {"online": True}, source="mqtt")
                 break
             except Exception as e:
-                logger.error(f"MQTT reconnect failed: {e}")
+                log_event(logger, logging.ERROR, "mqtt", "reconnect.failed", error=e)
                 time.sleep(retry_delay)
                 retry_delay = min(self.reconnect_max_interval, retry_delay * 2)
 
@@ -113,15 +128,16 @@ class MqttController:
                 else:
                     self.main_app.on_mqtt_message(topic, data)
             except json.JSONDecodeError as e:
-                logger.error(f"Error in MQTT payload ({payload if payload is not None else 'None'}): {e}")
+                payload_preview = payload if payload is not None else "None"
+                log_event(logger, logging.ERROR, "mqtt", "payload.decode_error", payload=payload_preview, error=e)
 
     def on_connect(self, client, userdata, flags, rc):
         if rc == 0:
-            logger.info(f"MQTT connected to broker @ {self.broker_address}")
+            log_event(logger, logging.INFO, "mqtt", "session.connected", broker=self.broker_address)
             self.subscribe_to_topics()
             self.main_app.on_mqtt_connected()
         else:
-            logger.error("Connection to MQTT broker failed with result code %d", rc)
+            log_event(logger, logging.ERROR, "mqtt", "session.connect_failed", rc=rc)
 
     def subscribe_to_topics(self):
         """Subscribes to predefined topics."""
@@ -139,20 +155,20 @@ class MqttController:
             #self.main_app.settings.mqtt_topic_print_change_filament
         ]
         for topic in topics:
-            logger.debug("Subscribing to topic: " + topic)
+            log_event(logger, logging.DEBUG, "mqtt", "subscribe.requested", topic=topic)
             self.subscribe_to_topic(topic)
 
     def on_message(self, client, userdata, message):
-        logger.debug(f"Received message from MQTT broker: {message.topic}, {message.payload}")
+        log_event(logger, logging.DEBUG, "mqtt", "message.received", topic=message.topic)
         self.handle_message(message.topic, message.payload)
 
     def on_disconnect(self, client, userdata, rc):
         if rc != 0:
-            logger.warning("Unexpected disconnection from MQTT broker. Reconnecting...")
+            log_event(logger, logging.WARNING, "mqtt", "session.disconnected", rc=rc)
             self.reconnect()
 
     def on_publish(self, client, userdata, mid):
-        logger.debug(f"MQTT published (message ID: {mid})")
+        log_event(logger, logging.DEBUG, "mqtt", "publish.ack", message_id=mid)
 
     def publish_action(self, action, value=None):
         data = {"action": action}
@@ -165,26 +181,26 @@ class MqttController:
         """Publishes a message to a specified topic with retry logic if not connected."""
         try:
             if not self.client.is_connected():
-                logger.warning("MQTT client is disconnected. Attempting to reconnect before publishing.")
+                log_event(logger, logging.WARNING, "mqtt", "publish.reconnect_before_send")
                 self.reconnect()
             self.client.publish(topic=topic, payload=payload, qos=self.main_app.settings.mqtt_qos)
         except Exception as e:
-            logger.error(f"Failed to publish message: {e}")
+            log_event(logger, logging.ERROR, "mqtt", "publish.failed", topic=topic, error=e)
             self.reconnect()
 
     def subscribe_to_topic(self, topic):
         """Subscribes to a topic with retry logic if disconnected."""
         try:
             if not self.client.is_connected():
-                logger.warning(f"MQTT client is disconnected. Attempting to reconnect before subscribing to {topic}.")
+                log_event(logger, logging.WARNING, "mqtt", "subscribe.reconnect_before_subscribe", topic=topic)
                 self.reconnect()
             result, mid = self.client.subscribe(topic)
             if result == 0:
-                logger.info(f"Successfully subscribed to {topic}")
+                log_event(logger, logging.INFO, "mqtt", "subscribe.success", topic=topic, message_id=mid)
             else:
-                logger.error(f"Failed to subscribe to {topic} with result code {result}")
+                log_event(logger, logging.ERROR, "mqtt", "subscribe.failed", topic=topic, result_code=result)
         except Exception as e:
-            logger.error(f"Failed to subscribe to {topic}: {e}")
+            log_event(logger, logging.ERROR, "mqtt", "subscribe.exception", topic=topic, error=e)
             self.reconnect()
 
     def start(self):
@@ -194,4 +210,4 @@ class MqttController:
         self.running = False
         self.client.loop_stop()
         self.client.disconnect()
-        logger.warning("MQTT client stopped.")
+        log_event(logger, logging.INFO, "mqtt", "client.stopped")

@@ -6,6 +6,15 @@ The app always writes local logs via `logger.py`:
 - console output
 - date-rotated log files in `logs/`
 
+Log messages are standardized to English and use domain prefixes:
+- `[mqtt]`
+- `[ui]`
+- `[music]`
+- `[network]`
+
+Preferred format:
+- `[domain] event_name key='value' key2='value2'`
+
 ## Optional Sentry
 
 Sentry is optional and off by default.

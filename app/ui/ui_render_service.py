@@ -7,6 +7,7 @@ import logging
 
 import tkinter as tk
 from PIL import Image, ImageTk
+from app.observability.domain_logger import log_event
 
 logger = logging.getLogger(__name__)
 
@@ -23,11 +24,11 @@ class UiRenderService:
 
     def force_screen_update(self):
         if self.main_app.settings.force_update:
-            logger.debug("Forcing screen update")
+            log_event(logger, logging.DEBUG, "ui", "render.force_update")
             self.main_app.root.update()
             self.main_app.root.update_idletasks()
         else:
-            logger.debug("Not forcing screen update; force_update is false")
+            log_event(logger, logging.DEBUG, "ui", "render.force_update_skipped", reason="disabled_in_settings")
 
     def trace_ui(self, event_name, **fields):
         if not getattr(self.main_app, "ui_trace_logging", False):
@@ -63,7 +64,7 @@ class UiRenderService:
 
     def place_action_label(self, text=None, anchor="center", image=None, bg="black", fg="white", bordercolor="black"):
         if self.main_app.settings.show_feedback_label_timeout == 0:
-            logger.info("Settings disallow for feedback label to be shown.")
+            log_event(logger, logging.INFO, "ui", "feedback_label.skipped", reason="disabled_in_settings")
             return
 
         def remove(label):

@@ -16,6 +16,7 @@ from io import BytesIO
 
 from app.services.music_art_service import MusicArtService
 from app.viewmodels.music_view_model import build_music_overlay_view_model
+from app.observability.domain_logger import log_event
 
 logger = logging.getLogger(__name__)
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[3]
@@ -98,11 +99,11 @@ class MusicScreen:
         self.preparing_loading_gif()
 
     def show(self):
-        logger.info("========= Music screen show =========")
+        log_event(logger, logging.INFO, "music", "screen.show")
         self.clear_current()
 
         if self.main_app.music_object is None:
-            logger.error("No music object present in Main")
+            log_event(logger, logging.ERROR, "music", "screen.show_blocked", reason="missing_music_object")
             return False
 
         obj = self.main_app.music_object
@@ -114,14 +115,17 @@ class MusicScreen:
         album_art_api_url = getattr(obj, "album_art_api_url", None)
 
         if artist is None:
-            logger.warning("No artist = no music")
+            log_event(logger, logging.WARNING, "music", "screen.show_blocked", reason="missing_artist", state=state)
             if getattr(self.main_app, "music_debug_logging", False):
-                logger.info(
-                    "[music-screen] blocked render (artist missing) state=%s title=%s channel=%s album_art=%s",
-                    state,
-                    title,
-                    channel,
-                    album_art_api_url,
+                log_event(
+                    logger,
+                    logging.INFO,
+                    "music",
+                    "screen.render_blocked_details",
+                    state=state,
+                    title=title,
+                    channel=channel,
+                    album_art=album_art_api_url,
                 )
             return False
 
@@ -145,18 +149,25 @@ class MusicScreen:
             self.show_overlays(artist, title, album, channel)
 
     def _maybe_load_album_art(self, album_art_api_url):
-        logger.debug("album url = %s, current url = %s", album_art_api_url, self.current_album_art_url)
+        log_event(
+            logger,
+            logging.DEBUG,
+            "music",
+            "art.check",
+            requested=album_art_api_url,
+            current=self.current_album_art_url,
+        )
         if album_art_api_url is None:
-            logger.debug("Album art not available")
+            log_event(logger, logging.DEBUG, "music", "art.skipped", reason="missing_url")
             return
 
         image_url = self.main_app.settings.home_assistant_api_base_url + album_art_api_url
         track_signature = self.main_app.music_service.art_signature(self.main_app.music_object)
         if getattr(self.main_app, "music_debug_logging", False):
-            logger.info("[music-screen] computed image_url=%s signature=%s", image_url, track_signature)
+            log_event(logger, logging.INFO, "music", "art.request_computed", image_url=image_url, signature=track_signature)
 
         if image_url == self.current_album_art_url:
-            logger.debug("Album art already loaded: %s", album_art_api_url)
+            log_event(logger, logging.DEBUG, "music", "art.skipped", reason="already_loaded")
             return
 
         self.clear_album_art()
@@ -214,13 +225,13 @@ class MusicScreen:
 
     def clear_album_art(self):
         if self.main_app.settings.media_clear_image_before_getting_new:
-            logger.debug("Clearing album art")
+            log_event(logger, logging.DEBUG, "music", "art.clear_before_load")
             self.album_art_image = None
             self.album_art_label.configure(image=None)
 
     def load_image(self, image_url, num_of_tries=3, track_signature=None):
         if getattr(self.main_app, "music_debug_logging", False):
-            logger.info("[music-screen] load_image start url=%s tries=%s", image_url, num_of_tries)
+            log_event(logger, logging.INFO, "music", "art.load_start", image_url=image_url, retries=num_of_tries)
         self.current_album_art_request_id += 1
         request_id = self.current_album_art_request_id
         self.main_app.record_music_metric("art_requests")
@@ -255,10 +266,13 @@ class MusicScreen:
         if requested_signature is not None and current_signature != requested_signature:
             self.main_app.record_music_metric("art_stale_dropped")
             if getattr(self.main_app, "music_debug_logging", False):
-                logger.info(
-                    "[music-screen] stale art dropped requested=%s current=%s",
-                    requested_signature,
-                    current_signature,
+                log_event(
+                    logger,
+                    logging.INFO,
+                    "music",
+                    "art.stale_dropped",
+                    requested_signature=requested_signature,
+                    current_signature=current_signature,
                 )
             self.stop_loading_animation()
             return
@@ -278,9 +292,9 @@ class MusicScreen:
             self.current_album_art_url = url
             self.main_app.record_music_metric("art_success")
             if getattr(self.main_app, "music_debug_logging", False):
-                logger.info("[music-screen] loaded remote image successfully url=%s", url)
+                log_event(logger, logging.INFO, "music", "art.load_success", url=url)
         except Exception as e:
-            logger.error("Error applying album art image: %s", e)
+            log_event(logger, logging.ERROR, "music", "art.apply_failed", error=e)
             self.main_app.record_music_metric("art_errors")
             self._apply_placeholder_if_current(request_id)
             return
@@ -294,7 +308,7 @@ class MusicScreen:
         self.stop_loading_animation()
         self.main_app.record_music_metric("art_placeholder")
         if getattr(self.main_app, "music_debug_logging", False):
-            logger.info("[music-screen] using local placeholder image")
+            log_event(logger, logging.INFO, "music", "art.placeholder_used")
         self.load_local_image(IMAGES_DIR / "no_album_art.jpeg")
         self.main_app.root.update_idletasks()
 
@@ -307,7 +321,7 @@ class MusicScreen:
             self.album_art_label.configure(image=self.album_art_image)
             return None
         except Exception as e:
-            logger.error("Error retrieving local album art placeholder: %s", e)
+            log_event(logger, logging.ERROR, "music", "art.placeholder_load_failed", error=e)
             return None
 
     def preparing_loading_gif(self):
@@ -324,7 +338,7 @@ class MusicScreen:
         self.loading_animation_frames_cycle = cycle(self.loading_animation_frames)
 
     def start_loading_animation(self):
-        logger.debug("Starting loading animation")
+        log_event(logger, logging.DEBUG, "music", "art.loading_animation_start")
         self.stop_loading_animation()
         self.animation_running = True
         self.animate_loading()
@@ -336,7 +350,7 @@ class MusicScreen:
             self.animation_id = self.frame.after(100, self.animate_loading)
 
     def stop_loading_animation(self):
-        logger.debug("Stopping loading animation")
+        log_event(logger, logging.DEBUG, "music", "art.loading_animation_stop")
         self.animation_running = False
         if self.animation_id is not None:
             self.frame.after_cancel(self.animation_id)
