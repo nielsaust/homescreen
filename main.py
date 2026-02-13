@@ -18,6 +18,7 @@ from core.events import AppEvent
 from core.state import AppState
 from core.store import AppStore
 from device_states import DeviceStates
+from app.services.music_service import MusicService
 from app.ui.widgets.network_status_widget import NetworkStatusWidget
 from settings import Settings
 from sentry_setup import init_sentry
@@ -82,6 +83,11 @@ class MainApp:
         self.mqtt_queue_poll_interval_ms = 50
         self.mqtt_controller = DeferredMqttController()
         self.mqtt_initialized = False
+        self.music_service = MusicService()
+        self.pending_music_payload = None
+        self.music_update_after_id = None
+        self.music_update_debounce_ms = int(getattr(self.settings, "music_update_debounce_ms", 150) or 150)
+        self.music_drop_duplicate_payloads = bool(getattr(self.settings, "music_drop_duplicate_payloads", True))
         self.network_status_widget = NetworkStatusWidget(self.root, self.settings.feedback_icon_size)
         network_interval = int(
             getattr(
@@ -236,6 +242,25 @@ class MainApp:
             handled += 1
 
         self.root.after(self.mqtt_queue_poll_interval_ms, self._pump_mqtt_queue)
+
+    def queue_music_update(self, data):
+        normalized = self.music_service.normalize_payload(data or {})
+        self.pending_music_payload = normalized
+        if self.music_update_after_id:
+            self.root.after_cancel(self.music_update_after_id)
+        self.music_update_after_id = self.root.after(self.music_update_debounce_ms, self.flush_music_update)
+
+    def flush_music_update(self):
+        self.music_update_after_id = None
+        payload = self.pending_music_payload
+        self.pending_music_payload = None
+        if payload is None:
+            return
+        if not self.music_service.should_process(payload, drop_duplicates=self.music_drop_duplicate_payloads):
+            logger.debug("Skipping duplicate music payload.")
+            return
+        self.update_music_object(payload)
+        self.display_controller.update_menu_states()
 
     def perform_action(self, interaction_type):
         self.publish_event("interaction.received", {"interaction_type": interaction_type})
@@ -400,8 +425,7 @@ class MainApp:
         self.check_mqtt_message_queue(topic)
 
         if topic==self.settings.mqtt_topic_music:
-            self.update_music_object(data)
-            self.display_controller.update_menu_states()
+            self.queue_music_update(data)
             return
         elif topic==self.settings.mqtt_topic_devices:
             try:
@@ -488,15 +512,12 @@ class MainApp:
             self.display_controller.place_action_label(image="volume-down-white.png")
 
     def update_music_object(self, data):
-        state = data['state']
-        title = data['title']
-        artist = data['artist']
-        channel = data['channel']
-        album = data['album']
-        album_art_api_url = data['album_art_api_url']
-
-        if not artist and channel:
-            artist = channel
+        state = data.get('state')
+        title = data.get('title')
+        artist = data.get('artist')
+        channel = data.get('channel')
+        album = data.get('album')
+        album_art_api_url = data.get('album_art_api_url')
 
         if(self.music_object is None):
             from music_object import MusicObject
