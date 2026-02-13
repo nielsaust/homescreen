@@ -99,6 +99,13 @@ This project now has a minimal core layer to support gradual migration to a stat
 - Music screen applies metadata updates via `apply_state_update(...)` on Tk thread.
 - Music UI intent dedupe prevents redundant re-renders on unchanged payload signatures.
 
+## State-driven music screen navigation (Phase 6.2)
+
+- `update_music_object(...)` no longer switches screens directly.
+- `music.updated` now also emits a playback UI intent (`ui.music.playback`).
+- Tk-thread intent apply decides `switch_to_music()` vs `switch_to_idle()` based on music state.
+- Playback-state dedupe avoids repeated screen switch calls for unchanged state.
+
 ## Local state testing without UI
 
 Use replay tool with JSONL:

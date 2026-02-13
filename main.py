@@ -99,6 +99,7 @@ class MainApp:
         self._last_network_ui_state = None
         self._last_cached_weather_label_text = None
         self._last_music_ui_signature = None
+        self._last_music_playback_state = None
         self.mqtt_queue_poll_interval_ms = 50
         self.mqtt_controller = DeferredMqttController()
         self.mqtt_initialized = False
@@ -267,6 +268,12 @@ class MainApp:
                     "album_art_api_url": state.music_album_art_api_url,
                 }
             )
+            self._enqueue_ui_intent(
+                {
+                    "type": "ui.music.playback",
+                    "state": state.music_state,
+                }
+            )
 
     def _enqueue_ui_intent(self, intent):
         self.ui_intent_queue.put(intent)
@@ -341,6 +348,17 @@ class MainApp:
                 album=intent.get("album"),
                 album_art_api_url=intent.get("album_art_api_url"),
             )
+            return
+
+        if intent_type == "ui.music.playback":
+            playback_state = intent.get("state")
+            if playback_state == self._last_music_playback_state:
+                return
+            self._last_music_playback_state = playback_state
+            if playback_state == "playing":
+                self.switch_to_music()
+            else:
+                self.switch_to_idle()
 
     def _network_sim_flag_path(self):
         return pathlib.Path(__file__).parent / ".sim" / "network_down.flag"
@@ -748,11 +766,6 @@ class MainApp:
                 "album_art_api_url": album_art_api_url,
             },
         )
-
-        if(state!="playing"):
-            self.switch_to_idle()
-        else:
-            self.switch_to_music()
 
         self.print_memory_usage()
 
