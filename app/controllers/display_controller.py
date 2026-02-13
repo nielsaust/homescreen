@@ -347,7 +347,7 @@ class DisplayController:
     def check_idle(self,turn_on=False):
         screen = self.get_screen_state()
         if turn_on:
-            self.turn_on()
+            self.turn_on(user_override=True)
         elif screen=="menu":
             self.turn_on()
         elif screen=="music":
@@ -358,13 +358,16 @@ class DisplayController:
         elif screen=="off":
             self.turn_off()
 
-    def turn_on(self):
-        if bool(getattr(self.main_app.device_states, "in_bed", False)):
+    def turn_on(self, user_override=False):
+        in_bed_active = bool(getattr(self.main_app.device_states, "in_bed", False))
+        if in_bed_active and not user_override:
             log_event(logger, logging.INFO, "display", "power.on_skipped", reason="in_bed_active")
             self.is_showing = False
             if not self.main_app.system_info["is_desktop"] and self.backlight is not None:
                 self.backlight.set_power(False)
             return
+        if in_bed_active and user_override:
+            log_event(logger, logging.INFO, "display", "power.on_user_override", reason="in_bed_active")
         log_event(logger, logging.INFO, "display", "power.on")
         self.is_showing = True
         if(not self.main_app.system_info["is_desktop"]):
