@@ -108,6 +108,7 @@ class MainApp:
         self.pending_music_payload = None
         self.music_update_after_id = None
         self.music_update_debounce_ms = int(getattr(self.settings, "music_update_debounce_ms", 150) or 150)
+        self.music_pause_grace_ms = int(getattr(self.settings, "music_pause_grace_ms", 1200) or 1200)
         self.music_drop_duplicate_payloads = _to_bool(getattr(self.settings, "music_drop_duplicate_payloads", True), True)
         self.music_apply_transport_immediately = _to_bool(
             getattr(self.settings, "music_apply_transport_immediately", True),
@@ -385,8 +386,12 @@ class MainApp:
                 return
             self._last_music_playback_state = playback_state
             if playback_state == "playing":
+                self._cancel_music_pause_timeout()
                 self.switch_to_music()
+            elif playback_state == "paused":
+                self._schedule_music_pause_idle()
             else:
+                self._cancel_music_pause_timeout()
                 self.switch_to_idle()
             return
 
@@ -885,6 +890,30 @@ class MainApp:
 
         if(startnew):
             self.music_pause_timeout = self.root.after(500, lambda: self.switch_to_idle())
+
+    def _cancel_music_pause_timeout(self):
+        if self.music_pause_timeout is None:
+            return
+        self.root.after_cancel(self.music_pause_timeout)
+        self.music_pause_timeout = None
+
+    def _schedule_music_pause_idle(self):
+        self._cancel_music_pause_timeout()
+        if self.music_pause_grace_ms <= 0:
+            self.switch_to_idle()
+            return
+
+        self.music_pause_timeout = self.root.after(
+            self.music_pause_grace_ms,
+            self._apply_music_pause_idle,
+        )
+
+    def _apply_music_pause_idle(self):
+        self.music_pause_timeout = None
+        state = getattr(self.music_object, "state", None)
+        if state == "playing":
+            return
+        self.switch_to_idle()
 
     ###### SYSTEM ######
     def checksystem(self):

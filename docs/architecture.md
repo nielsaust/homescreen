@@ -125,6 +125,12 @@ This project now has a minimal core layer to support gradual migration to a stat
 - `MainApp` maps these to `menu.navigate` UI intents and applies them on Tk thread.
 - Gesture and action-dispatcher paths no longer call menu navigation methods directly.
 
+## Music pause grace window (Phase 6.6)
+
+- `ui.music.playback` handling now treats `paused` with a grace delay before switching to idle.
+- If `playing` arrives within the grace window, pending idle switch is canceled.
+- Grace duration is configurable via `music_pause_grace_ms` (default `1200`).
+
 ## Screen namespace bootstrap (Phase 8.0)
 
 - Added `app/ui/screens/` package as the target namespace for screen modules.
