@@ -113,6 +113,12 @@ This project now has a minimal core layer to support gradual migration to a stat
 - Tk-thread intent apply is now the single path that calls `display_controller.show_screen(...)` / `turn_off()`.
 - Screen intent dedupe keeps screen transitions stable and avoids repeated re-apply on identical state.
 
+## State-driven menu refresh (Phase 6.4)
+
+- Direct `update_menu_states()` calls from action/device/music flows were replaced by `menu.refresh.requested` events.
+- `MainApp` maps these events to a `menu.refresh` UI intent.
+- Menu button state recalculation now runs via Tk-thread intent apply, consistent with other UI updates.
+
 ## Local state testing without UI
 
 Use replay tool with JSONL:

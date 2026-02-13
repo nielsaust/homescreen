@@ -284,6 +284,18 @@ class MainApp:
                     "force": bool(event.payload.get("force", False)),
                 }
             )
+            if state.screen_state == "menu":
+                self._enqueue_ui_intent(
+                    {
+                        "type": "menu.refresh",
+                    }
+                )
+        elif event.event_type == "menu.refresh.requested":
+            self._enqueue_ui_intent(
+                {
+                    "type": "menu.refresh",
+                }
+            )
 
     def _enqueue_ui_intent(self, intent):
         self.ui_intent_queue.put(intent)
@@ -393,6 +405,11 @@ class MainApp:
                 self.display_controller.show_screen("menu", force=force)
                 return
             logger.warning("Unknown screen intent received: %s", screen)
+            return
+
+        if intent_type == "menu.refresh":
+            self.display_controller.update_menu_states()
+            return
 
     def _network_sim_flag_path(self):
         return pathlib.Path(__file__).parent / ".sim" / "network_down.flag"
@@ -495,7 +512,11 @@ class MainApp:
         self.log_music_debug("[music] applying payload", resolved_payload)
         self.record_music_metric("applied")
         self.update_music_object(resolved_payload)
-        self.display_controller.update_menu_states()
+        self.publish_event(
+            "menu.refresh.requested",
+            {"reason": "music.update.applied"},
+            source="main",
+        )
 
     def perform_action(self, interaction_type):
         self.publish_event("interaction.received", {"interaction_type": interaction_type})
@@ -679,7 +700,11 @@ class MainApp:
                         "printer_progress": self.device_states.printer_progress,
                     },
                 )
-                self.display_controller.update_menu_states()
+                self.publish_event(
+                    "menu.refresh.requested",
+                    {"reason": "device.state.updated"},
+                    source="main",
+                )
                 self.check_bed_time()
                 return
             except Exception as e:
