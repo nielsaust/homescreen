@@ -118,6 +118,7 @@ class MenuScreen:
         self.click_y = None
 
         self.fullscreen_image_window = None
+        self._desktop_repaint_after_id = None
 
         self.create_buttons(self.buttons)
         for i, button in enumerate(self.buttons):
@@ -213,6 +214,9 @@ class MenuScreen:
             self.main_app.display_controller.place_action_label(f"{page_nr}/{self.max_page}",anchor="se")
             logger.debug(f"Placing action label: {page_nr}/{self.max_page}")
             self.main_app.display_controller.force_screen_update()
+
+        self._trace_menu_render("menu.render.complete")
+        self._schedule_desktop_repaint()
 
     def enter_submenu(self):
         self.remove_current_menu()
@@ -502,6 +506,46 @@ class MenuScreen:
         logger.debug(f"Button {button.text} is {'active' if button.is_active else 'inactive'}")
         if(ignore_screen_update==False):
             self.main_app.display_controller.force_screen_update()
+
+    def _schedule_desktop_repaint(self):
+        if not self.main_app.system_info.get("is_desktop", False):
+            return
+        if self._desktop_repaint_after_id is not None:
+            return
+        # Flush layout on idle to reduce delayed/blank menu draws on desktop Tk.
+        self._desktop_repaint_after_id = self.frame.after_idle(self._apply_desktop_repaint)
+
+    def _apply_desktop_repaint(self):
+        self._desktop_repaint_after_id = None
+        try:
+            self.frame.update_idletasks()
+            self.main_app.root.update_idletasks()
+            self._trace_menu_render("menu.repaint.applied")
+        except Exception as exc:
+            logger.debug("Menu desktop repaint failed: %s", exc)
+
+    def _trace_menu_render(self, event_name):
+        if not getattr(self.main_app, "ui_trace_logging", False):
+            return
+        try:
+            button_ids = [btn.get("button").id for btn in self.active_buttons]
+        except Exception:
+            button_ids = []
+        visible_children = 0
+        try:
+            for child in self.frame.winfo_children():
+                if child.winfo_manager() == "grid" and child.winfo_ismapped():
+                    visible_children += 1
+        except Exception:
+            visible_children = -1
+        if hasattr(self.main_app, "trace_ui_event"):
+            self.main_app.trace_ui_event(
+                event_name,
+                page=self.current_menu_page,
+                max_page=self.max_page,
+                active_buttons=button_ids,
+                visible_children=visible_children,
+            )
 
     def close_timeout(self,new_timeout=True):
         # Cancel the previously scheduled job, if any
