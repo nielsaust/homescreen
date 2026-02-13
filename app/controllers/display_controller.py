@@ -32,6 +32,7 @@ class DisplayController:
         # display options for Pi Screen
         self.backlight = None
         self.is_showing = False
+        self._in_bed_user_wake_active = False
         if(not self.main_app.system_info["is_desktop"]):
             self.backlight = Backlight()
             self.main_app.root.attributes("-fullscreen", True)
@@ -346,17 +347,33 @@ class DisplayController:
 
     def check_idle(self,turn_on=False):
         screen = self.get_screen_state()
+        in_bed_active = bool(getattr(self.main_app.device_states, "in_bed", False))
+
+        # Explicit wake (tap / user action) starts a temporary wake session while in-bed.
         if turn_on:
+            if in_bed_active:
+                self._in_bed_user_wake_active = True
             self.turn_on(user_override=True)
-        elif screen=="menu":
-            self.turn_on()
-        elif screen=="music":
-            if self.main_app.device_states.in_bed:
-                self.turn_off()
-            else:
-                self.turn_on()
-        elif screen=="off":
+            return
+
+        # While in-bed, allow interaction screens during user wake session only.
+        if in_bed_active:
+            if self._in_bed_user_wake_active and screen in ("menu", "music"):
+                self.turn_on(user_override=True)
+                return
+            self._in_bed_user_wake_active = False
             self.turn_off()
+            return
+
+        # Outside in-bed mode, use normal behavior.
+        if screen == "menu":
+            self.turn_on()
+        elif screen == "music":
+            self.turn_on()
+        elif screen == "off":
+            self.turn_off()
+        else:
+            self.turn_on()
 
     def turn_on(self, user_override=False):
         in_bed_active = bool(getattr(self.main_app.device_states, "in_bed", False))
