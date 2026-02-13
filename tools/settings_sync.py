@@ -1,0 +1,184 @@
+#!/usr/bin/env python3
+"""Utilities to keep settings.json and settings.json.example in sync safely."""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+from typing import Any
+
+ROOT = Path(__file__).resolve().parent.parent
+LOCAL_FILE = ROOT / "settings.json"
+EXAMPLE_FILE = ROOT / "settings.json.example"
+
+SENSITIVE_KEY_PARTS = (
+    "password",
+    "secret",
+    "token",
+    "api_key",
+    "dsn",
+)
+
+
+def is_sensitive_key(path: str) -> bool:
+    lowered = path.lower()
+    return any(part in lowered for part in SENSITIVE_KEY_PARTS)
+
+
+def load_json(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text())
+
+
+def save_json(path: Path, data: dict[str, Any]) -> None:
+    path.write_text(json.dumps(data, indent=4) + "\n")
+
+
+def flatten_paths(data: Any, prefix: str = "") -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    if isinstance(data, dict):
+        for key, value in data.items():
+            path = f"{prefix}.{key}" if prefix else key
+            result.update(flatten_paths(value, path))
+    else:
+        result[prefix] = data
+    return result
+
+
+def infer_placeholder(path: str, value: Any) -> Any:
+    key = path.split(".")[-1].lower()
+    if is_sensitive_key(path):
+        return "CHANGE_ME"
+    if "url" in key:
+        return "https://CHANGE_ME"
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return value
+    if isinstance(value, list):
+        return value
+    if isinstance(value, dict):
+        return value
+    if value is None:
+        return None
+    return value
+
+
+def set_nested(data: dict[str, Any], path: str, value: Any) -> None:
+    parts = path.split(".")
+    cur = data
+    for part in parts[:-1]:
+        if part not in cur or not isinstance(cur[part], dict):
+            cur[part] = {}
+        cur = cur[part]
+    cur[parts[-1]] = value
+
+
+def get_nested(data: dict[str, Any], path: str) -> Any:
+    cur: Any = data
+    for part in path.split("."):
+        if not isinstance(cur, dict) or part not in cur:
+            raise KeyError(path)
+        cur = cur[part]
+    return cur
+
+
+def command_check() -> int:
+    local = load_json(LOCAL_FILE)
+    example = load_json(EXAMPLE_FILE)
+
+    local_paths = flatten_paths(local)
+    example_paths = flatten_paths(example)
+
+    only_local = sorted(set(local_paths) - set(example_paths))
+    only_example = sorted(set(example_paths) - set(local_paths))
+
+    type_mismatches = []
+    for path in sorted(set(local_paths) & set(example_paths)):
+        a = local_paths[path]
+        b = example_paths[path]
+        if type(a) is not type(b):
+            type_mismatches.append((path, type(a).__name__, type(b).__name__))
+
+    print("[settings-sync] check")
+    print(f"- only in settings.json: {len(only_local)}")
+    print(f"- only in settings.json.example: {len(only_example)}")
+    print(f"- type mismatches: {len(type_mismatches)}")
+
+    if only_local:
+        print("\n[only in settings.json]")
+        for path in only_local:
+            print(f"  - {path}")
+
+    if only_example:
+        print("\n[only in settings.json.example]")
+        for path in only_example:
+            print(f"  - {path}")
+
+    if type_mismatches:
+        print("\n[type mismatches]")
+        for path, local_t, example_t in type_mismatches:
+            print(f"  - {path}: local={local_t}, example={example_t}")
+
+    return 0
+
+
+def command_update_example() -> int:
+    local = load_json(LOCAL_FILE)
+    example = load_json(EXAMPLE_FILE)
+
+    local_paths = flatten_paths(local)
+    example_paths = flatten_paths(example)
+    missing = sorted(set(local_paths) - set(example_paths))
+
+    for path in missing:
+        value = local_paths[path]
+        placeholder = infer_placeholder(path, value)
+        set_nested(example, path, placeholder)
+
+    save_json(EXAMPLE_FILE, example)
+    print(f"[settings-sync] updated {EXAMPLE_FILE.name} with {len(missing)} missing keys")
+    return 0
+
+
+def command_update_local() -> int:
+    local = load_json(LOCAL_FILE)
+    example = load_json(EXAMPLE_FILE)
+
+    local_paths = flatten_paths(local)
+    example_paths = flatten_paths(example)
+    missing = sorted(set(example_paths) - set(local_paths))
+
+    for path in missing:
+        value = get_nested(example, path)
+        set_nested(local, path, value)
+
+    save_json(LOCAL_FILE, local)
+    print(f"[settings-sync] updated {LOCAL_FILE.name} with {len(missing)} missing keys")
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Sync and check settings files")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    sub.add_parser("check", help="Show key/type differences")
+    sub.add_parser("update-example", help="Add missing keys from settings.json to settings.json.example")
+    sub.add_parser("update-local", help="Add missing keys from settings.json.example to settings.json")
+
+    args = parser.parse_args()
+    if args.command == "check":
+        return command_check()
+    if args.command == "update-example":
+        return command_update_example()
+    if args.command == "update-local":
+        return command_update_local()
+    return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
