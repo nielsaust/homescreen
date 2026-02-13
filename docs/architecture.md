@@ -35,6 +35,12 @@ This project now has a minimal core layer to support gradual migration to a stat
 - MQTT connect/reconnect uses exponential backoff with configurable min/max intervals.
 - Network outage can be simulated via `.sim/network_down.flag` (see `tools/network_sim.py`).
 
+## Action routing split (Phase 5)
+
+- `TouchController` now handles input/gestures only.
+- Menu action -> behavior routing moved to `action_dispatcher.py`.
+- This reduces UI/input coupling and prepares further service extraction.
+
 ## Local state testing without UI
 
 Use replay tool with JSONL:
