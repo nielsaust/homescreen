@@ -16,11 +16,16 @@ if str(ROOT) not in sys.path:
 
 CORE_MODULES = [
     "main",
-    "settings",
-    "device_states",
-    "display_controller",
-    "touch_controller",
-    "mqtt_controller",
+    "app.config.settings",
+    "app.models.device_states",
+    "app.models.music_object",
+    "app.observability.logger",
+    "app.observability.sentry_setup",
+    "app.hardware.hyperpixel_backlight",
+    "app.ui.menu_button",
+    "app.controllers.display_controller",
+    "app.controllers.touch_controller",
+    "app.controllers.mqtt_controller",
     "core.event_bus",
     "core.events",
     "core.reducer",
@@ -54,11 +59,16 @@ CORE_MODULES = [
 
 CORE_FILES = [
     "main.py",
-    "settings.py",
-    "device_states.py",
-    "display_controller.py",
-    "touch_controller.py",
-    "mqtt_controller.py",
+    "app/config/settings.py",
+    "app/models/device_states.py",
+    "app/models/music_object.py",
+    "app/observability/logger.py",
+    "app/observability/sentry_setup.py",
+    "app/hardware/hyperpixel_backlight.py",
+    "app/ui/menu_button.py",
+    "app/controllers/display_controller.py",
+    "app/controllers/touch_controller.py",
+    "app/controllers/mqtt_controller.py",
     "core/event_bus.py",
     "core/events.py",
     "core/reducer.py",
@@ -116,7 +126,7 @@ def _load_settings() -> list[str]:
     settings_file = "settings.json" if (ROOT / "settings.json").exists() else "settings.json.example"
 
     try:
-        from settings import Settings
+        from app.config.settings import Settings
 
         Settings(settings_file)
     except Exception as exc:

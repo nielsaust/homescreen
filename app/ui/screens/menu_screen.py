@@ -18,7 +18,7 @@ import os
 
 from tkinter import font as tkFont
 
-from menu_button import MenuButton
+from app.ui.menu_button import MenuButton
 
 class MenuScreen:
     def __init__(self, main_app: MainApp, frame):

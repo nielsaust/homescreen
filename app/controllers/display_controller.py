@@ -3,7 +3,7 @@ logger = logging.getLogger(__name__)
 
 import time
 import tkinter as tk
-from hyperpixel_backlight import Backlight
+from app.hardware.hyperpixel_backlight import Backlight
 from app.controllers.overlay_commands import OverlayCommand
 from app.controllers.overlay_manager import OverlayManager
 from app.ui.ui_render_service import UiRenderService

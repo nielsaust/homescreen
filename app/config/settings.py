@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 class Settings:
     def __init__(self, json_file):
         self.json_file = json_file
-        json_file_path= os.fspath(pathlib.Path(__file__).parent / f'{json_file}')
+        json_file_path = os.fspath(pathlib.Path(__file__).resolve().parents[2] / f"{json_file}")
         self.load_settings(json_file_path)
 
     def load_settings(self, json_file):

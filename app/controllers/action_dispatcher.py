@@ -8,7 +8,7 @@ from app.controllers.overlay_commands import OverlayCommand
 
 if TYPE_CHECKING:
     from main import MainApp
-    from touch_controller import TouchController
+    from app.controllers.touch_controller import TouchController
 
 logger = logging.getLogger(__name__)
 

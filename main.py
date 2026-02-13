@@ -2,7 +2,6 @@
 import datetime
 import json
 import logging
-import logger as log_setup
 import pathlib
 from queue import Empty, Queue
 import time
@@ -17,15 +16,16 @@ from core.event_bus import EventBus
 from core.events import AppEvent
 from core.state import AppState
 from core.store import AppStore
-from device_states import DeviceStates
+from app.models.device_states import DeviceStates
 from app.controllers.mqtt_message_router import MqttMessageRouter
 from app.controllers.media_controller import MediaController
 from app.controllers.screen_state_controller import ScreenStateController
 from app.controllers.ui_intent_handler import UiIntentHandler
+from app.observability import logger as log_setup
 from app.services.music_service import MusicService
 from app.ui.widgets.network_status_widget import NetworkStatusWidget
-from settings import Settings
-from sentry_setup import init_sentry
+from app.config.settings import Settings
+from app.observability.sentry_setup import init_sentry
 from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 
 import tkinter as tk
@@ -166,9 +166,9 @@ class MainApp:
         sys.excepthook = self.log_unhandled_exception
 
         self.device_states = DeviceStates()
-        from touch_controller import TouchController
+        from app.controllers.touch_controller import TouchController
         self.touch_controller = TouchController(self)
-        from display_controller import DisplayController
+        from app.controllers.display_controller import DisplayController
         self.display_controller = DisplayController(self)
         self.screen_state_controller = ScreenStateController(self)
         self.mqtt_message_router = MqttMessageRouter(self)
@@ -359,7 +359,7 @@ class MainApp:
     def init_mqtt(self):
         if self.mqtt_initialized:
             return
-        from mqtt_controller import MqttController
+        from app.controllers.mqtt_controller import MqttController
         self.mqtt_controller = MqttController(self, self.settings.mqtt_broker, self.settings.mqtt_port, self.settings.mqtt_user, self.settings.mqtt_password)
         self.mqtt_initialized = True
 
@@ -633,7 +633,7 @@ class MainApp:
         album_art_api_url = data.get('album_art_api_url')
 
         if(self.music_object is None):
-            from music_object import MusicObject
+            from app.models.music_object import MusicObject
             self.music_object = MusicObject(
                 state, 
                 title, 

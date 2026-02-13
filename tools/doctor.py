@@ -88,7 +88,15 @@ def _check_settings() -> list[str]:
 
 def _check_repo_files() -> list[str]:
     errors: list[str] = []
-    for filename in ["main.py", "settings.py", "display_controller.py", "mqtt_controller.py"]:
+    required_files = [
+        "main.py",
+        "app/config/settings.py",
+        "app/controllers/display_controller.py",
+        "app/controllers/mqtt_controller.py",
+        "app/observability/logger.py",
+        "app/observability/sentry_setup.py",
+    ]
+    for filename in required_files:
         if not (ROOT / filename).exists():
             errors.append(f"Required file missing: {filename}")
     return errors

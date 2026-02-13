@@ -1,0 +1,5 @@
+2026-02-13 22:47:29,224 [app.hardware.hyperpixel_backlight] CRITICAL - Could not import RPi.GPIO.
+2026-02-13 22:47:29,320 [app.config.settings] INFO - Loading settings from /Users/niels/Documents/Workspace/Personal/homescreen/app/config/settings.json
+2026-02-13 22:47:29,321 [app.config.settings] CRITICAL - Settings file '/Users/niels/Documents/Workspace/Personal/homescreen/app/config/settings.json' not found. Copy 'settings.json.example' to 'settings.json' first. Example: cp settings.json.example settings.json
+2026-02-13 22:47:39,583 [app.hardware.hyperpixel_backlight] CRITICAL - Could not import RPi.GPIO.
+2026-02-13 22:47:39,649 [app.config.settings] INFO - Loading settings from /Users/niels/Documents/Workspace/Personal/homescreen/settings.json
