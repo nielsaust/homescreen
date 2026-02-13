@@ -18,7 +18,7 @@ from core.events import AppEvent
 from core.state import AppState
 from core.store import AppStore
 from device_states import DeviceStates
-from app.controllers.overlay_commands import OverlayCommand
+from app.controllers.mqtt_message_router import MqttMessageRouter
 from app.controllers.screen_state_controller import ScreenStateController
 from app.services.music_service import MusicService
 from app.ui.widgets.network_status_widget import NetworkStatusWidget
@@ -183,6 +183,7 @@ class MainApp:
         from display_controller import DisplayController
         self.display_controller = DisplayController(self)
         self.screen_state_controller = ScreenStateController(self)
+        self.mqtt_message_router = MqttMessageRouter(self)
         self.touch_controller.bind_events(self.root)
 
         # Register the signal handler for Ctrl-C
@@ -742,96 +743,8 @@ class MainApp:
         logger.debug(f"Asking mqtt for music state")
         self.mqtt_controller.publish_message(topic="screen_commands/update_music")
 
-    def check_print_status(self, data):
-        progress = data.get('progress')
-        if self.device_states:
-            self.device_states.printer_progress = progress
-        logger.info(f"Checking print status ({progress}%)")
-        if self.settings.show_cam_on_print_percentage>0 and progress and progress >= self.settings.show_cam_on_print_percentage:
-            self.request_overlay(
-                OverlayCommand.SHOW_CAM,
-                {"data": data, "url": self.settings.printer_url},
-                source="mqtt",
-            )
-        else:
-            self.request_overlay(
-                OverlayCommand.UPDATE_PRINT_PROGRESS,
-                {"progress": progress},
-                source="mqtt",
-            )
-
     def on_mqtt_message(self, topic, data):
-        # prevent initial messages @ startup
-        time_since_boot = time.time()-self.boot_time
-        self.publish_event("mqtt.message.received", {"topic": topic})
-        logger.debug(f"On MQTT message: {topic}, with data: {data}")
-        self.check_mqtt_message_queue(topic)
-
-        if topic==self.settings.mqtt_topic_music:
-            self.queue_music_update(data)
-            return
-        elif topic==self.settings.mqtt_topic_devices:
-            try:
-                self.device_states.update_states(data)
-                self.publish_event(
-                    "device.state.updated",
-                    {
-                        "in_bed": self.device_states.in_bed,
-                        "printer_progress": self.device_states.printer_progress,
-                    },
-                )
-                self.publish_event(
-                    "menu.refresh.requested",
-                    {"reason": "device.state.updated"},
-                    source="main",
-                )
-                self.check_bed_time()
-                return
-            except Exception as e:
-                logger.error(f"Something went wrong when updating device states or buttons: {e}")
-                return 
-
-        # don't accept certain messages shortly after boot
-        logger.debug(f"time since boot: {round(time_since_boot)}s ({round(time_since_boot/60/60,1)}h)")
-        if time_since_boot<self.settings.mqtt_accept_nonessential_messages_after:
-            logger.warning(f"only accepting non-essential messages afer {self.settings.mqtt_accept_nonessential_messages_after}s")
-            return
-        
-        # octoPrint/progress/printing = mqtt_topic_printer_progress
-        if topic==self.settings.mqtt_topic_doorbell:
-            self.request_overlay(
-                OverlayCommand.SHOW_CAM,
-                {
-                    "data": data,
-                    "url": f"http://{self.settings.doorbell_url}{self.settings.doorbell_path}",
-                    "username": self.settings.doorbell_username,
-                    "password": self.settings.doorbell_password,
-                },
-                source="mqtt",
-            )
-        elif topic==self.settings.mqtt_topic_printer_progress:
-            self.check_print_status(data)           
-        elif topic==self.settings.mqtt_topic_calendar:
-            self.request_overlay(OverlayCommand.SHOW_CALENDAR, {"data": data}, source="mqtt")
-        elif topic==self.settings.mqtt_topic_alert:
-            logger.debug(f"Received alert: {data}")
-            self.request_overlay(OverlayCommand.SHOW_ALERT, {"data": data}, source="mqtt")
-        elif topic==self.settings.mqtt_topic_print_start:
-            self.request_overlay(
-                OverlayCommand.SHOW_PRINT_STATUS,
-                {"progress": self.device_states.printer_progress, "reset": True},
-                source="mqtt",
-            )
-        elif topic==self.settings.mqtt_topic_print_done:
-            self.request_overlay(OverlayCommand.PRINT_SCREEN_ATTENTION, source="mqtt")
-        elif topic==self.settings.mqtt_topic_print_cancelled:
-            self.request_overlay(OverlayCommand.CLOSE_PRINT_SCREEN, source="mqtt")
-        elif topic==self.settings.mqtt_topic_print_change_filament:
-            self.request_overlay(OverlayCommand.PRINT_SCREEN_ATTENTION, source="mqtt")
-        elif topic==self.settings.mqtt_topic_print_change_z:
-            self.request_overlay(OverlayCommand.CANCEL_ATTENTION, source="mqtt")
-        else:
-            logger.warning(f"Unknown or untimely topic received: {topic}")
+        self.mqtt_message_router.handle(topic, data)
         
 
 
