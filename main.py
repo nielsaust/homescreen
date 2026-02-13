@@ -19,6 +19,7 @@ from core.state import AppState
 from core.store import AppStore
 from device_states import DeviceStates
 from app.controllers.overlay_commands import OverlayCommand
+from app.controllers.screen_state_controller import ScreenStateController
 from app.services.music_service import MusicService
 from app.ui.widgets.network_status_widget import NetworkStatusWidget
 from settings import Settings
@@ -181,6 +182,7 @@ class MainApp:
         self.touch_controller = TouchController(self)
         from display_controller import DisplayController
         self.display_controller = DisplayController(self)
+        self.screen_state_controller = ScreenStateController(self)
         self.touch_controller.bind_events(self.root)
 
         # Register the signal handler for Ctrl-C
@@ -675,40 +677,17 @@ class MainApp:
 
     ###### SCREEENS ######
     def switch_to_idle(self,force=False):
-        self.publish_event(
-            "ui.screen.changed",
-            {
-                "screen": "weather" if self.settings.show_weather_on_idle else "off",
-                "is_display_on": self.settings.show_weather_on_idle,
-                "force": bool(force),
-            },
-        )
+        self.screen_state_controller.switch_to_idle(force)
 
     def switch_to_music(self,force=False):
-        if not self.display_controller.get_screen_state() == "menu" or force:
-            self.publish_event(
-                "ui.screen.changed",
-                {"screen": "music", "is_display_on": True, "force": bool(force)},
-            )
-            logger.debug(f"Switch_to_music, current screen: {self.display_controller.get_screen_state()}")
+        self.screen_state_controller.switch_to_music(force)
 
 
     def switch_to_menu(self):
-        if self.display_controller.menu_ready():
-            self.publish_event(
-                "ui.screen.changed",
-                {"screen": "menu", "is_display_on": True, "force": False},
-            )
-            logger.debug(f"Menu ready; show menu")
-        else:
-            logger.warning(f"Menu NOT ready; show idle instead")
-            self.switch_to_idle()
+        self.screen_state_controller.switch_to_menu()
 
     def exit_menu(self):
-        if(self.music_object is not None and self.music_object.state=="playing"):
-            self.switch_to_music(True)
-        else:
-            self.switch_to_idle()
+        self.screen_state_controller.exit_menu()
 
     def request_menu_navigation(self, command: str, source: str = "main"):
         self.publish_event(
