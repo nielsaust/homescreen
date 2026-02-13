@@ -1,6 +1,6 @@
 PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 
-.PHONY: install baseline doctor smoke test-local test-device run net-down net-up net-status settings-check settings-update-example settings-update-local settings-prune-local-preview settings-prune-local deploy-dry-run
+.PHONY: install baseline doctor smoke test-unit perf-check test-local test-device run net-down net-up net-status settings-check settings-update-example settings-update-local settings-prune-local-preview settings-prune-local deploy-dry-run
 
 install:
 	bash tools/bootstrap.sh
@@ -14,7 +14,13 @@ baseline:
 smoke:
 	$(PYTHON) tools/smoke.py
 
-test-local: doctor smoke
+test-unit:
+	$(PYTHON) tools/test_unit.py
+
+perf-check:
+	$(PYTHON) tools/perf_check.py
+
+test-local: doctor smoke test-unit
 
 test-device:
 	bash tools/device_smoke.sh

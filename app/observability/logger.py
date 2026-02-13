@@ -124,7 +124,7 @@ def setup_logging():
     if getattr(root_logger, "_homescreen_logging_configured", False):
         return
 
-    project_root = pathlib.Path(__file__).parent
+    project_root = pathlib.Path(__file__).resolve().parents[2]
     log_dir = project_root / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
 

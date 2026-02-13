@@ -9,6 +9,18 @@ make install
 make test-local
 ```
 
+Run dedicated unit tests:
+
+```bash
+make test-unit
+```
+
+Run performance guard checks:
+
+```bash
+make perf-check
+```
+
 If dependencies are not available yet (or offline), run syntax-only baseline:
 
 ```bash
@@ -32,6 +44,7 @@ make test-device
 This runs:
 - dependency/config checks
 - smoke imports/compile checks
+- unit tests (`tests/unit`)
 - optional `systemd` status output (if available)
 - MQTT broker socket reachability check (from `settings.json`)
 

@@ -15,6 +15,8 @@ make run
 
 - Syntax baseline (no deps): `make baseline`
 - Local baseline: `make test-local`
+- Unit tests: `make test-unit`
+- Performance guard checks: `make perf-check`
 - Device baseline (Pi): `make test-device`
 - Network outage simulation: `make net-down`, `make net-status`, `make net-up`
 
