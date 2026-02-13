@@ -134,13 +134,13 @@ This project now has a minimal core layer to support gradual migration to a stat
 ## Menu click reliability and doorbell action (Phase 6.7)
 
 - Menu button down/up handlers now return `"break"` to avoid root click handlers interfering with menu actions.
-- Doorbell menu action now opens camera immediately and can still publish the remote trigger topic.
+- Doorbell menu action remains MQTT-triggered.
 
 ## Input and desktop tuning follow-up (Phase 6.8)
 
 - Doorbell menu action was reverted to MQTT-trigger-only to avoid duplicate camera windows on delayed echo.
 - Swipe thresholds were corrected to use signed movement (`< -min_movement`) for right/up gestures.
-- macOS repaint workaround is now opt-in (default disabled) because forced repaint can cause unstable/blank renders on some desktop setups.
+- Experimental macOS repaint workaround was removed because it did not reliably improve desktop rendering.
 
 ## Screen namespace bootstrap (Phase 8.0)
 
