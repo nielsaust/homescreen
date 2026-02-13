@@ -44,3 +44,26 @@ Collect:
 
 - Logging events at `ERROR` and above are forwarded to Sentry.
 - A redaction filter masks common sensitive fields (`password`, `token`, `secret`, `authorization`, `api_key`, `dsn`) before sending.
+
+## UI Trace Logging (local diagnosis)
+
+For intermittent Tk rendering issues (blank/gray frames, delayed button/text paint), enable:
+
+```json
+{
+  "ui_trace_logging": true,
+  "ui_trace_followup_ms": 80
+}
+```
+
+This logs `[ui-trace]` events for:
+- screen show requests
+- `screen_object.show()` outcome
+- frame/widget mapped/size state right after pack
+- mapped/size state after delayed follow-up snapshot
+- UI intent pump throughput
+
+How this helps with direction:
+- `show_ok=true` + `mapped=false` after delay suggests Tk mapping/render delay (event loop/compositor issue).
+- `mapped=true` but width/height `0` suggests layout/geometry timing race.
+- missing `screen.after_pack` for a screen request suggests logic path interruption before pack.

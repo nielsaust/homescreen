@@ -166,9 +166,17 @@ class DisplayController:
 
     def show_screen(self, screen_name, init=False, force=False):
         time_between_switches = time.time() - self.time_in_screen
+        self._trace_ui(
+            "screen.show.request",
+            screen=screen_name,
+            force=force,
+            current=self.get_screen_state(),
+            time_between_switches=round(time_between_switches, 4),
+        )
         logger.debug(f"show_screen({screen_name}) time_between_switches: {time_between_switches} - forced = {force}")
         if (time_between_switches<self.main_app.settings.min_time_between_actions and not force):
             logger.warning(f"Switched screens too fast ({time_between_switches}ms); could result in errors so abording. (self.current_screen = {self.current_screen})")
+            self._trace_ui("screen.show.blocked_too_fast", screen=screen_name)
             return
 
         self._screen_state = screen_name
@@ -176,8 +184,10 @@ class DisplayController:
         allow_forget = (self.current_screen is not None) and (self.current_screen!=self.screens.get(screen_name))
         if allow_forget:
             logger.debug(f"forgetting {self.current_screen}")
+            self._trace_widget_state("screen.before_forget", self.current_screen)
             self.current_screen.pack_forget()
             self.force_screen_update()
+            self._trace_widget_state("screen.after_forget", self.current_screen)
         else:
             logger.debug(f"can't forget {self.current_screen} for it is the current screen already")
 
@@ -196,10 +206,14 @@ class DisplayController:
             if screen_object:
                 try:
                     logger.debug(f"trying to show {screen_name}")
-                    if(screen_object.show()):
+                    show_ok = bool(screen_object.show())
+                    self._trace_ui("screen.object.show", screen=screen_name, show_ok=show_ok)
+                    if show_ok:
                         logger.info(f"Showing {screen_name} screen")
                         self.current_screen.pack(fill=tk.BOTH, expand=True)
                         self.time_in_screen = time.time()
+                        self._trace_widget_state("screen.after_pack", self.current_screen)
+                        self._schedule_trace_widget_state("screen.after_delay", self.current_screen)
                         logger.debug(f"screen_object {screen_object} at {screen_object.__class__.__name__} created and updated ({self.time_in_screen})")
                     else:
                         self.current_screen = self.previous_screen
@@ -214,6 +228,7 @@ class DisplayController:
         if screen_name != "off":
             self.check_idle()
         self.force_screen_update()
+        self._trace_widget_state("screen.after_force_update", self.current_screen)
 
     def show_music_overlays(self):
         music_screen = self.screen_objects.get("music")
@@ -269,6 +284,38 @@ class DisplayController:
             self.main_app.root.update_idletasks()
         else:
             logger.debug("Not forcing screen update; force_update is false")
+
+    def _trace_ui(self, event_name, **fields):
+        if not getattr(self.main_app, "ui_trace_logging", False):
+            return
+        if hasattr(self.main_app, "trace_ui_event"):
+            self.main_app.trace_ui_event(event_name, **fields)
+
+    def _trace_widget_state(self, event_name, widget):
+        if not getattr(self.main_app, "ui_trace_logging", False):
+            return
+        if widget is None:
+            self._trace_ui(event_name, widget="none")
+            return
+        try:
+            self._trace_ui(
+                event_name,
+                widget_class=widget.winfo_class(),
+                manager=widget.winfo_manager(),
+                mapped=bool(widget.winfo_ismapped()),
+                width=int(widget.winfo_width()),
+                height=int(widget.winfo_height()),
+                rootx=int(widget.winfo_rootx()),
+                rooty=int(widget.winfo_rooty()),
+            )
+        except Exception as exc:
+            self._trace_ui(event_name, widget_error=str(exc))
+
+    def _schedule_trace_widget_state(self, event_name, widget):
+        if not getattr(self.main_app, "ui_trace_logging", False):
+            return
+        delay_ms = max(1, int(getattr(self.main_app, "ui_trace_followup_ms", 80)))
+        self.main_app.root.after(delay_ms, lambda: self._trace_widget_state(event_name, widget))
 
     def place_action_label(self, text=None, anchor="center", image=None, bg='black', fg='white', bordercolor='black'): 
         if self.main_app.settings.show_feedback_label_timeout==0:
