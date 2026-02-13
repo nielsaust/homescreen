@@ -29,7 +29,10 @@ def is_sensitive_key(path: str) -> bool:
 def load_json(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
-    return json.loads(path.read_text())
+    try:
+        return json.loads(path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid JSON in {path.name} at line {exc.lineno}, column {exc.colno}: {exc.msg}") from exc
 
 
 def save_json(path: Path, data: dict[str, Any]) -> None:
@@ -87,9 +90,36 @@ def get_nested(data: dict[str, Any], path: str) -> Any:
     return cur
 
 
+def order_like_template(target: Any, template: Any) -> Any:
+    """Recursively order target dict keys to match template key order first."""
+    if not isinstance(target, dict):
+        return target
+
+    if not isinstance(template, dict):
+        # No template shape: sort keys alphabetically for stable output.
+        return {k: order_like_template(v, None) for k, v in sorted(target.items(), key=lambda x: x[0])}
+
+    ordered: dict[str, Any] = {}
+
+    # 1) Keys from template first, in template order.
+    for key, template_value in template.items():
+        if key in target:
+            ordered[key] = order_like_template(target[key], template_value)
+
+    # 2) Extra keys from target afterwards, stable alphabetic order.
+    for key in sorted(k for k in target.keys() if k not in template):
+        ordered[key] = order_like_template(target[key], None)
+
+    return ordered
+
+
 def command_check() -> int:
-    local = load_json(LOCAL_FILE)
-    example = load_json(EXAMPLE_FILE)
+    try:
+        local = load_json(LOCAL_FILE)
+        example = load_json(EXAMPLE_FILE)
+    except ValueError as exc:
+        print(f"[settings-sync][error] {exc}")
+        return 1
 
     local_paths = flatten_paths(local)
     example_paths = flatten_paths(example)
@@ -128,8 +158,12 @@ def command_check() -> int:
 
 
 def command_update_example() -> int:
-    local = load_json(LOCAL_FILE)
-    example = load_json(EXAMPLE_FILE)
+    try:
+        local = load_json(LOCAL_FILE)
+        example = load_json(EXAMPLE_FILE)
+    except ValueError as exc:
+        print(f"[settings-sync][error] {exc}")
+        return 1
 
     local_paths = flatten_paths(local)
     example_paths = flatten_paths(example)
@@ -140,14 +174,20 @@ def command_update_example() -> int:
         placeholder = infer_placeholder(path, value)
         set_nested(example, path, placeholder)
 
+    # Keep existing example order stable after additions.
+    example = order_like_template(example, example)
     save_json(EXAMPLE_FILE, example)
     print(f"[settings-sync] updated {EXAMPLE_FILE.name} with {len(missing)} missing keys")
     return 0
 
 
 def command_update_local() -> int:
-    local = load_json(LOCAL_FILE)
-    example = load_json(EXAMPLE_FILE)
+    try:
+        local = load_json(LOCAL_FILE)
+        example = load_json(EXAMPLE_FILE)
+    except ValueError as exc:
+        print(f"[settings-sync][error] {exc}")
+        return 1
 
     local_paths = flatten_paths(local)
     example_paths = flatten_paths(example)
@@ -157,6 +197,8 @@ def command_update_local() -> int:
         value = get_nested(example, path)
         set_nested(local, path, value)
 
+    # Force local file ordering to follow example ordering.
+    local = order_like_template(local, example)
     save_json(LOCAL_FILE, local)
     print(f"[settings-sync] updated {LOCAL_FILE.name} with {len(missing)} missing keys")
     return 0
