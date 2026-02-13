@@ -92,6 +92,13 @@ This project now has a minimal core layer to support gradual migration to a stat
   - weather cached-data label (`weather.updated`)
 - This removes direct Tk updates from non-UI paths and is the baseline for further screen migrations.
 
+## State-driven music render intent (Phase 6.1)
+
+- `music.updated` now carries full metadata (state/title/artist/channel/album/art URL).
+- Store tracks this metadata; `MainApp` maps it to a `music.render` UI intent.
+- Music screen applies metadata updates via `apply_state_update(...)` on Tk thread.
+- Music UI intent dedupe prevents redundant re-renders on unchanged payload signatures.
+
 ## Local state testing without UI
 
 Use replay tool with JSONL:
