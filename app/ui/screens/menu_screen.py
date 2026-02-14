@@ -18,7 +18,8 @@ import os
 
 from tkinter import font as tkFont
 
-from app.ui.menu_button import MenuButton
+from app.ui.menu_registry import build_menu_buttons
+from app.ui.menu_state_resolver import MenuStateResolver
 from app.observability.domain_logger import log_event
 
 class MenuScreen:
@@ -37,79 +38,9 @@ class MenuScreen:
         self.exit_timeout_ms = self.main_app.settings.close_menu_timeout
         self.button_click_time = None
         
-        self.buttons = [
-            # page 1
-            {"button": MenuButton("cinema","Zet bioscoop [cinema_action]","cinema.png","cinema"), "screen": []},
-            {"button": MenuButton("debug_cinema","Bios probleem repareren","tools.png","open_page"), "screen": [
-                {"button": MenuButton("debug_cinema_back","Terug","back.png","back")},
-                {"button": MenuButton("soundbar_toggle","Zet soundbar aan/uit","speaker.png","soundbar_toggle")},
-                {"button": MenuButton("beamer_on","Zet projector aan","video.png","beamer_on")},
-                {"button": MenuButton("beamer_off","Zet projector uit","video-off.png","beamer_off")},
-                {"button": MenuButton("blinds_up","Scherm omhoog","blinds-up.png","blinds_up")},
-                {"button": MenuButton("blinds_down","Scherm omlaag","blinds-down.png","blinds_down")},
-                {"button": MenuButton("blinds_stop","Stop scherm","blinds.png","blinds_stop")},
-                {"button": MenuButton("soundbar_hdmi","HDMI 1","output.png","soundbar_hdmi")},
-                {"button": MenuButton("ps_toggle","Playstation [ps_action]","ps.png","ps_toggle")},
-                {"button": MenuButton("soundbar_volume_down","Zachter","volume-down.png","soundbar_volume_down")},
-                {"button": MenuButton("soundbar_volume_up","Harder","volume-up.png","soundbar_volume_up")},
-                {"button": MenuButton("soundbar_mute","Mute soundbar","mute.png","soundbar_mute")}
-            ]},
-            {"button": MenuButton("music","Muziek","music.png","music_menu"), "screen": [
-                {"button": MenuButton("music_back","Terug","back.png","back")},
-                {"button": MenuButton("music_volume_up","Harder","volume-up.png","music_volume_up")},
-                {"button": MenuButton("music_play_pause","[music_action] muziek","play.png","music_play_pause")},
-                {"button": MenuButton("music_volume_down","Zachter","volume-down.png","music_volume_down")},
-                {"button": MenuButton("music_previous","Vorig nummer","backward.png","music_previous")},
-                {"button": MenuButton("music_next","Volgend nummer","forward.png","music_next")},
-                {"button": MenuButton("music_show_title","Toon muziek details","detail.png","music_show_title",cancel_close=True)}
-            ]},
-            {"button": MenuButton("light_scenes","Lichten","lights.png","light_scenes"), "screen": [
-                {"button": MenuButton("light_scenes_back","Terug","back.png","back")},
-                {"button": MenuButton("lights_movie","Movie scene","movie.png","scene_movie")},
-                {"button": MenuButton("lights_romance","Romance scene","romance.png","scene_romantic")},
-                {"button": MenuButton("lights_dinner","Normal / dinner scene","cutlery.png","scene_dinner")},
-                {"button": MenuButton("light_woonkamer","Woonkamer licht [woonkamer_licht_action]","sofa.png","light_woonkamer")},
-                {"button": MenuButton("light_keuken","Keuken licht [keuken_licht_action]","kitchen.png","light_keuken")},
-                {"button": MenuButton("light_tafel","Tafel licht [tafel_licht_action]","table.png","light_tafel")},
-                {"button": MenuButton("light_kleur","Kleur licht [kleur_licht_action]","color-lights.png","light_kleur")},
-                {"button": MenuButton("lights_bright","Fel scene","bright.png","scene_bright")},
-                {"button": MenuButton("lights_off","Licht uit","light-off.png","scene_off")}
-            ]},
-            # page 2
-            {"button": MenuButton("cover_kitchen","Doe keuken gordijn [cover_action]","curtain.png","cover_kitchen"), "screen": []},
-            {"button": MenuButton("blinds_control","Rolgordijn schijfpui","blinds.png","open_page"), "screen": [
-                {"button": MenuButton("blinds_control_back","Terug","back.png","back")},
-                {"button": MenuButton("blinds_up","Scherm omhoog","blinds-up.png","blinds_up")},
-                {"button": MenuButton("blinds_down","Scherm omlaag","blinds-down.png","blinds_down")},
-                {"button": MenuButton("blinds_stop","Stop scherm","blinds.png","blinds_stop")}
-            ]},
-            {"button": MenuButton("doorbell","Voordeur","door.png","doorbell"), "screen": []},
-            {"button": MenuButton("calendar","Volgend kalender item","calendar.png","calendar"), "screen": []},
-            # page 3
-            {"button": MenuButton("calendar_add","Voeg kalender item toe","calendar-plus.png","calendar_add"), "screen": []},
-            {"button": MenuButton("trash_warning_toggle","Zet afval melding [trash_action]","trash-x.png","trash_warning_toggle"), "screen": []},
-            {"button": MenuButton("screen_off","Zet scherm uit","screen-off.png","turn_screen_off"), "screen": []},
-            {"button": MenuButton("in_bed_toggle","Zet 'in-bed' modus [in_bed_action]","in-bed.png","in_bed_toggle"), "screen": []},
-            # page 4
-            {"button": MenuButton("wifi_qr","Wifi QR code","wifi.png","wifi_qr"), "screen": []},
-            #{"button": MenuButton("heart","Activate love","heart.png","heart"), "screen": []},
-            #{"button": MenuButton("christmas","Activate christmas","christmas.png","christmas"), "screen": []},
-            {"button": MenuButton("3d_printer_progress","Check 3D print status","3d-object.png","3d_printer_status"), "screen": []},
-            {"button": MenuButton("3d_printer_cam","3D printer cam","camera.png","3d_printer_cam"), "screen": []},
-            {"button": MenuButton("system_options","Systeem","system.png","system_options"), "screen": [
-                {"button": MenuButton("options_back","Terug","back.png","back")},
-                {"button": MenuButton("show_weather_on_idle","Toon weer als idle","weather.png","show_weather_on_idle")},
-                {"button": MenuButton("verify_ssl_on_trusted_sources","SSL","shield.png","verify_ssl_on_trusted_sources")},
-                {"button": MenuButton("media_show_titles","Toon media titels","text.png","media_show_titles")},
-                {"button": MenuButton("media_sanitize_titles","Kort titels in","text.png","media_sanitize_titles")},
-                {"button": MenuButton("quit","Sluit deze app","exit.png","exit")},
-                {"button": MenuButton("shell_reboot","Reboot machine","shell.png","shell_reboot")},
-                {"button": MenuButton("shell_shutdown","Shutdown machine","shell.png","shell_shutdown")},
-                {"button": MenuButton("shell_disable_networking","Disable networking","shell.png","shell_disable_networking")},
-                {"button": MenuButton("shell_enable_networking","Enable networking","shell.png","shell_enable_networking")},
-                {"button": MenuButton("shell_recover_network","Recover network","shell.png","shell_recover_network")}
-            ]},
-        ]
+        self.buttons = build_menu_buttons()
+        self.state_resolver = MenuStateResolver(self.main_app)
+        self.button_index = {}
 
         self.button_color = self.main_app.settings.button_color
         self.button_after_ids = {}
@@ -125,6 +56,7 @@ class MenuScreen:
             sub_buttons = self.buttons[i].get("screen")
             if(len(sub_buttons)>0):
                 self.create_buttons(sub_buttons)
+        self._build_button_index()
             
 
     def create_buttons(self, buttons):
@@ -161,16 +93,31 @@ class MenuScreen:
             label.image = button_image
             button.label = label
 
+    def _build_button_index(self):
+        self.button_index = {}
+        self._index_buttons_recursive(self.buttons)
+
+    def _index_buttons_recursive(self, entries):
+        for entry in entries:
+            button = entry.get("button")
+            if button is not None:
+                self.button_index.setdefault(button.id, []).append(button)
+            sub_entries = entry.get("screen") or []
+            if sub_entries:
+                self._index_buttons_recursive(sub_entries)
+
     def show(self):
         self.in_subpage = False
         self.remove_current_menu()
         self.make_menu_buttons()
+        self.update_buttons()
         return True
 
     def back(self):
         self.in_subpage = False
         self.remove_current_menu()
         self.make_menu_buttons(self.main_page_nr)
+        self.update_buttons()
         
     def make_menu_buttons(self,page_nr=1,buttons=None):
         self.close_timeout()
@@ -202,9 +149,9 @@ class MenuScreen:
             col = i % 2   # Calculate the column (0 or 1)
             label.grid(row=row, column=col, padx=self.main_app.settings.menu_button_padding, pady=self.main_app.settings.menu_button_padding, sticky="nsew")
 
-            button_nr=((self.current_menu_page-1)*self.num_active_buttons+(i+1))
-            button.bind_down_event = lambda event, button=button, button_nr=button_nr: self.handle_button_click(event, button, button_nr)
-            button.bind_up_event = lambda event, button=button, button_nr=button_nr: self.handle_button_release(event, button, button_nr)
+            button_entry = self.active_buttons[i]
+            button.bind_down_event = lambda event, button=button: self.handle_button_click(event, button)
+            button.bind_up_event = lambda event, button=button, entry=button_entry: self.handle_button_release(event, button, entry)
 
             # Register a click event for each button
             label.bind("<Button-1>", button.bind_down_event)
@@ -285,7 +232,7 @@ class MenuScreen:
         widget.configure(background=background_color)
 
     # Define a method to handle button clicks
-    def handle_button_click(self, event, button, button_nr):
+    def handle_button_click(self, event, button):
         self.click_x = event.x_root
         self.click_y = event.y_root
         # Record the time of the initial click
@@ -295,7 +242,7 @@ class MenuScreen:
         return "break"
 
     # Define a method to handle button clicks
-    def handle_button_release(self, event, button, button_nr):
+    def handle_button_release(self, event, button, button_entry):
         try:
             if(button.cancel_close):
                 self.close_timeout(False)
@@ -330,7 +277,7 @@ class MenuScreen:
             sub_button_amount = 0
 
             if(not self.in_subpage):
-                self.sub_buttons = self.buttons[button_nr-1].get("screen")
+                self.sub_buttons = button_entry.get("screen") or []
                 sub_button_amount = len(self.sub_buttons)
 
             if self.button_click_time is not None:
@@ -364,148 +311,17 @@ class MenuScreen:
         self.main_app.touch_controller.handle_alt_menu_button(button.action)
 
     def update_buttons(self):
-        if not self.main_app.device_states.devices_inited:
-            return
-        
-        harmony_state = self.main_app.device_states.harmony_state
-        cover_kitchen = self.main_app.device_states.cover_kitchen
-        in_bed = self.main_app.device_states.in_bed
-        trash_warning = self.main_app.device_states.trash_warning
-        playstation_power = self.main_app.device_states.playstation_power
-        playstation_available = self.main_app.device_states.playstation_available
-
-        light_tafel = self.main_app.device_states.light_tafel
-        light_keuken = self.main_app.device_states.light_keuken
-        light_kleur = self.main_app.device_states.light_kleur
-        light_woonkamer = self.main_app.device_states.light_woonkamer
-
-        #settings
-        show_weather_on_idle = self.main_app.settings.show_weather_on_idle
-        verify_ssl_on_trusted_sources = self.main_app.settings.verify_ssl_on_trusted_sources
-        media_show_titles = self.main_app.settings.media_show_titles
-        media_sanitize_titles = self.main_app.settings.media_sanitize_titles
-        
-        playing = self.main_app.music_object is not None and self.main_app.music_object.state == "playing"
-        if cover_kitchen is None:
-            cover_kitchen = 0
-        if harmony_state is None:
-            harmony_state = "Off"
-        if in_bed is None:
-            in_bed = False
-        if trash_warning is None:
-            trash_warning = False
-        if playing is None:
-            playing = False
-
-        button_configs = [
-            {
-                "button_id": "cinema", 
-                "state_condition": harmony_state != 'Off', 
-                "action_text": "[cinema_action]",
-                "on_text": "uit", "off_text": "aan",
-                "available": True 
-            },
-            {
-                "button_id": 
-                "cover_kitchen", 
-                "state_condition": cover_kitchen < 50, 
-                "action_text": "[cover_action]",
-                "on_text": "open", "off_text": "dicht"
-            },
-            {
-                "button_id": "in_bed_toggle", 
-                "state_condition": in_bed, 
-                "action_text": "[in_bed_action]",
-                "on_text": "uit", "off_text": "aan"
-            },
-            {
-                "button_id": "trash_warning_toggle", 
-                "state_condition": trash_warning, 
-                "action_text": "[trash_action]",
-                "on_text": "uit", "off_text": "aan"
-            },
-            {
-                "button_id": "music_play_pause", 
-                "state_condition": playing, 
-                "action_text": "[music_action]",
-                "on_text": "Pauzeer", "off_text": "Speel"
-            },
-            {
-                "button_id": "ps_toggle", 
-                "state_condition": playstation_power, 
-                "action_text": "[ps_action]",
-                "on_text": "uit", "off_text": "aan",
-                "available": playstation_available 
-            },
-            {
-                "button_id": "light_woonkamer", 
-                "state_condition": light_woonkamer["state"]=="on", 
-                "action_text": "[woonkamer_licht_action]",
-                "on_text": f"({self.recalculate_brightness_percentage(light_woonkamer['brightness'])}%) uit", "off_text": "aan"
-            },
-            {
-                "button_id": "light_keuken", 
-                "state_condition": light_keuken["state"]=="on", 
-                "action_text": "[keuken_licht_action]",
-                "on_text": f"({self.recalculate_brightness_percentage(light_keuken['brightness'])}%) uit", "off_text": "aan"
-            },
-            {
-                "button_id": "light_tafel", 
-                "state_condition": light_tafel["state"]=="on", 
-                "action_text": "[tafel_licht_action]",
-                "on_text": f"({self.recalculate_brightness_percentage(light_tafel['brightness'])}%) uit", "off_text": "aan"
-            },
-            {
-                "button_id": "light_kleur", 
-                "state_condition": light_kleur["state"]=="on", 
-                "action_text": "[kleur_licht_action]",
-                "on_text": f"({self.recalculate_brightness_percentage(light_kleur['brightness'])}%) uit", "off_text": "aan"
-            },
-            {
-                "button_id": "show_weather_on_idle", 
-                "state_condition": show_weather_on_idle, 
-            },
-            {
-                "button_id": "verify_ssl_on_trusted_sources", 
-                "state_condition": verify_ssl_on_trusted_sources, 
-            },
-            {
-                "button_id": "media_show_titles", 
-                "state_condition": media_show_titles, 
-            },
-            {
-                "button_id": "media_sanitize_titles", 
-                "state_condition": media_sanitize_titles, 
-            }
-        ]
-        
-        for config in button_configs:
+        for config in self.state_resolver.resolve():
             button_id = config["button_id"]
-            state_condition = config["state_condition"]
+            state_condition = config["active"]
             action_text = config.get("action_text", "")
             on_text = config.get("on_text", "")
             off_text = config.get("off_text", "")
             available = config.get("available", True)
-
-            for btn in self.buttons:
-                button = btn["button"]
-                screen = btn["screen"]
-
-                if(button.id==button_id):
-                    self.change_button(button,state_condition,action_text,on_text,off_text,available,ignore_screen_update=True)
-
-                for screen_btn in screen:
-                    button = screen_btn["button"]
-                    if(button.id==button_id):
-                        self.change_button(button,state_condition,action_text,on_text,off_text,available,ignore_screen_update=True)
+            for button in self.button_index.get(button_id, []):
+                self.change_button(button,state_condition,action_text,on_text,off_text,available,ignore_screen_update=True)
 
         self.created_and_updated = True
-    
-    def recalculate_brightness_percentage(self,brightness):
-        if brightness > 0:
-            return round((brightness/256)*100)
-        else:
-            return 0
 
     def change_button(self,button,state_condition,action_text,on_text,off_text,available,ignore_screen_update=False):
         active_color = self.button_color.get("active")

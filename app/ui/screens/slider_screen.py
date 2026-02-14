@@ -30,7 +30,7 @@ class SliderScreen:
         self.value_scale = 2.56
 
         self.show()
-        self.main_app.check_idle_timer(False)
+        self.main_app.power_policy_service.check_idle_timer(False)
 
     def show(self):
         self.window = tk.Toplevel(self.main_app.root)
@@ -163,6 +163,6 @@ class SliderScreen:
             )
 
     def destroy_slider(self, event=None):
-        self.main_app.check_idle_timer()
+        self.main_app.power_policy_service.check_idle_timer()
         self.main_app.display_controller.start_menu_timer()
         self.window.destroy()

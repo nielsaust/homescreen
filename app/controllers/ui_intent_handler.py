@@ -105,14 +105,14 @@ class UiIntentHandler:
         self._last_music_playback_state = playback_state
         menu_open = self.main_app.display_controller.get_screen_state() == "menu"
         if playback_state == "playing":
-            self.main_app._cancel_music_pause_timeout()
+            self.main_app.music_playback_policy_service.cancel_pause_idle_timeout()
             self.main_app.switch_to_music()
             return
         if playback_state == "paused":
             if not menu_open:
-                self.main_app._schedule_music_pause_idle()
+                self.main_app.music_playback_policy_service.schedule_pause_idle()
             return
-        self.main_app._cancel_music_pause_timeout()
+        self.main_app.music_playback_policy_service.cancel_pause_idle_timeout()
         if not menu_open:
             self.main_app.switch_to_idle()
 

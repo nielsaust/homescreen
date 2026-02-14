@@ -8,7 +8,7 @@ class DeviceStates:
         self.printer_progress = 0
         self.harmony_state = None
         self.cover_kitchen = None
-        self.canary_temp = None
+        self.living_room_temp = None
         self.light_tafel = None
         self.light_keuken = None
         self.light_kleur = None
@@ -22,28 +22,56 @@ class DeviceStates:
         self.playstation_available = None
 
     def update_states(self,data):
-        self.data = data
-        self.harmony_state = data.get('harmony_state')
-        try:
-            self.cover_kitchen = float(data.get('cover_kitchen'))
-        except ValueError:
-            logger.error(f"Error: Could not convert the string (cover_kitchen = {data.get('cover_kitchen')}) to a float.")
-            self.cover_kitchen = 0
-        try:
-            self.canary_temp = float(data.get('canary_temp'))
-        except ValueError:
-            logger.error(f"Error: Could not convert the string (canary_temp = {data.get('canary_temp')}) to a float.")
-            self.canary_temp = 15
-        self.light_tafel = data.get('light_tafel')
-        self.light_keuken = data.get('light_keuken')
-        self.light_kleur = data.get('light_kleur')
-        self.light_woonkamer = data.get('light_woonkamer')
-        if hasattr(self,  'in_bed') and not self.in_bed_changed:
-            self.in_bed_changed = self.in_bed_original != data.get('in_bed')
-        self.in_bed_original = data.get('in_bed')
-        self.in_bed = False if data.get('in_bed') == "off" else True
-        self.trash_warning = False if data.get('trash_warning') == "off" else True
-        self.bed_heating_on = False if data.get('bed_heating_on') == "off" else True
-        self.playstation_power = False if data.get('playstation_power') == "off" or data.get('playstation_power') == "unavailable" else True
-        self.playstation_available = False if data.get('playstation_power') == "unavailable" else True
+        def _as_float(value, default):
+            try:
+                if value is None or value == "":
+                    return float(default)
+                return float(value)
+            except (TypeError, ValueError):
+                logger.error("Could not convert value '%s' to float; using default=%s", value, default)
+                return float(default)
+
+        def _as_on_off_bool(value, default=False):
+            if value is None:
+                return bool(default)
+            if isinstance(value, bool):
+                return value
+            lowered = str(value).strip().lower()
+            if lowered in ("on", "true", "1", "yes"):
+                return True
+            if lowered in ("off", "false", "0", "no", "unavailable", ""):
+                return False
+            return bool(default)
+
+        def _normalize_light(value):
+            if isinstance(value, dict):
+                state = str(value.get("state", "off")).strip().lower()
+                brightness_raw = value.get("brightness", 0)
+                try:
+                    brightness = int(brightness_raw or 0)
+                except (TypeError, ValueError):
+                    brightness = 0
+                return {"state": state, "brightness": max(0, brightness)}
+            return {"state": "off", "brightness": 0}
+
+        self.data = data or {}
+        self.harmony_state = self.data.get('harmony_state') or "Off"
+        self.cover_kitchen = _as_float(self.data.get('cover_kitchen'), 0)
+        self.living_room_temp = _as_float(self.data.get('living_room_temp'), 15)
+        self.light_tafel = _normalize_light(self.data.get('light_tafel'))
+        self.light_keuken = _normalize_light(self.data.get('light_keuken'))
+        self.light_kleur = _normalize_light(self.data.get('light_kleur'))
+        self.light_woonkamer = _normalize_light(self.data.get('light_woonkamer'))
+
+        next_in_bed_raw = self.data.get('in_bed')
+        if hasattr(self, 'in_bed') and self.in_bed_changed in (None, False):
+            self.in_bed_changed = self.in_bed_original != next_in_bed_raw
+        self.in_bed_original = next_in_bed_raw
+        self.in_bed = _as_on_off_bool(next_in_bed_raw, default=False)
+        self.trash_warning = _as_on_off_bool(self.data.get('trash_warning'), default=False)
+        self.bed_heating_on = _as_on_off_bool(self.data.get('bed_heating_on'), default=False)
+
+        playstation_state = self.data.get('playstation_power')
+        self.playstation_power = _as_on_off_bool(playstation_state, default=False)
+        self.playstation_available = str(playstation_state).strip().lower() != "unavailable"
         self.devices_inited = True

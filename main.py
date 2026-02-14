@@ -22,7 +22,12 @@ from app.controllers.media_controller import MediaController
 from app.controllers.screen_state_controller import ScreenStateController
 from app.controllers.ui_intent_handler import UiIntentHandler
 from app.observability import logger as log_setup
+from app.services.music_playback_policy_service import MusicPlaybackPolicyService
 from app.services.music_service import MusicService
+from app.services.interaction_service import InteractionService
+from app.services.music_update_service import MusicUpdateService
+from app.services.power_policy_service import PowerPolicyService
+from app.services.startup_sync_service import StartupSyncService
 from app.ui.widgets.network_status_widget import NetworkStatusWidget
 from app.config.settings import Settings
 from app.observability.sentry_setup import init_sentry
@@ -101,8 +106,6 @@ class MainApp:
         self.mqtt_controller = DeferredMqttController()
         self.mqtt_initialized = False
         self.music_service = MusicService()
-        self.pending_music_payload = None
-        self.music_update_after_id = None
         self.music_update_debounce_ms = int(getattr(self.settings, "music_update_debounce_ms", 150) or 150)
         self.music_pause_grace_ms = int(getattr(self.settings, "music_pause_grace_ms", 1200) or 1200)
         self.music_drop_duplicate_payloads = _to_bool(getattr(self.settings, "music_drop_duplicate_payloads", True), True)
@@ -111,7 +114,6 @@ class MainApp:
             True,
         )
         self.music_debug_logging = _to_bool(getattr(self.settings, "music_debug_logging", False), False)
-        self.music_update_seq = 0
         self.music_metrics = {
             "received": 0,
             "coalesced": 0,
@@ -159,10 +161,6 @@ class MainApp:
         self.music_object = None
         self.boot_time = time.time()
         self.time_last_action = time.time()
-        self.bed_time_timeout_future = None
-        self.music_pause_timeout = None
-        self.startup_mqtt_messages = {self.settings.mqtt_topic_devices: self.update_device_states, self.settings.mqtt_topic_music: self.check_music_status}
-        self.publish_event("startup.queue.size", {"size": len(self.startup_mqtt_messages)})
 
         # LOGGING asyncio - Check to see if still needed
         asyncio_logger = logging.getLogger('asyncio')
@@ -178,6 +176,11 @@ class MainApp:
         self.mqtt_message_router = MqttMessageRouter(self)
         self.media_controller = MediaController(self)
         self.ui_intent_handler = UiIntentHandler(self)
+        self.interaction_service = InteractionService(self)
+        self.music_update_service = MusicUpdateService(self)
+        self.music_playback_policy_service = MusicPlaybackPolicyService(self)
+        self.power_policy_service = PowerPolicyService(self)
+        self.startup_sync_service = StartupSyncService(self)
         self.touch_controller.bind_events(self.root)
 
         # Register the signal handler for Ctrl-C
@@ -403,181 +406,8 @@ class MainApp:
 
         self.root.after(self.mqtt_queue_poll_interval_ms, self._pump_mqtt_queue)
 
-    def queue_music_update(self, data):
-        self.record_music_metric("received")
-        self.music_update_seq += 1
-        update_seq = self.music_update_seq
-        self.log_music_debug(
-            f"[music] queue start seq={update_seq} raw_keys={sorted((data or {}).keys())}",
-            data,
-        )
-        normalized = self.music_service.normalize_payload(data or {})
-        self.log_music_debug(f"[music] normalized seq={update_seq}", normalized)
-        has_transport = self.music_service.has_transport_update(normalized)
-        if has_transport and self.music_apply_transport_immediately:
-            self.log_music_debug(f"[music] transport-priority seq={update_seq}")
-            self.pending_music_payload = normalized
-            if self.music_update_after_id:
-                self.root.after_cancel(self.music_update_after_id)
-                self.music_update_after_id = None
-            self.flush_music_update(reason="transport")
-            return
-
-        if self.pending_music_payload is None:
-            self.pending_music_payload = normalized
-        else:
-            # Merge partial updates so fast event bursts don't drop fields.
-            self.record_music_metric("coalesced")
-            self.pending_music_payload.update(normalized)
-        self.log_music_debug(f"[music] pending merged seq={update_seq}", self.pending_music_payload)
-        if self.music_update_after_id:
-            self.root.after_cancel(self.music_update_after_id)
-            self.log_music_debug(f"[music] debounce reset seq={update_seq}")
-        self.music_update_after_id = self.root.after(self.music_update_debounce_ms, self.flush_music_update)
-
-    def flush_music_update(self, reason="debounced"):
-        self.music_update_after_id = None
-        payload = self.pending_music_payload
-        self.pending_music_payload = None
-        if payload is None:
-            self.log_music_debug("[music] flush skipped: no pending payload")
-            return
-        self.log_music_debug(f"[music] flush pending payload reason={reason}", payload)
-        resolved_payload = self.music_service.resolve_payload(self.music_object, payload)
-        self.log_music_debug("[music] resolved payload", resolved_payload)
-        if not self.music_service.should_process(resolved_payload, drop_duplicates=self.music_drop_duplicate_payloads):
-            self.log_music_debug("[music] duplicate payload dropped", resolved_payload)
-            self.record_music_metric("dropped")
-            return
-        self.log_music_debug("[music] applying payload", resolved_payload)
-        self.record_music_metric("applied")
-        self.update_music_object(resolved_payload)
-        self.publish_event(
-            "menu.refresh.requested",
-            {"reason": "music.update.applied"},
-            source="main",
-        )
-
     def perform_action(self, interaction_type):
-        self.publish_event("interaction.received", {"interaction_type": interaction_type})
-        log_event(logger, logging.DEBUG, "ui", "interaction.received", interaction_type=interaction_type)
-        current_time = time.time()
-
-        if (
-            interaction_type == "single_click"
-            and self.touch_controller.ignore_next_click
-            and current_time <= getattr(self.touch_controller, "ignore_click_until", 0.0)
-        ):
-            log_event(logger, logging.DEBUG, "ui", "interaction.ignored", reason="menu_click_already_handled")
-            self.touch_controller.ignore_next_click = False
-            return
-        if current_time > getattr(self.touch_controller, "ignore_click_until", 0.0):
-            self.touch_controller.ignore_next_click = False
-        
-        if self.display_controller.is_cam_showing():
-            log_event(logger, logging.DEBUG, "ui", "interaction.ignored", reason="camera_overlay_active")
-            return
-        
-        time_between_actions = current_time - self.time_last_action
-        if time_between_actions<self.settings.min_time_between_actions:
-            log_event(
-                logger,
-                logging.WARNING,
-                "ui",
-                "interaction.rejected.rate_limit",
-                time_between_actions=time_between_actions,
-                min_interval=self.settings.min_time_between_actions,
-            )
-            return
-
-        self.time_last_action = current_time
-        screen_state = self.display_controller.get_screen_state()
-
-        self.check_idle_timer()
-        if(not self.display_controller.is_showing):
-            in_bed_active = bool(getattr(self.device_states, "in_bed", False))
-            if self.settings.show_weather_on_idle and screen_state == "off":
-                self.display_controller.check_idle(True)
-                return
-            if in_bed_active:
-                self.display_controller.check_idle(True)
-                return
-            # Keep interaction responsive when display state is temporarily out-of-sync.
-            self.display_controller.turn_on()
-        
-        if screen_state is not None:
-            # check if we have to wake up screen        
-            if screen_state == "weather" or screen_state == "off":
-                if interaction_type == "single_click":
-                    self.switch_to_menu()
-                elif interaction_type == "hold":
-                    pass
-            elif screen_state == "music":
-                if interaction_type == "single_click":
-                    self.switch_to_menu()
-                elif interaction_type == "hold":
-                    self.media_play_pause()
-                elif interaction_type == "left":
-                    self.media_skip_song("previous")
-                elif interaction_type == "right":
-                    self.media_skip_song("next")
-                elif interaction_type == "up":
-                    self.media_volume("up")
-                elif interaction_type == "down":
-                    self.media_volume("down")
-            elif screen_state == "menu":
-                if interaction_type == "left":
-                    self.publish_event(
-                        "menu.navigation.requested",
-                        {"command": "page_prev"},
-                        source="gesture",
-                    )
-                elif interaction_type == "right":
-                    self.publish_event(
-                        "menu.navigation.requested",
-                        {"command": "page_next"},
-                        source="gesture",
-                    )
-                elif interaction_type == "down":
-                    self.publish_event(
-                        "menu.navigation.requested",
-                        {"command": "exit"},
-                        source="gesture",
-                    )
-
-            self.print_memory_usage()
-
-    def check_bed_time(self,force=False):
-        in_bed_before = bool(getattr(self.device_states, "in_bed", False))
-        display_before = self.display_controller.get_screen_state()
-        showing_before = bool(getattr(self.display_controller, "is_showing", False))
-        if self.device_states.in_bed_changed or force:
-            if self.device_states.in_bed:
-                self.display_controller.turn_off()  
-            else:          
-                self.display_controller.turn_on()
-            self.device_states.in_bed_changed = False
-
-        self.display_controller.check_idle()
-        log_event(
-            logger,
-            logging.INFO,
-            "display",
-            "power.sync_with_in_bed",
-            force=bool(force),
-            in_bed=in_bed_before,
-            screen_before=display_before,
-            showing_before=showing_before,
-            showing_after=bool(getattr(self.display_controller, "is_showing", False)),
-            screen_after=self.display_controller.get_screen_state(),
-        )
-
-    def check_idle_timer(self,startnew=True):
-        if self.bed_time_timeout_future:
-            self.root.after_cancel(self.bed_time_timeout_future)
-
-        if(startnew):
-            self.bed_time_timeout_future = self.root.after(self.settings.in_bed_turn_off_timeout, lambda: self.check_bed_time(True))
+        self.interaction_service.handle(interaction_type)
 
     ###### SCREEENS ######
     def switch_to_idle(self,force=False):
@@ -616,42 +446,7 @@ class MainApp:
         self.mqtt_controller.stop()
 
     def on_mqtt_connected(self):
-        self.check_mqtt_message_queue()
-    
-    def check_mqtt_message_queue(self,topic=None):
-        if self.startup_mqtt_messages:
-            if topic:
-                processes_queue_item = self.startup_mqtt_messages.pop(topic,None)
-                if processes_queue_item is not None:
-                    log_event(logger, logging.DEBUG, "mqtt", "startup_queue.removed", topic=topic)
-                else:
-                    log_event(logger, logging.WARNING, "mqtt", "startup_queue.remove_missing", topic=topic)
-                    return
-            
-            try:
-                next_mqtt_queue_item_key, next_mqtt_queue_item_value = next(iter(self.startup_mqtt_messages.items()))
-                log_event(
-                    logger,
-                    logging.DEBUG,
-                    "mqtt",
-                    "startup_queue.next",
-                    key=next_mqtt_queue_item_key,
-                    handler=str(next_mqtt_queue_item_value),
-                )
-                next_mqtt_queue_item_value()
-            except StopIteration:
-                log_event(logger, logging.DEBUG, "mqtt", "startup_queue.empty")
-
-            log_event(logger, logging.DEBUG, "mqtt", "startup_queue.checked", size=len(self.startup_mqtt_messages))
-            self.publish_event("startup.queue.size", {"size": len(self.startup_mqtt_messages)})
-    
-    def update_device_states(self):
-        log_event(logger, logging.DEBUG, "mqtt", "state_update.requested")
-        self.mqtt_controller.publish_action("update_device_states")
-    
-    def check_music_status(self):
-        log_event(logger, logging.DEBUG, "mqtt", "music_state.requested")
-        self.mqtt_controller.publish_message(topic="screen_commands/update_music")
+        self.startup_sync_service.on_mqtt_connected()
 
     def on_mqtt_message(self, topic, data):
         self.mqtt_message_router.handle(topic, data)
@@ -729,40 +524,6 @@ class MainApp:
         )
 
         self.print_memory_usage()
-
-
-    def wait_till_pause(self,startnew=True):
-        if self.music_pause_timeout:
-            self.root.after_cancel(self.music_pause_timeout)
-
-        if(startnew):
-            self.music_pause_timeout = self.root.after(500, lambda: self.switch_to_idle())
-
-    def _cancel_music_pause_timeout(self):
-        if self.music_pause_timeout is None:
-            return
-        self.root.after_cancel(self.music_pause_timeout)
-        self.music_pause_timeout = None
-
-    def _schedule_music_pause_idle(self):
-        self._cancel_music_pause_timeout()
-        if self.music_pause_grace_ms <= 0:
-            self.switch_to_idle()
-            return
-
-        self.music_pause_timeout = self.root.after(
-            self.music_pause_grace_ms,
-            self._apply_music_pause_idle,
-        )
-
-    def _apply_music_pause_idle(self):
-        self.music_pause_timeout = None
-        if self.display_controller.get_screen_state() == "menu":
-            return
-        state = getattr(self.music_object, "state", None)
-        if state == "playing":
-            return
-        self.switch_to_idle()
 
     ###### SYSTEM ######
     def checksystem(self):

@@ -64,6 +64,13 @@ class CamScreen:
                 self.cam_window.destroy()
                 self.cam_window = None
             self.main_app.root.focus_set()
+            touch = getattr(self.main_app, "touch_controller", None)
+            if touch is not None:
+                touch.click_time = None
+                touch.start_x = 0
+                touch.start_y = 0
+                touch.ignore_next_click = False
+                touch.ignore_click_until = 0.0
     
     def make_request(self, url, auth=None):
         for i in range(3):

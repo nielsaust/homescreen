@@ -10,6 +10,7 @@ import sys
 import time
 import threading
 import json
+import re
 import paho.mqtt.client as mqtt
 from app.observability.domain_logger import log_event
 
@@ -122,7 +123,7 @@ class MqttController:
         """Processes incoming MQTT messages and logs any deserialization issues."""
         if payload:
             try:
-                data = json.loads(payload)
+                data = self._decode_payload(payload)
                 if hasattr(self.main_app, "enqueue_mqtt_message"):
                     self.main_app.enqueue_mqtt_message(topic, data)
                 else:
@@ -130,6 +131,40 @@ class MqttController:
             except json.JSONDecodeError as e:
                 payload_preview = payload if payload is not None else "None"
                 log_event(logger, logging.ERROR, "mqtt", "payload.decode_error", payload=payload_preview, error=e)
+                sanitized = self._sanitize_malformed_json(payload)
+                if sanitized is not None:
+                    try:
+                        data = self._decode_payload(sanitized)
+                        log_event(logger, logging.WARNING, "mqtt", "payload.decode_recovered", topic=topic)
+                        if hasattr(self.main_app, "enqueue_mqtt_message"):
+                            self.main_app.enqueue_mqtt_message(topic, data)
+                        else:
+                            self.main_app.on_mqtt_message(topic, data)
+                    except Exception as recover_error:
+                        log_event(
+                            logger,
+                            logging.ERROR,
+                            "mqtt",
+                            "payload.decode_recovery_failed",
+                            topic=topic,
+                            error=recover_error,
+                        )
+
+    def _decode_payload(self, payload):
+        if isinstance(payload, bytes):
+            payload = payload.decode("utf-8", errors="replace")
+        return json.loads(payload)
+
+    def _sanitize_malformed_json(self, payload):
+        if payload is None:
+            return None
+        if isinstance(payload, bytes):
+            payload = payload.decode("utf-8", errors="replace")
+        text = str(payload)
+        # Repair common malformed payloads where a key has no value, e.g. '"brightness": }'
+        # by injecting null so JSON becomes parseable.
+        fixed = re.sub(r':\s*(?=[}\],])', ': null', text)
+        return fixed if fixed != text else None
 
     def on_connect(self, client, userdata, flags, rc):
         if rc == 0:

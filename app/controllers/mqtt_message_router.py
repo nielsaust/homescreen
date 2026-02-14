@@ -19,10 +19,10 @@ class MqttMessageRouter:
         time_since_boot = time.time() - self.main_app.boot_time
         self.main_app.publish_event("mqtt.message.received", {"topic": topic})
         log_event(logger, logging.DEBUG, "mqtt", "router.message", topic=topic)
-        self.main_app.check_mqtt_message_queue(topic)
+        self.main_app.startup_sync_service.check_queue(topic)
 
         if topic == self.main_app.settings.mqtt_topic_music:
-            self.main_app.queue_music_update(data)
+            self.main_app.music_update_service.queue_update(data)
             return
 
         if topic == self.main_app.settings.mqtt_topic_devices:
@@ -65,7 +65,7 @@ class MqttMessageRouter:
                 {"reason": "device.state.updated"},
                 source="mqtt_router",
             )
-            self.main_app.check_bed_time()
+            self.main_app.power_policy_service.check_bed_time()
         except Exception as exc:
             log_event(logger, logging.ERROR, "mqtt", "router.device_state_update_failed", error=exc)
 

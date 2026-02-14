@@ -41,16 +41,13 @@ class ScreenStateController:
         )
 
     def switch_to_menu(self):
-        if self.main_app.display_controller.menu_ready():
-            self.main_app.publish_event(
-                "ui.screen.changed",
-                {"screen": "menu", "is_display_on": True, "force": False},
-                source="screen_state_controller",
-            )
-            logger.debug("Menu ready; show menu")
-            return
-        logger.warning("Menu NOT ready; show idle instead")
-        self.switch_to_idle()
+        if not self.main_app.display_controller.menu_ready():
+            logger.warning("Menu NOT ready yet; showing menu with current/default state")
+        self.main_app.publish_event(
+            "ui.screen.changed",
+            {"screen": "menu", "is_display_on": True, "force": False},
+            source="screen_state_controller",
+        )
 
     def exit_menu(self):
         music_object = self.main_app.music_object

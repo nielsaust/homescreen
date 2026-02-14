@@ -1,4 +1,5 @@
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -6,6 +7,8 @@ logger = logging.getLogger(__name__)
 class OverlayManager:
     def __init__(self, main_app):
         self.main_app = main_app
+        self._last_cam_open_ts = 0.0
+        self._last_cam_url = None
         self._create_overlay_screens()
 
     def _create_overlay_screens(self):
@@ -46,8 +49,22 @@ class OverlayManager:
 
     def show_cam(self, data, url, username=None, password=None):
         if self.cam_screen:
+            active = data.get("active") if isinstance(data, dict) else None
+            now = time.time()
+            if (
+                active is not False
+                and self.cam_screen.is_showing
+                and self.cam_screen.url == url
+                and self._last_cam_url == url
+                and (now - self._last_cam_open_ts) < 1.5
+            ):
+                logger.debug("show_cam ignored duplicate open request")
+                return
             self.close_open_windows()
             self.cam_screen.show(data, url, username, password)
+            if active is not False:
+                self._last_cam_open_ts = now
+                self._last_cam_url = url
 
     def show_calendar(self, data):
         if self.calendar_screen:
