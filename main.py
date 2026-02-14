@@ -202,16 +202,23 @@ class MainApp:
             return False
 
     def wait_for_internet_connection(self):
+        wait_on_boot = _to_bool(getattr(self.settings, "startup_block_on_internet", False), False)
         timeout_seconds = int(getattr(self.settings, "startup_wait_for_internet_seconds", 0) or 0)
         check_interval_seconds = int(getattr(self.settings, "startup_wait_check_interval_seconds", 5) or 5)
 
-        if timeout_seconds <= 0:
+        if not wait_on_boot or timeout_seconds <= 0:
             online = self.is_network_available(timeout=2)
             self.publish_event("network.status", {"online": online})
             if online:
                 log_event(logger, logging.INFO, "network", "startup.online")
             else:
-                log_event(logger, logging.WARNING, "network", "startup.degraded_mode", reason="offline_at_boot")
+                log_event(
+                    logger,
+                    logging.WARNING,
+                    "network",
+                    "startup.degraded_mode",
+                    reason="offline_at_boot_non_blocking",
+                )
             return
 
         deadline = time.time() + timeout_seconds

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import os
 import pathlib
 import tkinter as tk
@@ -14,14 +15,34 @@ class NetworkStatusWidget:
         self.root = root
         project_root = pathlib.Path(__file__).resolve().parents[3]
         image_path = os.fspath(project_root / "images" / "buttons" / "no-wifi-white.png")
-        image = Image.open(image_path)
-        image = image.resize(icon_size)
-        self.icon = ImageTk.PhotoImage(image)
+        banner_icon_size = (14, 14)
+        image = Image.open(image_path).convert("RGBA").resize(banner_icon_size, Image.LANCZOS)
+        alpha = image.split()[-1]
+        black_icon = Image.new("RGBA", image.size, (0, 0, 0, 255))
+        black_icon.putalpha(alpha)
+        self.icon = ImageTk.PhotoImage(black_icon)
 
-        self.label = tk.Label(self.root, image=self.icon, bg="black")
-        self.label.image = self.icon
-        self.label.configure(image=self.icon, width=icon_size[0], height=icon_size[1])
+        self.banner = tk.Frame(self.root, bg="#f4c542", highlightthickness=0)
+        self.content = tk.Frame(self.banner, bg="#f4c542")
+        self.content.place(relx=0.5, rely=0.5, anchor="center")
+
+        self.icon_label = tk.Label(self.content, image=self.icon, bg="#f4c542")
+        self.icon_label.image = self.icon
+        self.icon_label.pack(side=tk.LEFT, padx=(0, 6), pady=2)
+
+        self.text_label = tk.Label(
+            self.content,
+            text="",
+            bg="#f4c542",
+            fg="black",
+            font=("Helvetica", 11, "bold"),
+            anchor="w",
+        )
+        self.text_label.pack(side=tk.LEFT, pady=2)
+
+        self.lost_at_text = None
         self.visible = False
+        self.banner_height = 32
 
     def set_online(self, online: bool) -> None:
         if online:
@@ -30,15 +51,19 @@ class NetworkStatusWidget:
             self.show()
 
     def show(self) -> None:
+        if self.lost_at_text is None:
+            self.lost_at_text = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.text_label.configure(text=f"Connection lost at {self.lost_at_text}")
         if self.visible:
-            self.label.lift()
+            self.banner.lift()
             return
-        self.label.place(relx=0.95, rely=0.95, anchor="se")
-        self.label.lift()
+        self.banner.place(relx=0.0, rely=0.0, relwidth=1.0, height=self.banner_height, anchor="nw")
+        self.banner.lift()
         self.visible = True
 
     def hide(self) -> None:
         if not self.visible:
             return
-        self.label.place_forget()
+        self.banner.place_forget()
+        self.lost_at_text = None
         self.visible = False

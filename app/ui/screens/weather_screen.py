@@ -7,6 +7,7 @@ if TYPE_CHECKING:
 import logging
 import datetime
 import locale
+import pathlib
 import tkinter as tk
 from tkinter import font as tkFont
 from PIL import Image, ImageTk
@@ -39,6 +40,7 @@ class WeatherScreen:
         self.last_updated = 0
         self.previous_condition_image_url = ""
         self.weather_now_image = None
+        self.cached_weather_icon = None
 
         self.weather_service = WeatherService(
             settings=self.main_app.settings,
@@ -78,8 +80,8 @@ class WeatherScreen:
         self.label_time = tk.Label(self.time_frame, text="00:00", font=timedate_font, bg=background_color, fg=foreground_color, padx=30, pady=30)
         self.label_date = tk.Label(self.time_frame, text="ma 1 jan", font=timedate_font, bg=background_color, fg=foreground_color, padx=30, pady=30)
 
-        self.label_time.place(relx=0, rely=0, anchor=tk.NW)
-        self.label_date.place(relx=1, rely=0, anchor=tk.NE)
+        self.label_time.place(relx=0, rely=0, x=18, y=10, anchor=tk.NW)
+        self.label_date.place(relx=1, rely=0, x=-18, y=10, anchor=tk.NE)
 
         self.label_temperature = tk.Label(self.temp_frame, text="--\u00b0C", font=temp_font, bg=background_color, fg=foreground_color, padx=20, pady=20)
         self.label_min = tk.Label(self.temp_frame, text="\u25bc --\u00b0C", font=minmax_font, bg=background_color, fg=foreground_color, padx=20, pady=10)
@@ -95,20 +97,35 @@ class WeatherScreen:
 
         self.label_condition = tk.Label(self.sub_frame, text="IMAGE", bg=background_color, fg=foreground_color)
         self.label_description = tk.Label(self.sub_frame, text="mooi weer", font=description_font, bg=background_color, fg=foreground_color)
-        self.cached_weather_label = tk.Label(
+        self.cached_weather_badge = tk.Frame(
             self.main_frame,
-            text="",
-            font=tkFont.Font(family="Helvetica", size=18, weight="bold"),
-            bg=background_color,
-            fg="#b0b0b0",
-            padx=20,
-            pady=10,
+            bg="white",
+            padx=8,
+            pady=4,
+            highlightthickness=1,
+            highlightbackground="#d0d0d0",
         )
+        self.cached_weather_icon_label = tk.Label(
+            self.cached_weather_badge,
+            bg="white",
+        )
+        self.cached_weather_label = tk.Label(
+            self.cached_weather_badge,
+            text="",
+            font=tkFont.Font(family="Helvetica", size=12, weight="bold"),
+            bg="white",
+            fg="black",
+            padx=4,
+            pady=0,
+        )
+        self.cached_weather_icon_label.pack(side=tk.LEFT)
+        self.cached_weather_label.pack(side=tk.LEFT)
+        self._load_cached_weather_icon()
 
         self.label_condition.grid(row=0, column=0)
         self.temp_frame.grid(row=1, column=0)
         self.label_description.grid(row=2, column=0)
-        self.cached_weather_label.place_forget()
+        self.cached_weather_badge.place_forget()
 
         self.time_frame.grid_columnconfigure(0, weight=1)
         self.sub_frame.grid_columnconfigure(0, weight=1)
@@ -163,12 +180,23 @@ class WeatherScreen:
         )
 
     def show_cached_weather_label(self, cached_at_text):
-        self.cached_weather_label.configure(text=f"Laatste weer: {cached_at_text}")
-        self.cached_weather_label.place(relx=0.0, rely=1.0, anchor=tk.SW)
-        self.cached_weather_label.lift()
+        self.cached_weather_label.configure(text=f"{cached_at_text}")
+        self.cached_weather_badge.place(x=12, rely=1.0, y=-12, anchor=tk.SW)
+        self.cached_weather_badge.lift()
 
     def hide_cached_weather_label(self):
-        self.cached_weather_label.place_forget()
+        self.cached_weather_badge.place_forget()
+
+    def _load_cached_weather_icon(self):
+        icon_path = pathlib.Path(__file__).resolve().parents[3] / "images" / "buttons" / "weather.png"
+        if not icon_path.exists():
+            return
+        try:
+            icon = Image.open(icon_path).convert("RGBA").resize((18, 18), Image.LANCZOS)
+            self.cached_weather_icon = ImageTk.PhotoImage(icon)
+            self.cached_weather_icon_label.configure(image=self.cached_weather_icon)
+        except Exception as e:
+            log_event(logger, logging.DEBUG, "weather", "cached_label.icon_load_failed", error=e)
 
     def update_weather(self):
         result = self.weather_service.fetch_weather(
@@ -249,9 +277,9 @@ class WeatherScreen:
         current_time = datetime.datetime.now()
         time_string = current_time.strftime("%H:%M")
         if self.main_app.system_info["system_platform"] == "Windows":
-            date_string = current_time.strftime("%a %#d %b")
+            date_string = current_time.strftime("%#d %b")
         else:
-            date_string = current_time.strftime("%a %-d %b")
+            date_string = current_time.strftime("%-d %b")
 
         try:
             self.label_time.configure(text=time_string)

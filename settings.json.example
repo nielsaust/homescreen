@@ -26,6 +26,7 @@
         "PIL.PngImagePlugin",
         "urllib3.connectionpool"
     ],
+    "startup_block_on_internet": false,
     "startup_wait_for_internet_seconds": 10,
     "startup_wait_check_interval_seconds": 5,
     "mqtt_reconnect_interval_seconds": 2,
