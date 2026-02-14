@@ -1,27 +1,44 @@
 # Project Structure
 
-Current structure is moving toward clearer boundaries:
+## Top-level
 
-- `app/controllers/`:
-  - action routing and controller-like orchestration (`action_dispatcher.py`)
-- `app/ui/widgets/`:
-  - reusable UI components (`network_status_widget.py`)
-- `app/ui/screens/`:
-  - screen modules namespace (weather/music/menu/off + overlay screens moved; root files kept as compatibility shims)
-- `core/`:
-  - event bus + reducer/state store skeleton
-- `tools/`:
-  - local/device diagnostics and simulation tooling
-- `docs/`:
-  - testing, observability, architecture notes
-- root legacy modules:
-  - existing runtime modules that are being migrated incrementally
+- `main.py`
+  - app entrypoint + high-level orchestration.
+- `app/`
+  - application code by domain (controllers/services/ui/etc).
+- `core/`
+  - event/store/reducer primitives.
+- `tools/`
+  - bootstrap/doctor/smoke/perf/settings/network simulation scripts.
+- `docs/`
+  - architecture, deploy, testing, observability, settings, menu docs.
+- `deploy/`
+  - `systemd` unit templates for Pi.
 
-## Migration strategy
+## App Package
 
-We keep behavior stable while moving responsibilities out of legacy root files in small commits:
+- `app/config/`
+  - settings loading and defaults.
+- `app/controllers/`
+  - orchestration/control logic (`display_controller`, `mqtt_controller`, `action_dispatcher`, etc).
+- `app/services/`
+  - business/runtime services (network bootstrap, queues, lifecycle, observability, music pipeline, power policy).
+- `app/models/`
+  - runtime objects/data shape helpers (`device_states`, `music_object`).
+- `app/ui/screens/`
+  - all screen modules (weather, music, menu, off, overlays).
+- `app/ui/widgets/`
+  - reusable widgets (network status banner).
+- `app/viewmodels/`
+  - text/state formatting logic for UI screens.
+- `app/observability/`
+  - logging setup/domain logger/sentry setup.
+- `app/hardware/`
+  - HyperPixel/RPi-specific hardware adapters.
 
-1. extract controller/service responsibilities
-2. extract reusable UI widgets
-3. migrate screen modules to state-driven rendering
-4. move remaining legacy modules into `app/...` when coupling is reduced
+## Naming and Boundaries
+
+- Controllers coordinate inputs/actions/transitions.
+- Services own policy/state transforms/background loops.
+- Screens render UI and delegate behavior.
+- Main app should avoid domain logic and mostly wire components.

@@ -1,8 +1,8 @@
 # homescreen
 
-Tkinter-based homescreen controller for Raspberry Pi/HyperPixel with MQTT-driven device control.
+Tkinter homescreen app for Raspberry Pi (HyperPixel) with MQTT-driven automation, menu control, music/weather screens, and overlay windows (camera/calendar/alerts/print status).
 
-## Quick Start
+## Quick Start (Local)
 
 ```bash
 cp settings.json.example settings.json
@@ -11,24 +11,39 @@ make test-local
 make run
 ```
 
-## Test Commands
+## Quick Start (Pi)
 
-- Syntax baseline (no deps): `make baseline`
-- Local baseline: `make test-local`
-- Unit tests: `make test-unit`
-- Performance guard checks: `make perf-check`
-- Device baseline (Pi): `make test-device`
-- Network outage simulation: `make net-down`, `make net-status`, `make net-up`
+```bash
+cp settings.json.example settings.json
+mkdir -p logs
+make install
+sudo systemctl restart homescreen.service
+```
 
-More detail: `docs/testing.md`
+Full deploy/systemd setup: `docs/deploy.md`
 
-## Observability
+## What This App Does
 
-- Local logs: enabled by default
-- Optional Sentry: see `docs/observability.md`
+- Startup in idle screen (`weather` or `off` based on settings)
+- React to MQTT topics (music, doorbell, calendar, printer, device states)
+- Provide menu-based control (schema-driven buttons/actions/states)
+- Handle network outages with degraded mode + reconnect behavior
+- Keep Tk updates on the UI thread via queue/intents
 
-## Architecture
+## Documentation Map
 
-- Core event/state skeleton: `docs/architecture.md`
-- Structure overview: `docs/structure.md`
-- Settings workflow: `docs/settings.md`
+- Architecture and runtime flow: `docs/architecture.md`
+- Folder structure and boundaries: `docs/structure.md`
+- Testing and simulation commands: `docs/testing.md`
+- Deploy to Raspberry Pi: `docs/deploy.md`
+- Logging and Sentry: `docs/observability.md`
+- Settings sync workflow: `docs/settings.md`
+- Menu schema/actions/state system: `docs/menu-system.md`
+
+## Daily Commands
+
+- Install/update env: `make install`
+- Local checks: `make test-local`
+- Run app: `make run`
+- Pi checks: `make test-device`
+- Simulate outage locally: `make net-down`, `make net-status`, `make net-up`

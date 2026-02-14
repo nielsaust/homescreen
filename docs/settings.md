@@ -42,6 +42,8 @@ make settings-prune-local
 4. Run `make settings-check` to confirm both files are aligned.
 5. Optionally run `make settings-prune-local-preview` and `make settings-prune-local` to remove stale local-only keys.
 
+The sync tool preserves key ordering based on `settings.json.example`, so new keys remain predictable across environments.
+
 ## Logging-related settings
 
 Useful runtime keys:

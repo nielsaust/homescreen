@@ -1,62 +1,38 @@
 # Testing
 
-## Local (desktop)
-
-Run a fast baseline check:
+## Standard Local Loop
 
 ```bash
 make install
 make test-local
-```
-
-Run dedicated unit tests:
-
-```bash
-make test-unit
-```
-
-Run performance guard checks:
-
-```bash
-make perf-check
-```
-
-If dependencies are not available yet (or offline), run syntax-only baseline:
-
-```bash
-make baseline
-```
-
-Run app:
-
-```bash
 make run
 ```
 
-## Raspberry Pi
+`make test-local` runs:
+- `doctor` environment checks
+- `smoke` import/compile checks
+- unit tests in `tests/unit`
 
-Run device checks:
+## Targeted Commands
+
+- Syntax-only quick check: `make baseline`
+- Unit tests only: `make test-unit`
+- Perf guards: `make perf-check`
+- Smoke only: `make smoke`
+
+## Device (Pi) Checks
 
 ```bash
 make test-device
 ```
 
-This runs:
-- dependency/config checks
-- smoke imports/compile checks
-- unit tests (`tests/unit`)
-- optional `systemd` status output (if available)
-- MQTT broker socket reachability check (from `settings.json`)
+Includes:
+- smoke checks
+- unit tests
+- optional `systemd` status checks
+- MQTT reachability check
 
-## Notes
-
-- `settings.json` is local-only and gitignored.
-- Use `settings.json.example` as the template.
-- These checks are intentionally quick and side-effect-light to support frequent runs during refactors.
-
-## Simulate Network Outage
-
-Use the built-in network simulation flag:
+## Network Outage Simulation (Local/Pi)
 
 ```bash
 make net-down
@@ -65,12 +41,12 @@ make net-up
 ```
 
 Behavior:
-- While down: startup and MQTT reconnect logic stay in degraded mode with retries/backoff.
-- While up: normal internet checks and MQTT reconnect attempts resume.
-- Offline icon is now rendered by a global network status widget (not weather-specific).
-- Weather shows cached last-known data when API is unreachable and cache exists.
+- App enters degraded mode while simulated offline.
+- MQTT init/reconnect is deferred until network is available.
+- Weather falls back to cached payload when available.
+- Global network banner updates independent of weather screen ownership.
 
-## Music Debug Logging
+## Music Diagnostics
 
 Enable in `settings.json`:
 
@@ -80,12 +56,7 @@ Enable in `settings.json`:
 }
 ```
 
-Then run app and reproduce play/skip behavior.  
-Share log lines containing:
-- `[music] ...`
-- `[music-screen] ...`
-
-With debug enabled, periodic counters are logged, for example:
+This enables detailed music pipeline debug logs and periodic observability-only counters:
 - `received`
 - `coalesced`
 - `dropped`
@@ -95,3 +66,11 @@ With debug enabled, periodic counters are logged, for example:
 - `art_stale_dropped`
 - `art_placeholder`
 - `art_errors`
+
+## Settings Hygiene During Testing
+
+- `settings.json` is local-only and gitignored.
+- Keep `settings.json.example` aligned:
+  - `make settings-check`
+  - `make settings-update-example`
+  - `make settings-update-local`

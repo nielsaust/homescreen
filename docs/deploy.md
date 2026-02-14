@@ -1,107 +1,119 @@
-# Deploy Plan (CI/CD to Raspberry Pi)
+# Deploy (Raspberry Pi)
 
-## Goal
+This document reflects the current working setup:
 
-On updates to `main`, pull latest code on the Pi and restart the app safely.
-When there is no new commit, deploy exits early and does not restart the app.
+- `homescreen.service` runs the app.
+- `homescreen-deploy.timer` polls `main` and runs `tools/deploy_on_pi.sh`.
 
-## Files in this repo
-
-- Workflow (GitHub -> Pi over SSH): `.github/workflows/deploy-main-to-pi.yml`
-- Deploy script (runs on Pi): `tools/deploy_on_pi.sh`
-- `systemd` templates:
-  - `deploy/systemd/homescreen.service.example`
-  - `deploy/systemd/homescreen-deploy.service.example`
-  - `deploy/systemd/homescreen-deploy.timer.example`
-
-## Option A: Pi listens (recommended for home networks)
-
-This mode does not require inbound SSH from GitHub to your Pi.
-The Pi checks `main` every 2 minutes and deploys itself.
-
-### 1) Install app service on Pi
+## 1) Clone + Python env
 
 ```bash
-cd /home/pi/homescreen
-sudo cp deploy/systemd/homescreen.service.example /etc/systemd/system/homescreen.service
-sudo sed -i 's|^User=.*|User=<YOUR_PI_USER>|' /etc/systemd/system/homescreen.service
-sudo sed -i 's|^WorkingDirectory=.*|WorkingDirectory=/home/<YOUR_PI_USER>/homescreen|' /etc/systemd/system/homescreen.service
-sudo sed -i 's|^ExecStart=.*|ExecStart=/home/<YOUR_PI_USER>/homescreen/.venv/bin/python /home/<YOUR_PI_USER>/homescreen/main.py|' /etc/systemd/system/homescreen.service
-sudo sed -i '/^Environment=PYTHONUNBUFFERED=1/a Environment=DISPLAY=:0\nEnvironment=XAUTHORITY=/home/<YOUR_PI_USER>/.Xauthority' /etc/systemd/system/homescreen.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now homescreen.service
+cd /home/<USER>
+git clone git@github.com:nielsaust/homescreen.git
+cd homescreen
+
+python3 -m venv .venv
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/pip install -r requirements.txt
 ```
 
-### 2) Install deploy timer on Pi
+If Pillow build fails on Pi:
 
 ```bash
-cd /home/pi/homescreen
-sudo cp deploy/systemd/homescreen-deploy.service.example /etc/systemd/system/homescreen-deploy.service
-sudo cp deploy/systemd/homescreen-deploy.timer.example /etc/systemd/system/homescreen-deploy.timer
-sudo sed -i 's|^User=.*|User=<YOUR_PI_USER>|' /etc/systemd/system/homescreen-deploy.service
-sudo sed -i 's|^WorkingDirectory=.*|WorkingDirectory=/home/<YOUR_PI_USER>/homescreen|' /etc/systemd/system/homescreen-deploy.service
-sudo sed -i 's|^ExecStart=.*|ExecStart=/usr/bin/bash /home/<YOUR_PI_USER>/homescreen/tools/deploy_on_pi.sh /home/<YOUR_PI_USER>/homescreen main homescreen.service|' /etc/systemd/system/homescreen-deploy.service
-
-# Allow deploy service user to restart/status homescreen.service without password.
-echo '<YOUR_PI_USER> ALL=(root) NOPASSWD: /usr/bin/systemctl restart homescreen.service, /usr/bin/systemctl --no-pager --full status homescreen.service -n 20' | sudo tee /etc/sudoers.d/homescreen-deploy
-sudo chmod 440 /etc/sudoers.d/homescreen-deploy
-
-sudo systemctl daemon-reload
-sudo systemctl enable --now homescreen-deploy.timer
+sudo apt update
+sudo apt install -y libjpeg-dev zlib1g-dev libfreetype6-dev libopenjp2-7-dev libtiff5-dev
+.venv/bin/pip install -r requirements.txt
 ```
 
-### 3) Verify
+## 2) Required runtime files
 
 ```bash
-systemctl status homescreen.service --no-pager
-systemctl status homescreen-deploy.timer --no-pager
-systemctl list-timers --all | grep homescreen-deploy
-```
-
-Notes:
-- `homescreen-deploy.service` is `Type=oneshot`, so `inactive (dead)` after success is expected.
-- `list-timers` may show `n/a` columns on some systemd versions; check `status` + `journalctl` for truth.
-- If you previously had user-level units, disable/remove old `~/.config/systemd/user/homescreen.service`.
-
-### 4) Dry run deploy
-
-```bash
-cd /home/pi/homescreen
-bash tools/deploy_on_pi.sh "/home/pi/homescreen" "main" "homescreen.service"
-```
-
-### 5) Required runtime files (first install)
-
-```bash
-cd /home/<YOUR_PI_USER>/homescreen
 cp -n settings.json.example settings.json
 mkdir -p logs
 ```
 
 Without these:
-- missing `settings.json` -> app exits at startup
-- missing `logs/` -> logger may fail creating date-based log file
+- missing `settings.json` -> startup failure
+- missing `logs/` -> logger file handler failure
 
-## Option B: GitHub Actions pushes deploy over SSH
-
-Use this only if your Pi is reachable from GitHub runners (public endpoint, VPN tunnel, or similar).
-
-Prepare repository secrets:
-1. `PI_HOST`
-2. `PI_USER`
-3. `PI_SSH_KEY`
-4. `PI_APP_DIR`
-5. `PI_SERVICE_NAME`
-
-Then push to `main`; workflow `.github/workflows/deploy-main-to-pi.yml` runs:
-1. SSH to Pi
-2. Execute `tools/deploy_on_pi.sh`
-
-## Rollback
+## 3) Install systemd units
 
 ```bash
-cd /home/pi/homescreen
-git log --oneline -n 5
-git checkout <previous-commit>
-sudo systemctl restart homescreen.service
+sudo cp deploy/systemd/homescreen.service.example /etc/systemd/system/homescreen.service
+sudo cp deploy/systemd/homescreen-deploy.service.example /etc/systemd/system/homescreen-deploy.service
+sudo cp deploy/systemd/homescreen-deploy.timer.example /etc/systemd/system/homescreen-deploy.timer
+```
+
+Adjust paths/user:
+
+```bash
+sudo sed -i 's|^User=.*|User=<USER>|' /etc/systemd/system/homescreen.service
+sudo sed -i 's|^WorkingDirectory=.*|WorkingDirectory=/home/<USER>/homescreen|' /etc/systemd/system/homescreen.service
+sudo sed -i 's|^ExecStart=.*|ExecStart=/home/<USER>/homescreen/.venv/bin/python /home/<USER>/homescreen/main.py|' /etc/systemd/system/homescreen.service
+
+sudo sed -i 's|^User=.*|User=<USER>|' /etc/systemd/system/homescreen-deploy.service
+sudo sed -i 's|^WorkingDirectory=.*|WorkingDirectory=/home/<USER>/homescreen|' /etc/systemd/system/homescreen-deploy.service
+sudo sed -i 's|^ExecStart=.*|ExecStart=/usr/bin/bash /home/<USER>/homescreen/tools/deploy_on_pi.sh /home/<USER>/homescreen main homescreen.service|' /etc/systemd/system/homescreen-deploy.service
+```
+
+GUI environment for Tk:
+
+```bash
+sudo sed -i '/^Environment=PYTHONUNBUFFERED=1/a Environment=DISPLAY=:0\nEnvironment=XAUTHORITY=/home/<USER>/.Xauthority' /etc/systemd/system/homescreen.service
+```
+
+## 4) Allow deploy service restart without password
+
+```bash
+echo '<USER> ALL=(root) NOPASSWD: /usr/bin/systemctl restart homescreen.service, /usr/bin/systemctl --no-pager --full status homescreen.service -n 20' | sudo tee /etc/sudoers.d/homescreen-deploy
+sudo chmod 440 /etc/sudoers.d/homescreen-deploy
+```
+
+## 5) Git safety for timer service
+
+If deploy service runs as root and repo is owned by `<USER>`, configure safe directory:
+
+```bash
+sudo git config --global --add safe.directory /home/<USER>/homescreen
+```
+
+## 6) Enable and start
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now homescreen.service
+sudo systemctl enable --now homescreen-deploy.timer
+```
+
+## 7) Verify
+
+```bash
+systemctl status homescreen.service --no-pager
+systemctl status homescreen-deploy.timer --no-pager
+systemctl status homescreen-deploy.service --no-pager
+systemctl list-timers --all | grep homescreen-deploy || true
+```
+
+Notes:
+- `homescreen-deploy.service` is oneshot, so `inactive (dead)` after success is normal.
+- `list-timers` can show `n/a`; use `status` + journal output as source of truth.
+
+## 8) Logs and troubleshooting
+
+```bash
+journalctl -u homescreen.service -n 100 --no-pager
+journalctl -u homescreen-deploy.service -n 100 --no-pager
+```
+
+Common startup failures:
+- `no $DISPLAY` -> add `DISPLAY=:0` and `XAUTHORITY`.
+- `settings.json not found` -> copy from example.
+- `logs/<date>.log not found` -> create `logs/`.
+- `RPi.GPIO import` error -> install/update GPIO deps on Pi.
+
+## 9) Test deploy manually
+
+```bash
+cd /home/<USER>/homescreen
+bash tools/deploy_on_pi.sh "/home/<USER>/homescreen" "main" "homescreen.service"
 ```

@@ -34,6 +34,10 @@ Add these settings in `settings.json`:
 }
 ```
 
+Important:
+- Sentry is best-effort. If SDK integration import fails at runtime, the app logs the error and continues with local logging only.
+- Current setup uses `ThreadingIntegration` and `TkinterIntegration` when available.
+
 Recommended values:
 - `do_sentry_logging`: `true` on test/prod devices, `false` when debugging offline
 - `sentry_breadcrumb_level`: default `INFO`; set to `WARNING` on noisy devices
@@ -106,3 +110,10 @@ How this helps with direction:
 - `show_ok=true` + `mapped=false` after delay suggests Tk mapping/render delay (event loop/compositor issue).
 - `mapped=true` but width/height `0` suggests layout/geometry timing race.
 - missing `screen.after_pack` for a screen request suggests logic path interruption before pack.
+
+## Music Metrics Logging
+
+- Metrics logging is explicitly observability-only.
+- It does not change playback/UI behavior.
+- Startup log includes:
+  - `music.metrics_logging.mode purpose='observability_only' affects_runtime_behavior=False`
