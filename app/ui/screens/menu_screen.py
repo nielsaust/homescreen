@@ -266,13 +266,13 @@ class MenuScreen:
                 x_abs = abs(x_dir)
                 y_abs = abs(y_dir)
                 if x_abs > y_abs and x_dir > min_movement:
-                    self.main_app.perform_action("left")
+                    self.main_app.interaction_service.handle("left")
                 elif x_abs > y_abs and x_dir < -min_movement:
-                    self.main_app.perform_action("right")
+                    self.main_app.interaction_service.handle("right")
                 elif x_abs < y_abs and y_dir > min_movement:
-                    self.main_app.perform_action("down")
+                    self.main_app.interaction_service.handle("down")
                 elif x_abs < y_abs and y_dir < -min_movement:
-                    self.main_app.perform_action("up")
+                    self.main_app.interaction_service.handle("up")
                 return "break"
 
             sub_button_amount = 0
@@ -380,4 +380,4 @@ class MenuScreen:
         self.in_subpage = False
         self.remove_current_menu()
         self.close_timeout(False)
-        self.main_app.exit_menu()
+        self.main_app.screen_state_controller.exit_menu()

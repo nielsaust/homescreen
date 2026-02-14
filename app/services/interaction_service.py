@@ -89,22 +89,22 @@ class InteractionService:
     def _route_by_screen(self, screen_state: str, interaction_type: str) -> None:
         if screen_state in ("weather", "off"):
             if interaction_type == "single_click":
-                self.main_app.switch_to_menu()
+                self.main_app.screen_state_controller.switch_to_menu()
             return
 
         if screen_state == "music":
             if interaction_type == "single_click":
-                self.main_app.switch_to_menu()
+                self.main_app.screen_state_controller.switch_to_menu()
             elif interaction_type == "hold":
-                self.main_app.media_play_pause()
+                self.main_app.media_controller.media_play_pause()
             elif interaction_type == "left":
-                self.main_app.media_skip_song("previous")
+                self.main_app.media_controller.media_skip_song("previous")
             elif interaction_type == "right":
-                self.main_app.media_skip_song("next")
+                self.main_app.media_controller.media_skip_song("next")
             elif interaction_type == "up":
-                self.main_app.media_volume("up")
+                self.main_app.media_controller.media_volume("up")
             elif interaction_type == "down":
-                self.main_app.media_volume("down")
+                self.main_app.media_controller.media_volume("down")
             return
 
         if screen_state == "menu":

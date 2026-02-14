@@ -67,14 +67,15 @@ class _MainApp:
         self.trace_events = []
         self.switch_to_music_calls = 0
         self.switch_to_idle_calls = 0
+        self.music_playback_policy_service = self
 
     def update_network_status_ui(self, online):
         self.network_ui_updates.append(online)
 
-    def _schedule_music_pause_idle(self):
+    def schedule_pause_idle(self):
         self.music_paused_scheduled += 1
 
-    def _cancel_music_pause_timeout(self):
+    def cancel_pause_idle_timeout(self):
         self.music_pause_cancelled += 1
 
     def switch_to_music(self):

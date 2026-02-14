@@ -66,7 +66,7 @@ class MusicUpdateService:
             return
         self.main_app.log_music_debug("[music] applying payload", resolved_payload)
         self.main_app.record_music_metric("applied")
-        self.main_app.update_music_object(resolved_payload)
+        self.main_app.music_state_service.update_music_object(resolved_payload)
         self.main_app.publish_event(
             "menu.refresh.requested",
             {"reason": "music.update.applied"},

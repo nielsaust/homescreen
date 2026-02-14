@@ -24,6 +24,7 @@ class _MainApp:
         self.overlay_calls = []
         self.events = []
         self.queue_checks = []
+        self.bed_time_checks = 0
         self.settings = SimpleNamespace(
             mqtt_topic_music="music",
             mqtt_topic_devices="screen_commands/incoming",
@@ -45,6 +46,9 @@ class _MainApp:
             doorbell_password="p",
         )
         self.device_states = _DeviceStates()
+        self.startup_sync_service = SimpleNamespace(check_queue=self.check_mqtt_message_queue)
+        self.music_update_service = SimpleNamespace(queue_update=self.queue_music_update)
+        self.power_policy_service = SimpleNamespace(check_bed_time=self.check_bed_time)
 
     def publish_event(self, name, payload, source=None):
         self.events.append((name, payload, source))
@@ -56,7 +60,7 @@ class _MainApp:
         self.music_calls.append(data)
 
     def check_bed_time(self):
-        return None
+        self.bed_time_checks += 1
 
     def request_overlay(self, command, payload=None, source=None):
         self.overlay_calls.append((command, payload, source))
@@ -97,6 +101,7 @@ class TestMqttMessageRouter(unittest.TestCase):
         router.handle(app.settings.mqtt_topic_devices, {"in_bed": "on"})
 
         self.assertEqual(app.device_states.in_bed, "on")
+        self.assertEqual(app.bed_time_checks, 1)
         event_names = [entry[0] for entry in app.events]
         self.assertIn("device.state.updated", event_names)
         self.assertIn("menu.refresh.requested", event_names)

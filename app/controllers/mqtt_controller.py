@@ -124,10 +124,10 @@ class MqttController:
         if payload:
             try:
                 data = self._decode_payload(payload)
-                if hasattr(self.main_app, "enqueue_mqtt_message"):
-                    self.main_app.enqueue_mqtt_message(topic, data)
+                if hasattr(self.main_app, "queue_pump_service"):
+                    self.main_app.queue_pump_service.enqueue_mqtt_message(topic, data)
                 else:
-                    self.main_app.on_mqtt_message(topic, data)
+                    self.main_app.mqtt_message_router.handle(topic, data)
             except json.JSONDecodeError as e:
                 payload_preview = payload if payload is not None else "None"
                 log_event(logger, logging.ERROR, "mqtt", "payload.decode_error", payload=payload_preview, error=e)
@@ -136,10 +136,10 @@ class MqttController:
                     try:
                         data = self._decode_payload(sanitized)
                         log_event(logger, logging.WARNING, "mqtt", "payload.decode_recovered", topic=topic)
-                        if hasattr(self.main_app, "enqueue_mqtt_message"):
-                            self.main_app.enqueue_mqtt_message(topic, data)
+                        if hasattr(self.main_app, "queue_pump_service"):
+                            self.main_app.queue_pump_service.enqueue_mqtt_message(topic, data)
                         else:
-                            self.main_app.on_mqtt_message(topic, data)
+                            self.main_app.mqtt_message_router.handle(topic, data)
                     except Exception as recover_error:
                         log_event(
                             logger,
@@ -170,7 +170,7 @@ class MqttController:
         if rc == 0:
             log_event(logger, logging.INFO, "mqtt", "session.connected", broker=self.broker_address)
             self.subscribe_to_topics()
-            self.main_app.on_mqtt_connected()
+            self.main_app.startup_sync_service.on_mqtt_connected()
         else:
             log_event(logger, logging.ERROR, "mqtt", "session.connect_failed", rc=rc)
 

@@ -1,38 +1,22 @@
 
-import datetime
-import json
 import logging
-import pathlib
-from queue import Empty, Queue
+from queue import Queue
 import time
 import sys
 
-import platform
-import psutil
-import signal
-import ping3
-
-from core.event_bus import EventBus
-from core.events import AppEvent
-from core.state import AppState
-from core.store import AppStore
-from app.models.device_states import DeviceStates
-from app.controllers.mqtt_message_router import MqttMessageRouter
-from app.controllers.media_controller import MediaController
-from app.controllers.screen_state_controller import ScreenStateController
-from app.controllers.ui_intent_handler import UiIntentHandler
+from app.controllers.deferred_mqtt_controller import DeferredMqttController
 from app.observability import logger as log_setup
-from app.services.music_playback_policy_service import MusicPlaybackPolicyService
+from app.services.app_runtime_config_service import AppRuntimeConfigService
 from app.services.music_service import MusicService
-from app.services.interaction_service import InteractionService
-from app.services.music_update_service import MusicUpdateService
-from app.services.power_policy_service import PowerPolicyService
-from app.services.startup_sync_service import StartupSyncService
+from app.services.app_composition_service import AppCompositionService
+from app.services.music_metrics_service import MusicMetricsService
+from app.services.network_bootstrap_service import NetworkBootstrapService
+from app.services.queue_pump_service import QueuePumpService
+from app.services.system_info_service import SystemInfoService
 from app.ui.widgets.network_status_widget import NetworkStatusWidget
 from app.config.settings import Settings
 from app.observability.sentry_setup import init_sentry
 from app.observability.domain_logger import log_event
-from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 
 import tkinter as tk
 
@@ -40,47 +24,34 @@ import tkinter as tk
 log_setup.setup_logging()
 logger = logging.getLogger(__name__)
 
-
-class DeferredMqttController:
-    """No-op MQTT controller used until network is available."""
-
-    def publish_action(self, action, value=None):
-        log_event(logger, logging.WARNING, "mqtt", "publish_action.skipped", reason="not_initialized", action=action)
-
-    def publish_message(self, payload=None, topic="screen_commands/outgoing"):
-        log_event(logger, logging.WARNING, "mqtt", "publish_message.skipped", reason="not_initialized", topic=topic)
-
-    def start(self):
-        return None
-
-    def stop(self):
-        return None
-
-
-def _to_bool(value, default=False):
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        lowered = value.strip().lower()
-        if lowered in ("1", "true", "yes", "on"):
-            return True
-        if lowered in ("0", "false", "no", "off"):
-            return False
-    if value is None:
-        return default
-    return bool(value)
-
 class MainApp:
     def __init__(self, root):
         log_event(logger, logging.INFO, "app", "startup.begin", at=self.print_current_datetime())
-        # load settings
         self.settings = Settings("settings.json")
         log_setup.apply_runtime_logging_policy(self.settings)
         init_sentry(self.settings)
-        self.event_bus = EventBus()
-        self.store = AppStore(AppState())
-        self.event_bus.subscribe(self.store.dispatch)
+        self.composition_service = AppCompositionService(self)
+        self.composition_service.compose_event_pipeline()
+        self._log_runtime_policy()
+        self._init_bootstrap_services()
+        self._init_runtime_context(root)
+        self._init_state_and_timestamps()
+        self.publish_event(
+            "app.started",
+            {
+                "system_platform": self.system_info["system_platform"],
+                "is_desktop": self.system_info["is_desktop"],
+                "startup_queue_size": 0,
+                "version": getattr(self.settings, "version", None),
+            },
+        )
 
+        asyncio_logger = logging.getLogger('asyncio')
+        asyncio_logger.setLevel(logging.WARNING)
+        self.observability_service.install_global_exception_hook()
+        self.app_lifecycle_service.start()
+
+    def _log_runtime_policy(self):
         log_event(
             logger,
             logging.INFO,
@@ -91,344 +62,62 @@ class MainApp:
             file=getattr(self.settings, "log_file_level", getattr(self.settings, "file_log_level", "DEBUG")),
         )
 
-        # Wait for an internet connection
-        self.wait_for_internet_connection()
+    def _init_bootstrap_services(self):
+        self.network_bootstrap_service = NetworkBootstrapService(self)
+        self.system_info_service = SystemInfoService()
+        self.network_bootstrap_service.wait_for_internet_connection()
 
-        # Set up the root window
+    def _init_runtime_context(self, root):
         self.root = root
         self.root.geometry(f"{self.settings.screen_width}x{self.settings.screen_height}")
         self.mqtt_message_queue = Queue()
         self.ui_intent_queue = Queue()
-        self.ui_intent_poll_interval_ms = 50
-        self.ui_trace_logging = _to_bool(getattr(self.settings, "ui_trace_logging", False), False)
-        self.ui_trace_followup_ms = int(getattr(self.settings, "ui_trace_followup_ms", 80) or 80)
-        self.mqtt_queue_poll_interval_ms = 50
+        self.runtime_config_service = AppRuntimeConfigService(self.settings)
+        self.runtime_config_service.apply_to(self)
+
+        self.queue_pump_service = QueuePumpService(self)
         self.mqtt_controller = DeferredMqttController()
         self.mqtt_initialized = False
         self.music_service = MusicService()
-        self.music_update_debounce_ms = int(getattr(self.settings, "music_update_debounce_ms", 150) or 150)
-        self.music_pause_grace_ms = int(getattr(self.settings, "music_pause_grace_ms", 1200) or 1200)
-        self.music_drop_duplicate_payloads = _to_bool(getattr(self.settings, "music_drop_duplicate_payloads", True), True)
-        self.music_apply_transport_immediately = _to_bool(
-            getattr(self.settings, "music_apply_transport_immediately", True),
-            True,
-        )
-        self.music_debug_logging = _to_bool(getattr(self.settings, "music_debug_logging", False), False)
-        self.music_metrics = {
-            "received": 0,
-            "coalesced": 0,
-            "dropped": 0,
-            "applied": 0,
-            "art_requests": 0,
-            "art_success": 0,
-            "art_stale_dropped": 0,
-            "art_placeholder": 0,
-            "art_errors": 0,
-        }
-        self.music_metrics_interval_ms = int(
-            (getattr(self.settings, "music_metrics_log_interval_seconds", 30) or 30) * 1000
-        )
-        log_event(logger, logging.INFO, "music", "debug_logging", enabled=self.music_debug_logging)
+        self.music_metrics_service = MusicMetricsService(self, self.music_metrics_interval_ms)
         self.network_status_widget = NetworkStatusWidget(self.root, self.settings.feedback_icon_size)
+        self.system_info = self.system_info_service.detect_platform()
+        self.composition_service.compose_runtime_components()
         self.store.subscribe(self._on_state_changed)
-        self._enqueue_ui_intent(
-            {
-                "type": "network.status",
-                "online": self.store.get_state().network_online,
-            }
-        )
-        network_interval = int(
-            getattr(
-                self.settings,
-                "network_status_poll_interval_seconds",
-                getattr(self.settings, "network_indicator_check_interval_seconds", 5),
-            )
-            or 5
-        )
-        self.network_status_poll_interval_ms = max(1, network_interval) * 1000
+        self._enqueue_ui_intent({"type": "network.status", "online": self.store.get_state().network_online})
 
-        # Set up system info
-        self.system_info = self.checksystem()
-        self.publish_event(
-            "app.started",
-            {
-                "system_platform": self.system_info["system_platform"],
-                "is_desktop": self.system_info["is_desktop"],
-                "startup_queue_size": 0,
-                "version": getattr(self.settings, "version", None),
-            },
+        log_event(logger, logging.INFO, "music", "debug_logging", enabled=self.music_debug_logging)
+        log_event(
+            logger,
+            logging.INFO,
+            "music",
+            "metrics_logging.mode",
+            purpose="observability_only",
+            affects_runtime_behavior=False,
         )
+
+    def _init_state_and_timestamps(self):
         self.music_object = None
         self.boot_time = time.time()
         self.time_last_action = time.time()
-
-        # LOGGING asyncio - Check to see if still needed
-        asyncio_logger = logging.getLogger('asyncio')
-        asyncio_logger.setLevel(logging.WARNING)
-        sys.excepthook = self.log_unhandled_exception
-
-        self.device_states = DeviceStates()
-        from app.controllers.touch_controller import TouchController
-        self.touch_controller = TouchController(self)
-        from app.controllers.display_controller import DisplayController
-        self.display_controller = DisplayController(self)
-        self.screen_state_controller = ScreenStateController(self)
-        self.mqtt_message_router = MqttMessageRouter(self)
-        self.media_controller = MediaController(self)
-        self.ui_intent_handler = UiIntentHandler(self)
-        self.interaction_service = InteractionService(self)
-        self.music_update_service = MusicUpdateService(self)
-        self.music_playback_policy_service = MusicPlaybackPolicyService(self)
-        self.power_policy_service = PowerPolicyService(self)
-        self.startup_sync_service = StartupSyncService(self)
-        self.touch_controller.bind_events(self.root)
-
-        # Register the signal handler for Ctrl-C
-        signal.signal(signal.SIGINT, self.signal_handler)
-
-        self.switch_to_idle()
-        self.start_mqtt_queue_pump()
-        self.start_ui_intent_pump()
-        self.start_network_status_poll()
-        self.start_music_metrics_log()
-        self.maybe_init_mqtt_if_online()
-
-
-    def is_internet_connected(self,host="8.8.8.8", port=53, timeout=3):
-        try:
-            return ping3.ping(host,timeout=timeout) is not None
-        except Exception as e:
-            log_event(logger, logging.INFO, "network", "connectivity_check_error", error=e)
-            return False
-
-    def wait_for_internet_connection(self):
-        wait_on_boot = _to_bool(getattr(self.settings, "startup_block_on_internet", False), False)
-        timeout_seconds = int(getattr(self.settings, "startup_wait_for_internet_seconds", 0) or 0)
-        check_interval_seconds = int(getattr(self.settings, "startup_wait_check_interval_seconds", 5) or 5)
-
-        if not wait_on_boot or timeout_seconds <= 0:
-            online = self.is_network_available(timeout=2)
-            self.publish_event("network.status", {"online": online})
-            if online:
-                log_event(logger, logging.INFO, "network", "startup.online")
-            else:
-                log_event(
-                    logger,
-                    logging.WARNING,
-                    "network",
-                    "startup.degraded_mode",
-                    reason="offline_at_boot_non_blocking",
-                )
-            return
-
-        deadline = time.time() + timeout_seconds
-        while time.time() < deadline:
-            if self.is_network_available(timeout=2):
-                self.publish_event("network.status", {"online": True})
-                log_event(logger, logging.INFO, "network", "startup.online")
-                return
-
-            self.publish_event("network.status", {"online": False})
-            remaining = max(0, int(deadline - time.time()))
-            log_event(logger, logging.WARNING, "network", "startup.waiting_for_connection", remaining_seconds=remaining)
-            time.sleep(check_interval_seconds)
-
-        self.publish_event("network.status", {"online": False})
-        log_event(
-            logger,
-            logging.WARNING,
-            "network",
-            "startup.degraded_mode",
-            reason="startup_timeout",
-            timeout_seconds=timeout_seconds,
-        )
-
-    def start_network_status_poll(self):
-        self.root.after(self.network_status_poll_interval_ms, self._poll_network_status)
-
-    def _poll_network_status(self):
-        online = self.is_network_available(timeout=1)
-        self.publish_event("network.status", {"online": online}, source="network_poll")
-        self.maybe_init_mqtt_if_online(online)
-        self.root.after(self.network_status_poll_interval_ms, self._poll_network_status)
 
     def update_network_status_ui(self, online):
         if hasattr(self, "network_status_widget") and self.network_status_widget:
             self.network_status_widget.set_online(bool(online))
 
     def _on_state_changed(self, state, event):
-        if event.event_type == "network.status":
-            self._enqueue_ui_intent(
-                {
-                    "type": "network.status",
-                    "online": state.network_online,
-                }
-            )
-        elif event.event_type == "weather.updated":
-            self._enqueue_ui_intent(
-                {
-                    "type": "weather.cache.status",
-                    "source": state.weather_source,
-                    "cached_at_text": state.weather_cached_at_text,
-                }
-            )
-        elif event.event_type == "music.updated":
-            self._enqueue_ui_intent(
-                {
-                    "type": "music.render",
-                    "state": state.music_state,
-                    "title": state.music_title,
-                    "artist": state.music_artist,
-                    "channel": state.music_channel,
-                    "album": state.music_album,
-                    "album_art_api_url": state.music_album_art_api_url,
-                }
-            )
-            self._enqueue_ui_intent(
-                {
-                    "type": "ui.music.playback",
-                    "state": state.music_state,
-                }
-            )
-        elif event.event_type == "ui.screen.changed":
-            self._enqueue_ui_intent(
-                {
-                    "type": "ui.screen.changed",
-                    "screen": state.screen_state,
-                    "is_display_on": state.is_display_on,
-                    "force": bool(event.payload.get("force", False)),
-                }
-            )
-            if state.screen_state == "menu":
-                self._enqueue_ui_intent(
-                    {
-                        "type": "menu.refresh",
-                    }
-                )
-        elif event.event_type == "menu.refresh.requested":
-            self._enqueue_ui_intent(
-                {
-                    "type": "menu.refresh",
-                }
-            )
-        elif event.event_type == "menu.navigation.requested":
-            self._enqueue_ui_intent(
-                {
-                    "type": "menu.navigate",
-                    "command": event.payload.get("command"),
-                }
-            )
-        elif event.event_type == "ui.overlay.requested":
-            self._enqueue_ui_intent(
-                {
-                    "type": "ui.overlay.requested",
-                    "command": event.payload.get("command"),
-                    "data": event.payload.get("data"),
-                    "url": event.payload.get("url"),
-                    "username": event.payload.get("username"),
-                    "password": event.payload.get("password"),
-                    "progress": event.payload.get("progress"),
-                    "reset": bool(event.payload.get("reset", False)),
-                }
-            )
+        intents = self.ui_intent_mapper_service.map_event(state, event)
+        for intent in intents:
+            self._enqueue_ui_intent(intent)
 
     def _enqueue_ui_intent(self, intent):
-        self.ui_intent_queue.put(intent)
-
-    def start_ui_intent_pump(self):
-        self.root.after(self.ui_intent_poll_interval_ms, self._pump_ui_intents)
-
-    def _pump_ui_intents(self):
-        handled = 0
-        while handled < 100:
-            try:
-                intent = self.ui_intent_queue.get_nowait()
-            except Empty:
-                break
-            try:
-                self._apply_ui_intent(intent)
-            except Exception as exc:
-                log_event(logger, logging.ERROR, "ui", "intent.apply_failed", intent=intent, error=exc)
-            handled += 1
-        if handled > 0:
-            self.trace_ui_event(
-                "ui.intent.pump",
-                handled=handled,
-                pending=self.ui_intent_queue.qsize(),
-            )
-        self.root.after(self.ui_intent_poll_interval_ms, self._pump_ui_intents)
-
-    def _apply_ui_intent(self, intent):
-        self.ui_intent_handler.apply(intent)
-
-    def _network_sim_flag_path(self):
-        return pathlib.Path(__file__).parent / ".sim" / "network_down.flag"
-
-    def is_network_simulated_down(self):
-        if not bool(getattr(self.settings, "enable_network_simulation", True)):
-            return False
-        return self._network_sim_flag_path().exists()
+        self.queue_pump_service.enqueue_ui_intent(intent)
 
     def is_network_available(self, timeout=2):
-        if self.is_network_simulated_down():
-            return False
-        return self.is_internet_connected(timeout=timeout)
+        return self.network_bootstrap_service.is_network_available(timeout=timeout)
 
     def init_mqtt(self):
-        if self.mqtt_initialized:
-            return
-        from app.controllers.mqtt_controller import MqttController
-        self.mqtt_controller = MqttController(self, self.settings.mqtt_broker, self.settings.mqtt_port, self.settings.mqtt_user, self.settings.mqtt_password)
-        self.mqtt_initialized = True
-
-    def maybe_init_mqtt_if_online(self, online=None):
-        if self.mqtt_initialized:
-            return
-        if online is None:
-            online = self.is_network_available(timeout=1)
-        if not online:
-            return
-        log_event(logger, logging.INFO, "mqtt", "controller.init_requested", reason="network_available")
-        self.init_mqtt()
-
-    def enqueue_mqtt_message(self, topic, data):
-        self.mqtt_message_queue.put((topic, data))
-
-    def start_mqtt_queue_pump(self):
-        self.root.after(self.mqtt_queue_poll_interval_ms, self._pump_mqtt_queue)
-
-    def _pump_mqtt_queue(self):
-        handled = 0
-        while handled < 50:
-            try:
-                topic, data = self.mqtt_message_queue.get_nowait()
-            except Empty:
-                break
-
-            try:
-                self.on_mqtt_message(topic, data)
-            except Exception as exc:
-                log_event(logger, logging.ERROR, "mqtt", "queue_message_handle_failed", topic=topic, error=exc)
-            handled += 1
-
-        self.root.after(self.mqtt_queue_poll_interval_ms, self._pump_mqtt_queue)
-
-    def perform_action(self, interaction_type):
-        self.interaction_service.handle(interaction_type)
-
-    ###### SCREEENS ######
-    def switch_to_idle(self,force=False):
-        self.screen_state_controller.switch_to_idle(force)
-
-    def switch_to_music(self,force=False):
-        self.screen_state_controller.switch_to_music(force)
-
-
-    def switch_to_menu(self):
-        self.screen_state_controller.switch_to_menu()
-
-    def exit_menu(self):
-        self.screen_state_controller.exit_menu()
+        self.mqtt_lifecycle_service.init_mqtt()
 
     def request_menu_navigation(self, command: str, source: str = "main"):
         self.publish_event(
@@ -442,224 +131,32 @@ class MainApp:
         if payload:
             event_payload.update(payload)
         self.publish_event("ui.overlay.requested", event_payload, source=source)
-    
-
-
-    ###### MQTT ######
-    def start_mqtt(self):
-        self.mqtt_controller.start()
-
-    def stop_mqtt(self):
-        self.mqtt_controller.stop()
-
-    def on_mqtt_connected(self):
-        self.startup_sync_service.on_mqtt_connected()
-
-    def on_mqtt_message(self, topic, data):
-        self.mqtt_message_router.handle(topic, data)
-        
-
-
-
-
-    ###### MEDIA ######
-    def show_music_overlays(self):
-        self.media_controller.show_music_overlays()
-
-    def media_play_pause(self):
-        self.media_controller.media_play_pause()
-
-    def media_skip_song(self,next_previous):
-        self.media_controller.media_skip_song(next_previous)
-
-    def media_volume(self,up_down):
-        self.media_controller.media_volume(up_down)
-
-    def update_music_object(self, data):
-        state = data.get('state')
-        title = data.get('title')
-        artist = data.get('artist')
-        channel = data.get('channel')
-        album = data.get('album')
-        album_art_api_url = data.get('album_art_api_url')
-
-        if(self.music_object is None):
-            from app.models.music_object import MusicObject
-            self.music_object = MusicObject(
-                state, 
-                title, 
-                artist, 
-                channel, 
-                album, 
-                album_art_api_url
-            )
-        else:
-            self.music_object.state = state
-            self.music_object.title = title
-            self.music_object.artist = artist
-            self.music_object.channel = channel
-            self.music_object.album = album
-            self.music_object.album_art_api_url = album_art_api_url
-        
-        self.log_music_debug(
-            "[music] object after update",
-            {
-                "state": self.music_object.state,
-                "title": self.music_object.title,
-                "artist": self.music_object.artist,
-                "channel": self.music_object.channel,
-                "album": self.music_object.album,
-                "album_art_api_url": self.music_object.album_art_api_url,
-            },
-        )
-        logging.debug("========= Music object updated =========")
-        obj = self.music_object
-        for key, value in vars(obj).items():
-            logging.info("music_object.%s = %r", key, value)
-        
-        log_event(logger, logging.DEBUG, "music", "state.updated", state=state, title=title)
-        self.publish_event(
-            "music.updated",
-            {
-                "state": state,
-                "title": title,
-                "artist": artist,
-                "channel": channel,
-                "album": album,
-                "album_art_api_url": album_art_api_url,
-            },
-        )
-
-        self.print_memory_usage()
-
     ###### SYSTEM ######
-    def checksystem(self):
-        system_platform = platform.system()
-        system_info = {}
-
-        if system_platform == "Darwin":
-            log_event(logger, logging.INFO, "system", "platform.detected", platform=system_platform, type="desktop_macos")
-            system_info["is_desktop"] = True
-            system_info["system_platform"] = system_platform
-        elif system_platform == "Windows":
-            log_event(logger, logging.INFO, "system", "platform.detected", platform=system_platform, type="desktop_windows")
-            system_info["is_desktop"] = True
-            system_info["system_platform"] = system_platform
-        elif system_platform == "Linux":
-            try:
-                with open('/proc/cpuinfo', 'r') as cpuinfo:
-                    for line in cpuinfo:
-                        if line.startswith('Hardware'):
-                            if 'BCM' in line or 'Raspberry Pi' in line:
-                                log_event(logger, logging.INFO, "system", "platform.detected", platform=system_platform, type="raspberry_pi")
-                                break
-            except FileNotFoundError:
-                log_event(logger, logging.INFO, "system", "platform.detected", platform=system_platform, type="linux_non_pi")
-            system_info["is_desktop"] = False
-            system_info["system_platform"] = system_platform
-        else:
-            log_event(logger, logging.INFO, "system", "platform.detected", platform=system_platform, type="unknown")
-            system_info["is_desktop"] = False
-            system_info["system_platform"] = system_platform
-        
-        return system_info
-    
     def print_memory_usage(self):
-        memory = psutil.virtual_memory()
-        memory_usage = self.get_memory_usage()
-        available_memory = memory.available
-        available_memory_gb = available_memory / (1024 ** 3)
-        available_memory_mb = available_memory / (1024 * 1024)
-        used_memory_mb = memory_usage / (1024 * 1024)
-        memory_percentage = used_memory_mb / available_memory_mb * 100
-        log_event(
-            logger,
-            logging.DEBUG,
-            "system",
-            "memory.usage",
-            used_mb=round(used_memory_mb, 2),
-            available_mb=round(available_memory_mb, 2),
-            pct=round(memory_percentage, 2),
-        )
-
-    def get_memory_usage(self):
-        try:
-            process = psutil.Process()
-            memory_info = process.memory_info()
-            return memory_info.rss
-        except Exception as e:
-            log_event(logger, logging.ERROR, "system", "memory.usage_failed", error=e)
-            return 0
+        self.system_info_service.log_memory_usage()
 
     def signal_handler(self, sig, frame):
         # Perform cleanup and exit gracefully
         log_event(logger, logging.INFO, "app", "shutdown.requested", reason="ctrl_c")
         sys.exit(0)
 
-    def log_unhandled_exception(exc_type, exc_value, exc_traceback):
-        log_event(logger, logging.ERROR, "app", "unhandled_exception", error=exc_value)
-        log_event(logger, logging.ERROR, "app", "unhandled_exception.trace")
-        logger.error("Unhandled exception", exc_info=(exc_type, exc_value, exc_traceback))
-
     def print_current_datetime(self):
-        current_datetime = datetime.datetime.now()
-        formatted_datetime = current_datetime.strftime("%d %b %Y - %H:%M")
-        return formatted_datetime
+        observability = getattr(self, "observability_service", None)
+        if observability is not None:
+            return observability.startup_timestamp()
+        return time.strftime("%d %b %Y - %H:%M")
 
     def publish_event(self, event_type, payload=None, source="main"):
-        try:
-            event = AppEvent(
-                event_type=event_type,
-                payload=payload or {},
-                source=source,
-            )
-            self.event_bus.publish(event)
-        except Exception as exc:
-            log_event(logger, logging.DEBUG, "app", "event.publish_failed", event_type=event_type, error=exc)
+        self.event_dispatch_service.publish_event(event_type, payload=payload, source=source)
 
     def log_music_debug(self, message, payload=None):
-        if not self.music_debug_logging:
-            return
-        if payload is None:
-            log_event(logger, logging.INFO, "music", "debug", message=message)
-            return
-        try:
-            log_event(
-                logger,
-                logging.INFO,
-                "music",
-                "debug",
-                message=message,
-                payload=json.dumps(payload, default=str, ensure_ascii=False),
-            )
-        except Exception:
-            log_event(logger, logging.INFO, "music", "debug", message=message, payload=payload)
+        self.observability_service.log_music_debug(message, payload)
 
     def record_music_metric(self, key, amount=1):
-        if key not in self.music_metrics:
-            self.music_metrics[key] = 0
-        self.music_metrics[key] += amount
-
-    def start_music_metrics_log(self):
-        self.root.after(self.music_metrics_interval_ms, self._log_music_metrics)
-
-    def _log_music_metrics(self):
-        if self.music_debug_logging:
-            self.log_music_debug("[music] metrics", self.music_metrics)
-        self.root.after(self.music_metrics_interval_ms, self._log_music_metrics)
+        self.music_metrics_service.record(key, amount)
 
     def trace_ui_event(self, event_name, **fields):
-        if not self.ui_trace_logging:
-            return
-        payload = {
-            "event": event_name,
-            "ts_ms": int(time.time() * 1000),
-            **fields,
-        }
-        try:
-            log_event(logger, logging.INFO, "ui", "trace", payload=json.dumps(payload, default=str, ensure_ascii=False))
-        except Exception:
-            log_event(logger, logging.INFO, "ui", "trace", payload=payload)
+        self.observability_service.trace_ui_event(event_name, **fields)
 
 if __name__ == "__main__":
     try:

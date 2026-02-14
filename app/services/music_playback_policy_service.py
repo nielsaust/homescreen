@@ -22,7 +22,7 @@ class MusicPlaybackPolicyService:
     def schedule_pause_idle(self) -> None:
         self.cancel_pause_idle_timeout()
         if self.main_app.music_pause_grace_ms <= 0:
-            self.main_app.switch_to_idle()
+            self.main_app.screen_state_controller.switch_to_idle()
             return
 
         self._music_pause_timeout = self.main_app.root.after(
@@ -37,4 +37,4 @@ class MusicPlaybackPolicyService:
         state = getattr(self.main_app.music_object, "state", None)
         if state == "playing":
             return
-        self.main_app.switch_to_idle()
+        self.main_app.screen_state_controller.switch_to_idle()

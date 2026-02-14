@@ -37,16 +37,16 @@ class TouchController:
         root.bind("<KeyRelease-space>", self.handle_space_up)
 
     def handle_left_key(self, event):
-        self.main_app.perform_action("left")
+        self.main_app.interaction_service.handle("left")
 
     def handle_right_key(self, event):
-        self.main_app.perform_action("right")
+        self.main_app.interaction_service.handle("right")
 
     def handle_up_key(self, event):
-        self.main_app.perform_action("up")
+        self.main_app.interaction_service.handle("up")
 
     def handle_down_key(self, event):
-        self.main_app.perform_action("down")
+        self.main_app.interaction_service.handle("down")
 
     def handle_double_click(self, event):
         log_event(logger, logging.DEBUG, "touch", "gesture.double_click_ignored")
@@ -70,7 +70,7 @@ class TouchController:
 
     def handle_hold(self, time_held):
         log_event(logger, logging.DEBUG, "touch", "gesture.hold", hold_threshold=self.hold_time, held_seconds=time_held)
-        self.main_app.perform_action("hold")
+        self.main_app.interaction_service.handle("hold")
 
     def handle_gestures(self, event):
         # Determine the direction of the swipe
@@ -82,13 +82,13 @@ class TouchController:
         action = None
         
         if x_abs > y_abs and x_dir > min_movement:
-            self.main_app.perform_action("left")
+            self.main_app.interaction_service.handle("left")
         elif x_abs > y_abs and x_dir < -min_movement:
-            self.main_app.perform_action("right")
+            self.main_app.interaction_service.handle("right")
         elif x_abs < y_abs and y_dir > min_movement:
-            self.main_app.perform_action("down")
+            self.main_app.interaction_service.handle("down")
         elif x_abs < y_abs and y_dir < -min_movement:
-            self.main_app.perform_action("up")
+            self.main_app.interaction_service.handle("up")
         else:
             log_event(logger, logging.DEBUG, "touch", "gesture.single_click_candidate", click_time=self.click_time)
             # no swipe (click or hold)
@@ -100,7 +100,7 @@ class TouchController:
                     self.handle_hold(time_elapsed)
                 else:
                     log_event(logger, logging.DEBUG, "touch", "gesture.single_click", elapsed_seconds=time_elapsed)
-                    self.main_app.perform_action("single_click")
+                    self.main_app.interaction_service.handle("single_click")
             else:
                 log_event(logger, logging.ERROR, "touch", "gesture.error", reason="click_time_missing")
 

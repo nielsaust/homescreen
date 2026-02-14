@@ -53,11 +53,11 @@ class ActionDispatcher:
         if kind == "media":
             op = spec.get("op")
             if op == "play_pause":
-                self.main_app.media_play_pause()
+                self.main_app.media_controller.media_play_pause()
             elif op == "volume":
-                self.main_app.media_volume(spec.get("arg"))
+                self.main_app.media_controller.media_volume(spec.get("arg"))
             elif op == "skip":
-                self.main_app.media_skip_song(spec.get("arg"))
+                self.main_app.media_controller.media_skip_song(spec.get("arg"))
             return
         if kind == "overlay":
             payload = {}
@@ -115,7 +115,7 @@ class ActionDispatcher:
     def _music_show_title(self) -> None:
         self.main_app.request_menu_navigation("exit", source="action_dispatcher")
         if not self.main_app.settings.media_show_titles:
-            self.main_app.root.after(120, self.main_app.show_music_overlays)
+            self.main_app.root.after(120, self.main_app.media_controller.show_music_overlays)
 
     def _doorbell_action(self) -> None:
         # Always open the camera immediately on local press, even if HA state is already active.
