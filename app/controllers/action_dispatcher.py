@@ -47,7 +47,7 @@ class ActionDispatcher:
             "light_kleur": lambda: self.main_app.mqtt_controller.publish_action("light_kleur_toggle"),
             "light_tafel": lambda: self.main_app.mqtt_controller.publish_action("light_tafel_toggle"),
             "in_bed_toggle": lambda: self.main_app.mqtt_controller.publish_action("in_bed_toggle"),
-            "doorbell": lambda: self.main_app.mqtt_controller.publish_message(topic="screen_commands/doorbell"),
+            "doorbell": self._doorbell_action,
             "calendar": lambda: self.main_app.mqtt_controller.publish_action("calendar"),
             "calendar_add": lambda: self.main_app.display_controller.show_fullscreen_image("qr-agenda.png"),
             "wifi_qr": lambda: self.main_app.display_controller.show_fullscreen_image("qr-wifi.png"),
@@ -113,3 +113,18 @@ class ActionDispatcher:
         self.main_app.request_menu_navigation("exit", source="action_dispatcher")
         if not self.main_app.settings.media_show_titles:
             self.main_app.root.after(120, self.main_app.show_music_overlays)
+
+    def _doorbell_action(self) -> None:
+        # Always open the camera immediately on local press, even if HA state is already active.
+        self.main_app.request_overlay(
+            OverlayCommand.SHOW_CAM,
+            {
+                "data": {"active": True},
+                "url": f"http://{self.main_app.settings.doorbell_url}{self.main_app.settings.doorbell_path}",
+                "username": self.main_app.settings.doorbell_username,
+                "password": self.main_app.settings.doorbell_password,
+            },
+            source="action_dispatcher",
+        )
+        # Also notify HA flow so timeout/automation behavior remains in sync.
+        self.main_app.mqtt_controller.publish_message(topic="screen_commands/doorbell")

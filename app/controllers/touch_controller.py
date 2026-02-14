@@ -22,6 +22,7 @@ class TouchController:
         self.hold_time = self.main_app.settings.hold_time  # Store the hold time threshold
         self.click_time = None  # To store the time of the initial click
         self.ignore_next_click = False
+        self.ignore_click_until = 0.0
         self.start_x = 0
         self.start_y = 0
 
@@ -105,7 +106,7 @@ class TouchController:
 
 
     def handle_alt_menu_button(self, action): # hold actions
-        self.ignore_next_click = True
+        self.suppress_next_click()
         
         if action=="light_woonkamer":
             self.main_app.display_controller.show_show_slider("light_woonkamer","Woonkamer licht")
@@ -121,8 +122,12 @@ class TouchController:
 
     def handle_menu_button(self, action):
         log_event(logger, logging.DEBUG, "touch", "menu.button_action", action=action)
-        self.ignore_next_click = True
         self.action_dispatcher.dispatch(action)
+
+    def suppress_next_click(self, window_ms=350):
+        # Guard against duplicate root single-click callbacks after menu button handlers.
+        self.ignore_next_click = True
+        self.ignore_click_until = time.time() + (window_ms / 1000.0)
 
     def quit_app(self):
         quit();

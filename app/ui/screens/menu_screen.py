@@ -296,54 +296,60 @@ class MenuScreen:
 
     # Define a method to handle button clicks
     def handle_button_release(self, event, button, button_nr):
-        if(button.cancel_close):
-            self.close_timeout(False)
-        else:
-            self.close_timeout()
-
-        button.label.configure(highlightthickness=0)
-        if self.click_x is None or self.click_y is None:
-            self.click_x = event.x_root
-            self.click_y = event.y_root
-        x_dir = event.x_root - self.click_x
-        y_dir = event.y_root - self.click_y
-        max_movement = max(abs(x_dir),abs(y_dir))
-        min_movement = self.main_app.settings.gesture_min_movement
-        
-        if(max_movement>min_movement):
-            log_event(logger, logging.DEBUG, "menu", "gesture.swipe_detected", min_movement=min_movement, movement=max_movement)
-            # Consume menu widget event and route swipe explicitly so root handlers
-            # do not need to receive this event.
-            x_abs = abs(x_dir)
-            y_abs = abs(y_dir)
-            if x_abs > y_abs and x_dir > min_movement:
-                self.main_app.perform_action("left")
-            elif x_abs > y_abs and x_dir < -min_movement:
-                self.main_app.perform_action("right")
-            elif x_abs < y_abs and y_dir > min_movement:
-                self.main_app.perform_action("down")
-            elif x_abs < y_abs and y_dir < -min_movement:
-                self.main_app.perform_action("up")
-            return "break"
-
-        sub_button_amount = 0
-
-        if(not self.in_subpage):
-            self.sub_buttons = self.buttons[button_nr-1].get("screen")
-            sub_button_amount = len(self.sub_buttons)
-
-        if self.button_click_time is not None:
-            release_time = time.time()
-            time_elapsed = release_time - self.button_click_time
-
-            if time_elapsed >= self.main_app.settings.hold_time:
-                self.handle_button_hold(button,time_elapsed)
-            elif(sub_button_amount>0):
-                self.enter_submenu()
+        try:
+            if(button.cancel_close):
+                self.close_timeout(False)
             else:
-                self.change_button_background(button=button, new_color=self.button_color.get("down"), duration_ms=self.main_app.settings.button_down_color_change_time)
-                self.main_app.touch_controller.handle_menu_button(button.action)
-        return "break"
+                self.close_timeout()
+
+            button.label.configure(highlightthickness=0)
+            if self.click_x is None or self.click_y is None:
+                self.click_x = event.x_root
+                self.click_y = event.y_root
+            x_dir = event.x_root - self.click_x
+            y_dir = event.y_root - self.click_y
+            max_movement = max(abs(x_dir),abs(y_dir))
+            min_movement = self.main_app.settings.gesture_min_movement
+            
+            if(max_movement>min_movement):
+                log_event(logger, logging.DEBUG, "menu", "gesture.swipe_detected", min_movement=min_movement, movement=max_movement)
+                # Consume menu widget event and route swipe explicitly so root handlers
+                # do not need to receive this event.
+                x_abs = abs(x_dir)
+                y_abs = abs(y_dir)
+                if x_abs > y_abs and x_dir > min_movement:
+                    self.main_app.perform_action("left")
+                elif x_abs > y_abs and x_dir < -min_movement:
+                    self.main_app.perform_action("right")
+                elif x_abs < y_abs and y_dir > min_movement:
+                    self.main_app.perform_action("down")
+                elif x_abs < y_abs and y_dir < -min_movement:
+                    self.main_app.perform_action("up")
+                return "break"
+
+            sub_button_amount = 0
+
+            if(not self.in_subpage):
+                self.sub_buttons = self.buttons[button_nr-1].get("screen")
+                sub_button_amount = len(self.sub_buttons)
+
+            if self.button_click_time is not None:
+                release_time = time.time()
+                time_elapsed = release_time - self.button_click_time
+
+                if time_elapsed >= self.main_app.settings.hold_time:
+                    self.handle_button_hold(button,time_elapsed)
+                elif(sub_button_amount>0):
+                    self.enter_submenu()
+                else:
+                    self.change_button_background(button=button, new_color=self.button_color.get("down"), duration_ms=self.main_app.settings.button_down_color_change_time)
+                    self.main_app.touch_controller.handle_menu_button(button.action)
+            return "break"
+        finally:
+            # Never carry touch capture state across button interactions.
+            self.button_click_time = None
+            self.click_x = None
+            self.click_y = None
 
     def handle_button_hold(self, button, time_held):
         log_event(

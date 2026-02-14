@@ -463,10 +463,16 @@ class MainApp:
         log_event(logger, logging.DEBUG, "ui", "interaction.received", interaction_type=interaction_type)
         current_time = time.time()
 
-        if self.touch_controller.ignore_next_click:
+        if (
+            interaction_type == "single_click"
+            and self.touch_controller.ignore_next_click
+            and current_time <= getattr(self.touch_controller, "ignore_click_until", 0.0)
+        ):
             log_event(logger, logging.DEBUG, "ui", "interaction.ignored", reason="menu_click_already_handled")
             self.touch_controller.ignore_next_click = False
             return
+        if current_time > getattr(self.touch_controller, "ignore_click_until", 0.0):
+            self.touch_controller.ignore_next_click = False
         
         if self.display_controller.is_cam_showing():
             log_event(logger, logging.DEBUG, "ui", "interaction.ignored", reason="camera_overlay_active")
@@ -489,9 +495,15 @@ class MainApp:
 
         self.check_idle_timer()
         if(not self.display_controller.is_showing):
-            if self.settings.show_weather_on_idle and not self.display_controller.is_showing:
+            in_bed_active = bool(getattr(self.device_states, "in_bed", False))
+            if self.settings.show_weather_on_idle and screen_state == "off":
                 self.display_controller.check_idle(True)
                 return
+            if in_bed_active:
+                self.display_controller.check_idle(True)
+                return
+            # Keep interaction responsive when display state is temporarily out-of-sync.
+            self.display_controller.turn_on()
         
         if screen_state is not None:
             # check if we have to wake up screen        

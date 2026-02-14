@@ -27,6 +27,17 @@ class OverlayManager:
         self.calendar_screen.destroy()
         self.alert_screen.destroy()
         self.slideshow.destroy()
+        self._reset_touch_input_state()
+
+    def _reset_touch_input_state(self):
+        touch = getattr(self.main_app, "touch_controller", None)
+        if touch is None:
+            return
+        touch.click_time = None
+        touch.start_x = 0
+        touch.start_y = 0
+        touch.ignore_next_click = False
+        touch.ignore_click_until = 0.0
 
     def open_slideshow(self):
         if self.slideshow:

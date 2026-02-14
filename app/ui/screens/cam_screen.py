@@ -63,6 +63,7 @@ class CamScreen:
             if self.cam_window:
                 self.cam_window.destroy()
                 self.cam_window = None
+            self.main_app.root.focus_set()
     
     def make_request(self, url, auth=None):
         for i in range(3):
