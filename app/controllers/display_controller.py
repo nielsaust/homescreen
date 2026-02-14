@@ -244,7 +244,6 @@ class DisplayController:
             log_event(logger, logging.DEBUG, "display", "screen.forget", current_screen=str(self.current_screen))
             self._trace_widget_state("screen.before_forget", self.current_screen)
             self.current_screen.pack_forget()
-            self.force_screen_update()
             self._trace_widget_state("screen.after_forget", self.current_screen)
         else:
             log_event(logger, logging.DEBUG, "display", "screen.forget_skipped", reason="already_current")

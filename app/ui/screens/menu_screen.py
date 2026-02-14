@@ -160,7 +160,6 @@ class MenuScreen:
         if(self.main_app.display_controller):
             self.main_app.display_controller.place_action_label(f"{page_nr}/{self.max_page}",anchor="se")
             log_event(logger, logging.DEBUG, "menu", "page.indicator", page=page_nr, max_page=self.max_page)
-            self.main_app.display_controller.force_screen_update()
 
         self._trace_menu_render("menu.render.complete")
 
@@ -169,6 +168,7 @@ class MenuScreen:
         self.in_subpage = True
         self.main_page_nr = self.current_menu_page
         self.make_menu_buttons(buttons=self.sub_buttons)
+        self.update_buttons()
 
     def switch_page(self,page_direction=1):
         self.remove_current_menu()
@@ -183,6 +183,7 @@ class MenuScreen:
             buttons = self.sub_buttons
 
         self.make_menu_buttons(new_page_nr,buttons)
+        self.update_buttons()
     
     def show_fullscreen_image(self, image):
         image_path = os.fspath(IMAGES_DIR / image)
