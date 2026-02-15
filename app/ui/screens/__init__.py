@@ -6,6 +6,7 @@ from .music_screen import MusicScreen
 from .print_screen import PrintScreen
 from .slider_screen import SliderScreen
 from .slideshow import SlideShow
+from .setup_required_screen import SetupRequiredScreen
 from .turned_off_screen import TurnedOffScreen
 from .weather_screen import WeatherScreen
 
@@ -18,6 +19,7 @@ __all__ = [
     "PrintScreen",
     "SliderScreen",
     "SlideShow",
+    "SetupRequiredScreen",
     "TurnedOffScreen",
     "WeatherScreen",
 ]

@@ -26,6 +26,18 @@ class ScreenStateController:
         return bool(getattr(self.main_app.settings, "enable_weather", True))
 
     def switch_to_idle(self, force=False):
+        if hasattr(self.main_app, "is_any_feature_enabled") and not self.main_app.is_any_feature_enabled():
+            self.main_app.publish_event(
+                "ui.screen.changed",
+                {
+                    "screen": "setup",
+                    "is_display_on": True,
+                    "force": bool(force),
+                },
+                source="screen_state_controller",
+            )
+            return
+
         show_weather = bool(self.main_app.settings.show_weather_on_idle) and self._is_weather_enabled()
         self.main_app.publish_event(
             "ui.screen.changed",

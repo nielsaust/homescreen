@@ -27,6 +27,7 @@ The wizard updates `settings.json` interactively.
 
 3. Weather integration
 - Enable/disable weather integration (`enable_weather`)
+- Display weather when idle (`show_weather_on_idle`)
 - OpenWeather API key (`weather_api_key`)
 - City ID (`weather_city_id`)
 - Language (`weather_langage`)

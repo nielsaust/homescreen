@@ -171,6 +171,9 @@ class UiIntentHandler:
         if screen == "menu":
             self.main_app.display_controller.show_screen("menu", force=force)
             return
+        if screen == "setup":
+            self.main_app.display_controller.show_screen("setup", force=force)
+            return
         log_event(logger, logging.WARNING, "ui", "screen.unknown_intent", screen=screen)
 
     def _apply_menu_navigation(self, intent):

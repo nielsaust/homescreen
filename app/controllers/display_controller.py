@@ -38,7 +38,7 @@ class DisplayController:
             self.main_app.root.attributes("-fullscreen", True)
 
     def _create_base_screens(self):
-        for screen_name in ("off", "weather", "music", "menu"):
+        for screen_name in ("off", "setup", "weather", "music", "menu"):
             self.create_screen(screen_name)
 
     def create_screen(self, screen_name):
@@ -51,6 +51,9 @@ class DisplayController:
         if screen_name == "off":
             from app.ui.screens.turned_off_screen import TurnedOffScreen
             screen_object = TurnedOffScreen(self.main_app,screen_frame)
+        elif screen_name == "setup":
+            from app.ui.screens.setup_required_screen import SetupRequiredScreen
+            screen_object = SetupRequiredScreen(self.main_app, screen_frame)
         elif screen_name == "weather":         
             from app.ui.screens.weather_screen import WeatherScreen
             screen_object = WeatherScreen(self.main_app,screen_frame,self.main_app.settings.weather_api_key, self.main_app.settings.weather_city_id, self.main_app.settings.weather_langage)

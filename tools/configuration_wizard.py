@@ -103,6 +103,10 @@ def configure_weather(settings: dict) -> None:
         print("[configuration] Weather integration disabled.")
         return
     print("OpenWeather setup: https://openweathermap.org/")
+    settings["show_weather_on_idle"] = _prompt_bool(
+        "Display weather when idle",
+        bool(settings.get("show_weather_on_idle", True)),
+    )
     settings["weather_api_key"] = _prompt("OpenWeather API key", str(settings.get("weather_api_key", "")))
     settings["weather_city_id"] = _prompt("OpenWeather city id", str(settings.get("weather_city_id", "")))
     settings["weather_langage"] = _prompt("Weather language (e.g. nl/en)", str(settings.get("weather_langage", "nl")))

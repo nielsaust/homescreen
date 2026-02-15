@@ -75,7 +75,12 @@ class InteractionService:
             return False
 
         in_bed_active = bool(getattr(self.main_app.device_states, "in_bed", False))
-        if self.main_app.settings.show_weather_on_idle and screen_state == "off":
+        if (
+            self.main_app.settings.show_weather_on_idle
+            and hasattr(self.main_app, "is_weather_enabled")
+            and self.main_app.is_weather_enabled()
+            and screen_state == "off"
+        ):
             self.main_app.display_controller.check_idle(True)
             return True
         if in_bed_active:
@@ -87,7 +92,7 @@ class InteractionService:
         return False
 
     def _route_by_screen(self, screen_state: str, interaction_type: str) -> None:
-        if screen_state in ("weather", "off"):
+        if screen_state in ("weather", "off", "setup"):
             if interaction_type == "single_click":
                 self.main_app.screen_state_controller.switch_to_menu()
             return
