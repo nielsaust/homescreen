@@ -21,7 +21,7 @@ class SetupRequiredScreen:
         width = int(settings.screen_width * 0.7)
         max_height = int(settings.screen_height * 0.7)
         pad = 24
-        message = "Run 'make configuration' in your project root\nto setup the homescreen."
+        message = "Run 'make configuration' in your project root to setup the homescreen."
 
         self.frame.configure(bg="black")
 

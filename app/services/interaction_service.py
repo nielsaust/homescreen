@@ -35,7 +35,7 @@ class InteractionService:
         screen_state = self.main_app.display_controller.get_screen_state()
 
         self.main_app.power_policy_service.check_idle_timer()
-        if self._handle_display_wake(screen_state):
+        if self._handle_display_wake(screen_state, interaction_type):
             return
 
         if screen_state is not None:
@@ -70,11 +70,15 @@ class InteractionService:
             return True
         return False
 
-    def _handle_display_wake(self, screen_state: str | None) -> bool:
+    def _handle_display_wake(self, screen_state: str | None, interaction_type: str) -> bool:
         if self.main_app.display_controller.is_showing:
             return False
 
         in_bed_active = bool(getattr(self.main_app.device_states, "in_bed", False))
+        # Keep first tap responsive from idle/off/setup: go straight to menu flow.
+        if not in_bed_active and interaction_type == "single_click" and screen_state in ("off", "setup", "weather"):
+            return False
+
         if (
             self.main_app.settings.show_weather_on_idle
             and hasattr(self.main_app, "is_weather_enabled")
