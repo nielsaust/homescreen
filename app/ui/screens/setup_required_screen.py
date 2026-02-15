@@ -21,7 +21,7 @@ class SetupRequiredScreen:
         width = int(settings.screen_width * 0.7)
         max_height = int(settings.screen_height * 0.7)
         pad = 24
-        message = "Run 'make configuration' in your project root to setup the homescreen."
+        message = self._build_setup_message()
 
         self.frame.configure(bg="black")
 
@@ -49,6 +49,24 @@ class SetupRequiredScreen:
         card.configure(height=target_height)
         card.pack_propagate(False)
         label.pack(expand=True, fill=tk.BOTH, padx=pad, pady=pad)
+
+    def _build_setup_message(self):
+        mqtt_enabled = bool(getattr(self.main_app.settings, "enable_mqtt", False))
+        music_enabled = bool(getattr(self.main_app.settings, "enable_music", False))
+        weather_enabled = bool(getattr(self.main_app.settings, "enable_weather", False))
+
+        weather_ready = weather_enabled and bool(getattr(self.main_app.settings, "weather_api_key", "")) and bool(
+            getattr(self.main_app.settings, "weather_city_id", "")
+        )
+
+        mqtt_line = "MQTT: enabled" if mqtt_enabled else "MQTT: disabled"
+        music_line = "Music: enabled" if music_enabled else "Music: disabled"
+        weather_line = "Weather: configured" if weather_ready else ("Weather: enabled (missing API key/city)" if weather_enabled else "Weather: disabled")
+
+        return (
+            "Run 'make configuration' in your project root to setup the homescreen.\n\n"
+            f"{mqtt_line}\n{music_line}\n{weather_line}"
+        )
 
     def show(self):
         return True

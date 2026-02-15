@@ -41,6 +41,12 @@ class InteractionService:
         if screen_state is not None:
             self._route_by_screen(screen_state, interaction_type)
             self.main_app.print_memory_usage()
+            return
+
+        # Startup fallback: if screen state has not been applied yet, keep single-tap responsive.
+        if interaction_type == "single_click":
+            self.main_app.screen_state_controller.switch_to_menu()
+            self.main_app.print_memory_usage()
 
     def _should_ignore_click(self, interaction_type: str, current_time: float) -> bool:
         touch = self.main_app.touch_controller

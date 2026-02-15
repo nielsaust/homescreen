@@ -131,6 +131,9 @@ class MainApp:
     def is_any_feature_enabled(self):
         return self.is_mqtt_enabled() or self.is_music_enabled() or self.is_weather_enabled()
 
+    def is_any_visual_feature_enabled(self):
+        return self.is_music_enabled() or self.is_weather_enabled()
+
     def notify_setup_required(self, setup_name: str):
         message = f"First complete {setup_name} setup"
         log_event(logger, logging.WARNING, "app", "setup.required", setup=setup_name)
