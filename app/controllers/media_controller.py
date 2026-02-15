@@ -15,6 +15,9 @@ class MediaController:
         self.main_app.display_controller.show_music_overlays()
 
     def _ensure_mqtt_enabled(self):
+        if not self.main_app.is_music_enabled():
+            self.main_app.notify_setup_required("Music")
+            return False
         if self.main_app.is_mqtt_enabled():
             return True
         self.main_app.notify_setup_required("MQTT")

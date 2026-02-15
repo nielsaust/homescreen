@@ -15,6 +15,11 @@ class MqttMessageRouter:
     def __init__(self, main_app):
         self.main_app = main_app
 
+    def _is_music_enabled(self):
+        if hasattr(self.main_app, "is_music_enabled"):
+            return bool(self.main_app.is_music_enabled())
+        return bool(getattr(self.main_app.settings, "enable_music", True))
+
     def handle(self, topic, data):
         time_since_boot = time.time() - self.main_app.boot_time
         self.main_app.publish_event("mqtt.message.received", {"topic": topic})
@@ -22,6 +27,9 @@ class MqttMessageRouter:
         self.main_app.startup_sync_service.check_queue(topic)
 
         if topic == self.main_app.settings.mqtt_topic_music:
+            if not self._is_music_enabled():
+                log_event(logger, logging.DEBUG, "mqtt", "router.music_ignored", reason="enable_music_false")
+                return
             self.main_app.music_update_service.queue_update(data)
             return
 

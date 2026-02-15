@@ -74,6 +74,10 @@ def configure_mqtt_base(settings: dict) -> None:
 
 def configure_music(settings: dict) -> None:
     print("\n[configuration] Music integration")
+    settings["enable_music"] = _prompt_bool("Enable music integration", bool(settings.get("enable_music", False)))
+    if not settings["enable_music"]:
+        print("[configuration] Music integration disabled.")
+        return
     if not bool(settings.get("enable_mqtt", False)):
         print("First complete MQTT setup.")
         return
@@ -93,6 +97,11 @@ def configure_music(settings: dict) -> None:
 
 def configure_weather(settings: dict) -> None:
     print("\n[configuration] Weather integration")
+    settings["enable_weather"] = _prompt_bool("Enable weather integration", bool(settings.get("enable_weather", False)))
+    if not settings["enable_weather"]:
+        settings["show_weather_on_idle"] = False
+        print("[configuration] Weather integration disabled.")
+        return
     print("OpenWeather setup: https://openweathermap.org/")
     settings["weather_api_key"] = _prompt("OpenWeather API key", str(settings.get("weather_api_key", "")))
     settings["weather_city_id"] = _prompt("OpenWeather city id", str(settings.get("weather_city_id", "")))

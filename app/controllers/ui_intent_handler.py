@@ -18,6 +18,22 @@ class UiIntentHandler:
         self._last_music_playback_state = None
         self._last_screen_ui_signature = None
 
+    def _is_music_enabled(self):
+        if hasattr(self.main_app, "is_music_enabled"):
+            return bool(self.main_app.is_music_enabled())
+        settings = getattr(self.main_app, "settings", None)
+        if settings is None:
+            return True
+        return bool(getattr(settings, "enable_music", True))
+
+    def _is_weather_enabled(self):
+        if hasattr(self.main_app, "is_weather_enabled"):
+            return bool(self.main_app.is_weather_enabled())
+        settings = getattr(self.main_app, "settings", None)
+        if settings is None:
+            return True
+        return bool(getattr(settings, "enable_weather", True))
+
     def apply(self, intent):
         intent_type = intent.get("type")
         if intent_type == "network.status":
@@ -55,6 +71,8 @@ class UiIntentHandler:
         self.main_app.update_network_status_ui(online)
 
     def _apply_weather_cache_status(self, intent):
+        if not self._is_weather_enabled():
+            return
         weather_screen = self.main_app.display_controller.screen_objects.get("weather")
         if weather_screen is None:
             return
@@ -74,6 +92,8 @@ class UiIntentHandler:
         weather_screen.hide_cached_weather_label()
 
     def _apply_music_render(self, intent):
+        if not self._is_music_enabled():
+            return
         signature = (
             intent.get("state"),
             intent.get("title"),
@@ -99,6 +119,8 @@ class UiIntentHandler:
         )
 
     def _apply_music_playback(self, intent):
+        if not self._is_music_enabled():
+            return
         playback_state = intent.get("state")
         if playback_state == self._last_music_playback_state:
             return
@@ -135,9 +157,15 @@ class UiIntentHandler:
             self.main_app.display_controller.turn_off()
             return
         if screen == "weather":
+            if not self._is_weather_enabled():
+                self.main_app.display_controller.turn_off()
+                return
             self.main_app.display_controller.show_screen("weather", force=force)
             return
         if screen == "music":
+            if not self._is_music_enabled():
+                self.main_app.screen_state_controller.switch_to_idle(force=force)
+                return
             self.main_app.display_controller.show_screen("music", force=force)
             return
         if screen == "menu":

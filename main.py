@@ -96,6 +96,8 @@ class MainApp:
             affects_runtime_behavior=False,
         )
         log_event(logger, logging.INFO, "mqtt", "feature.enabled", enabled=self.enable_mqtt)
+        log_event(logger, logging.INFO, "music", "feature.enabled", enabled=self.enable_music)
+        log_event(logger, logging.INFO, "weather", "feature.enabled", enabled=self.enable_weather)
 
     def _init_state_and_timestamps(self):
         self.music_object = None
@@ -119,6 +121,12 @@ class MainApp:
 
     def is_mqtt_enabled(self):
         return bool(getattr(self, "enable_mqtt", False))
+
+    def is_music_enabled(self):
+        return bool(getattr(self, "enable_music", False))
+
+    def is_weather_enabled(self):
+        return bool(getattr(self, "enable_weather", False))
 
     def notify_setup_required(self, setup_name: str):
         message = f"First complete {setup_name} setup"

@@ -208,7 +208,7 @@ def _build_entry(schema_entry):
 _BUTTON_SETTING_REQUIREMENTS = {
     "cinema": ("enable_mqtt",),
     "debug_cinema": ("enable_mqtt",),
-    "music": ("enable_mqtt",),
+    "music": ("enable_mqtt", "enable_music"),
     "light_scenes": ("enable_mqtt",),
     "cover_kitchen": ("enable_mqtt",),
     "blinds_control": ("enable_mqtt",),
@@ -218,6 +218,7 @@ _BUTTON_SETTING_REQUIREMENTS = {
     "calendar_add": ("enable_mqtt", "mqtt_topic_calendar"),
     "trash_warning_toggle": ("enable_mqtt",),
     "in_bed_toggle": ("enable_mqtt",),
+    "show_weather_on_idle": ("enable_weather",),
     "3d_printer_progress": ("enable_mqtt", "mqtt_topic_printer_progress"),
     "3d_printer_cam": ("enable_mqtt", "mqtt_topic_printer_progress"),
 }

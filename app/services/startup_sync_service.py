@@ -17,12 +17,12 @@ class StartupSyncService:
     def __init__(self, main_app: MainApp):
         self.main_app = main_app
         self._startup_mqtt_messages = {}
-        if self.main_app.is_mqtt_enabled():
+        if self._is_mqtt_enabled():
             topic_devices = str(getattr(self.main_app.settings, "mqtt_topic_devices", "")).strip()
             topic_music = str(getattr(self.main_app.settings, "mqtt_topic_music", "")).strip()
             if topic_devices:
                 self._startup_mqtt_messages[topic_devices] = self.request_device_states
-            if topic_music:
+            if topic_music and self._is_music_enabled():
                 self._startup_mqtt_messages[topic_music] = self.request_music_state
         self.main_app.publish_event("startup.queue.size", {"size": len(self._startup_mqtt_messages)})
 
@@ -60,15 +60,25 @@ class StartupSyncService:
         self.main_app.publish_event("startup.queue.size", {"size": len(self._startup_mqtt_messages)})
 
     def request_device_states(self) -> None:
-        if not self.main_app.is_mqtt_enabled():
+        if not self._is_mqtt_enabled():
             return
         log_event(logger, logging.DEBUG, "mqtt", "state_update.requested")
         self.main_app.mqtt_controller.publish_action("update_device_states")
 
     def request_music_state(self) -> None:
-        if not self.main_app.is_mqtt_enabled():
+        if not self._is_mqtt_enabled() or not self._is_music_enabled():
             return
         log_event(logger, logging.DEBUG, "mqtt", "music_state.requested")
         self.main_app.mqtt_controller.publish_message(
             topic=getattr(self.main_app.settings, "mqtt_topic_update_music", "screen_commands/update_music")
         )
+
+    def _is_mqtt_enabled(self) -> bool:
+        if hasattr(self.main_app, "is_mqtt_enabled"):
+            return bool(self.main_app.is_mqtt_enabled())
+        return bool(getattr(self.main_app.settings, "enable_mqtt", True))
+
+    def _is_music_enabled(self) -> bool:
+        if hasattr(self.main_app, "is_music_enabled"):
+            return bool(self.main_app.is_music_enabled())
+        return bool(getattr(self.main_app.settings, "enable_music", True))

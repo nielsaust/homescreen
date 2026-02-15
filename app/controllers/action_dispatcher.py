@@ -126,6 +126,9 @@ class ActionDispatcher:
         self.main_app.power_policy_service.check_idle_timer(False)
 
     def _music_show_title(self) -> None:
+        if not self.main_app.is_music_enabled():
+            self.main_app.notify_setup_required("Music")
+            return
         self.main_app.request_menu_navigation("exit", source="action_dispatcher")
         if not self.main_app.settings.media_show_titles:
             self.main_app.root.after(120, self.main_app.media_controller.show_music_overlays)

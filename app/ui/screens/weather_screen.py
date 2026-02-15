@@ -140,6 +140,13 @@ class WeatherScreen:
         self.update_time_inteval = 10 * 1000
 
     def show(self):
+        if hasattr(self.main_app, "is_weather_enabled"):
+            weather_enabled = bool(self.main_app.is_weather_enabled())
+        else:
+            weather_enabled = bool(getattr(self.main_app.settings, "enable_weather", True))
+        if not weather_enabled:
+            log_event(logger, logging.INFO, "weather", "screen.show_skipped", reason="enable_weather_false")
+            return False
         self.update_weather_loop()
         self.update_time_loop()
         return True

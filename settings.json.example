@@ -32,6 +32,8 @@
     "mqtt_reconnect_interval_seconds": 2,
     "mqtt_reconnect_max_interval_seconds": 60,
     "enable_mqtt": false,
+    "enable_music": false,
+    "enable_weather": false,
     "enable_network_simulation": true,
     "network_status_poll_interval_seconds": 5,
     "show_weather_on_idle": true,

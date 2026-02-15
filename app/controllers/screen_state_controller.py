@@ -15,8 +15,18 @@ class ScreenStateController:
     def __init__(self, main_app: MainApp):
         self.main_app = main_app
 
+    def _is_music_enabled(self):
+        if hasattr(self.main_app, "is_music_enabled"):
+            return bool(self.main_app.is_music_enabled())
+        return bool(getattr(self.main_app.settings, "enable_music", True))
+
+    def _is_weather_enabled(self):
+        if hasattr(self.main_app, "is_weather_enabled"):
+            return bool(self.main_app.is_weather_enabled())
+        return bool(getattr(self.main_app.settings, "enable_weather", True))
+
     def switch_to_idle(self, force=False):
-        show_weather = bool(self.main_app.settings.show_weather_on_idle)
+        show_weather = bool(self.main_app.settings.show_weather_on_idle) and self._is_weather_enabled()
         self.main_app.publish_event(
             "ui.screen.changed",
             {
@@ -28,6 +38,9 @@ class ScreenStateController:
         )
 
     def switch_to_music(self, force=False):
+        if not self._is_music_enabled():
+            logger.debug("switch_to_music ignored; enable_music=false")
+            return
         if self.main_app.display_controller.get_screen_state() == "menu" and not force:
             return
         self.main_app.publish_event(

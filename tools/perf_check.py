@@ -136,6 +136,9 @@ class _FakeMainApp:
             doorbell_username="u",
             doorbell_password="p",
             show_weather_on_idle=True,
+            enable_mqtt=True,
+            enable_music=True,
+            enable_weather=True,
         )
         self.device_states = _FakeDeviceStates()
         self.display_controller = _FakeDisplayController()
@@ -173,6 +176,15 @@ class _FakeMainApp:
 
     def switch_to_idle(self):
         self.display_controller.show_screen("weather")
+
+    def is_mqtt_enabled(self):
+        return bool(getattr(self.settings, "enable_mqtt", False))
+
+    def is_music_enabled(self):
+        return bool(getattr(self.settings, "enable_music", False))
+
+    def is_weather_enabled(self):
+        return bool(getattr(self.settings, "enable_weather", False))
 
 
 def _check_router_cost(iterations):

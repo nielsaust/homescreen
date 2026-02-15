@@ -20,11 +20,13 @@ The wizard updates `settings.json` interactively.
   - If MQTT is disabled, music/smart-home sections require: `First complete MQTT setup`.
 
 2. Music integration
+- Enable/disable music integration (`enable_music`)
 - Music topic (`mqtt_topic_music`)
 - Home Assistant API base URL (`home_assistant_api_base_url`)
 - Music display toggles (`media_show_titles`, `media_sanitize_titles`)
 
 3. Weather integration
+- Enable/disable weather integration (`enable_weather`)
 - OpenWeather API key (`weather_api_key`)
 - City ID (`weather_city_id`)
 - Language (`weather_langage`)
