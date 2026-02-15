@@ -86,4 +86,8 @@ precommit-run:
 
 security-scan:
 	@command -v gitleaks >/dev/null 2>&1 || (echo "gitleaks not installed. Install with: brew install gitleaks" && exit 1)
-	gitleaks detect --no-banner --redact --source .
+	@mkdir -p logs/security
+	@gitleaks detect --no-banner --redact --source . --report-format json --report-path logs/security/gitleaks.json; \
+	status=$$?; \
+	echo "gitleaks report: logs/security/gitleaks.json"; \
+	exit $$status

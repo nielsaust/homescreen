@@ -12,5 +12,6 @@ __pycache__/
 # Runtime / local state
 logs/*.log
 logs/rollover_logs.txt
+logs/security/
 settings.json
 .sim/
