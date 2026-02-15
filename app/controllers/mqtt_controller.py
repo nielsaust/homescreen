@@ -212,9 +212,11 @@ class MqttController:
         payload = json.dumps(data)
         self.publish_message(payload)
 
-    def publish_message(self, payload=None, topic="screen_commands/outgoing"):
+    def publish_message(self, payload=None, topic=None):
         """Publishes a message to a specified topic with retry logic if not connected."""
         try:
+            if topic is None:
+                topic = getattr(self.main_app.settings, "mqtt_topic_actions_outgoing", "screen_commands/outgoing")
             if not self.client.is_connected():
                 log_event(logger, logging.WARNING, "mqtt", "publish.reconnect_before_send")
                 self.reconnect()

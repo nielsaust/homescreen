@@ -139,7 +139,8 @@ class ActionDispatcher:
             source="action_dispatcher",
         )
         # Also notify HA flow so timeout/automation behavior remains in sync.
-        self.main_app.mqtt_controller.publish_message(topic="screen_commands/doorbell")
+        self.main_app.mqtt_controller.publish_message(
+            topic=getattr(self.main_app.settings, "mqtt_topic_doorbell_command", "screen_commands/doorbell")
+        )
     def _test_mij_todo(self) -> None:
         logger.info("Custom action stub triggered: test_mij_todo")
-

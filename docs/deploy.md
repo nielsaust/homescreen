@@ -12,9 +12,8 @@ cd /home/<USER>
 git clone git@github.com:nielsaust/homescreen.git
 cd homescreen
 
-python3 -m venv .venv
-.venv/bin/python -m pip install --upgrade pip
-.venv/bin/pip install -r requirements.txt
+make install
+make configuration
 ```
 
 If Pillow build fails on Pi:
@@ -27,16 +26,20 @@ sudo apt install -y libjpeg-dev zlib1g-dev libfreetype6-dev libopenjp2-7-dev lib
 
 ## 2) Required runtime files
 
-```bash
-cp -n settings.json.example settings.json
-mkdir -p logs
-```
-
-Without these:
-- missing `settings.json` -> startup failure
-- missing `logs/` -> logger file handler failure
+`make install` now creates/updates:
+- `settings.json` (from example when missing)
+- `logs/`
+- `.sim/`
 
 ## 3) Install systemd units
+
+Option A (recommended): run helper
+
+```bash
+make service-setup
+```
+
+Option B: manual setup (below)
 
 ```bash
 sudo cp deploy/systemd/homescreen.service.example /etc/systemd/system/homescreen.service

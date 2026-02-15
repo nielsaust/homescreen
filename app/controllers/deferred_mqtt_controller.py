@@ -13,7 +13,9 @@ class DeferredMqttController:
     def publish_action(self, action, value=None):
         log_event(logger, logging.WARNING, "mqtt", "publish_action.skipped", reason="not_initialized", action=action)
 
-    def publish_message(self, payload=None, topic="screen_commands/outgoing"):
+    def publish_message(self, payload=None, topic=None):
+        if topic is None:
+            topic = "screen_commands/outgoing"
         log_event(logger, logging.WARNING, "mqtt", "publish_message.skipped", reason="not_initialized", topic=topic)
 
     def start(self):

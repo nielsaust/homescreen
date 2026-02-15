@@ -10,6 +10,7 @@ fi
 
 .venv/bin/python -m pip install --upgrade pip
 .venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python tools/post_pull_setup.py
 
 echo "[bootstrap] done"
 echo "[bootstrap] if tkinter is missing on your OS, install system package python3-tk"

@@ -61,4 +61,6 @@ class StartupSyncService:
 
     def request_music_state(self) -> None:
         log_event(logger, logging.DEBUG, "mqtt", "music_state.requested")
-        self.main_app.mqtt_controller.publish_message(topic="screen_commands/update_music")
+        self.main_app.mqtt_controller.publish_message(
+            topic=getattr(self.main_app.settings, "mqtt_topic_update_music", "screen_commands/update_music")
+        )

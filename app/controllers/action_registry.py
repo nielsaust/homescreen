@@ -55,4 +55,5 @@ ACTION_SPECS = {'back': {'kind': 'menu_nav', 'command': 'back'},
  'shell_reboot': {'kind': 'shell', 'op': 'reboot'},
  'shell_shutdown': {'kind': 'shell', 'op': 'shutdown'},
  'exit': {'kind': 'app_exit'},
- 'test_mij': {'kind': 'custom', 'name': 'test_mij_todo'}}
+ 'test_mij': {'kind': 'custom', 'name': 'test_mij_todo'},
+ 'test_mij_todo': {'kind': 'custom', 'name': 'test_mij_todo'}}

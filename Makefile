@@ -1,9 +1,15 @@
 PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 
-.PHONY: install baseline doctor smoke test-unit perf-check menu-contract-check menu-item-scaffold menu-item-new-toggle menu-item-verify-toggle check-local test-local test-device run net-down net-up net-status settings-check settings-update-example settings-update-local settings-prune-local-preview settings-prune-local deploy-dry-run
+.PHONY: install configuration service-setup baseline doctor smoke test-unit perf-check menu-contract-check menu-item-scaffold menu-item-new-toggle menu-item-verify-toggle check-local test-local test-device run net-down net-up net-status settings-check settings-update-example settings-update-local settings-prune-local-preview settings-prune-local deploy-dry-run
 
 install:
 	bash tools/bootstrap.sh
+
+configuration:
+	$(PYTHON) tools/configuration_wizard.py
+
+service-setup:
+	$(PYTHON) tools/service_setup.py wizard
 
 doctor:
 	$(PYTHON) tools/doctor.py

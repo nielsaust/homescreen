@@ -7,6 +7,7 @@ Tkinter homescreen app for Raspberry Pi (HyperPixel) with MQTT-driven automation
 ```bash
 cp settings.json.example settings.json
 make install
+make configuration
 make test-local
 make run
 ```
@@ -34,15 +35,18 @@ Full deploy/systemd setup: `docs/deploy.md`
 
 - Architecture and runtime flow: `docs/architecture.md`
 - Folder structure and boundaries: `docs/structure.md`
+- Interactive setup/configuration: `docs/configuration.md`
 - Testing and simulation commands: `docs/testing.md`
 - Deploy to Raspberry Pi: `docs/deploy.md`
 - Logging and Sentry: `docs/observability.md`
 - Settings sync workflow: `docs/settings.md`
 - Menu schema/actions/state system: `docs/menu-system.md`
+- Music integration payload contract: `docs/music-integration.md`
 
 ## Daily Commands
 
 - Install/update env: `make install`
+- Configure integrations: `make configuration`
 - Local checks: `make test-local`
 - Run app: `make run`
 - Pi checks: `make test-device`
