@@ -73,6 +73,8 @@ class MenuStateResolver:
             self._spec("verify_ssl_on_trusted_sources", bool(settings.verify_ssl_on_trusted_sources)),
             self._spec("media_show_titles", bool(settings.media_show_titles)),
             self._spec("media_sanitize_titles", bool(settings.media_sanitize_titles)),
+            self._spec("force_update", bool(getattr(settings, "force_update", False))),
+            self._spec("enable_network_simulation", bool(getattr(settings, "enable_network_simulation", True))),
         ]
 
     @staticmethod

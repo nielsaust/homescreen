@@ -50,6 +50,8 @@ ACTION_SPECS = {
     "verify_ssl_on_trusted_sources": {"kind": "setting_toggle", "attr": "verify_ssl_on_trusted_sources"},
     "media_show_titles": {"kind": "setting_toggle", "attr": "media_show_titles"},
     "media_sanitize_titles": {"kind": "setting_toggle", "attr": "media_sanitize_titles"},
+    "force_update": {"kind": "setting_toggle", "attr": "force_update"},
+    "enable_network_simulation": {"kind": "setting_toggle", "attr": "enable_network_simulation"},
     "shell_reboot": {"kind": "shell", "op": "reboot"},
     "shell_shutdown": {"kind": "shell", "op": "shutdown"},
     "shell_disable_networking": {"kind": "shell", "op": "disable_networking"},
