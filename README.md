@@ -45,6 +45,7 @@ Full deploy/systemd setup: `docs/deploy.md`
 - Settings sync workflow: `docs/settings.md`
 - Menu schema/actions/state system: `docs/menu-system.md`
 - Music integration payload contract: `docs/music-integration.md`
+- Security and history rewrite workflow: `docs/security.md`
 
 ## Daily Commands
 
@@ -57,3 +58,5 @@ Full deploy/systemd setup: `docs/deploy.md`
 - Menu item scaffolder (interactive): `make menu-item-scaffold`
 - Menu wiring check (interactive picker): `make menu-item-verify-toggle`
 - Menu contract check: `make menu-contract-check`
+- Install pre-commit hook: `make precommit-install`
+- Run local secret scans: `make precommit-run`, `make security-scan`

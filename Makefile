@@ -1,6 +1,6 @@
 PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 
-.PHONY: install configuration service-setup baseline doctor smoke test-unit perf-check menu-contract-check menu-item-scaffold menu-item-new-toggle menu-item-verify-toggle check-local test-local test-device run net-down net-up net-status settings-check settings-update-example settings-update-local settings-prune-local-preview settings-prune-local deploy-dry-run
+.PHONY: install configuration service-setup baseline doctor smoke test-unit perf-check menu-contract-check menu-item-scaffold menu-item-new-toggle menu-item-verify-toggle check-local test-local test-device run net-down net-up net-status settings-check settings-update-example settings-update-local settings-prune-local-preview settings-prune-local deploy-dry-run precommit-install precommit-run security-scan
 
 install:
 	bash tools/bootstrap.sh
@@ -75,3 +75,15 @@ settings-prune-local:
 
 deploy-dry-run:
 	bash tools/deploy_on_pi.sh "$(PWD)" "main" ""
+
+precommit-install:
+	@command -v pre-commit >/dev/null 2>&1 || (echo "pre-commit not installed. Install with: brew install pre-commit" && exit 1)
+	pre-commit install
+
+precommit-run:
+	@command -v pre-commit >/dev/null 2>&1 || (echo "pre-commit not installed. Install with: brew install pre-commit" && exit 1)
+	pre-commit run --all-files
+
+security-scan:
+	@command -v gitleaks >/dev/null 2>&1 || (echo "gitleaks not installed. Install with: brew install gitleaks" && exit 1)
+	gitleaks detect --no-banner --redact --source .
