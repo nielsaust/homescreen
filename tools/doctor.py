@@ -39,11 +39,25 @@ REQUIRED_SETTINGS_KEYS = [
 
 def _check_imports() -> list[str]:
     errors: list[str] = []
+    hints: list[str] = []
     for module_name in REQUIRED_IMPORTS:
         try:
             importlib.import_module(module_name)
         except Exception as exc:  # pragma: no cover
             errors.append(f"Missing import '{module_name}': {exc}")
+            if module_name == "tkinter":
+                system = platform.system()
+                py = f"{sys.version_info.major}.{sys.version_info.minor}"
+                if system == "Darwin":
+                    hints.append(
+                        f"Install Tk for Homebrew Python: brew install python-tk@{py}"
+                    )
+                elif system == "Linux":
+                    hints.append("Install Tk package: sudo apt install -y python3-tk")
+                else:
+                    hints.append("Install Tk support for your Python distribution.")
+    if hints:
+        errors.extend([f"Hint: {hint}" for hint in hints])
     return errors
 
 
