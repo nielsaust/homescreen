@@ -24,6 +24,7 @@ class AppRuntimeConfigService:
     def apply_to(self, main_app) -> None:
         main_app.ui_intent_poll_interval_ms = 50
         main_app.mqtt_queue_poll_interval_ms = 50
+        main_app.enable_mqtt = _to_bool(getattr(self.settings, "enable_mqtt", False), False)
 
         main_app.ui_trace_logging = _to_bool(getattr(self.settings, "ui_trace_logging", False), False)
         main_app.ui_trace_followup_ms = int(getattr(self.settings, "ui_trace_followup_ms", 80) or 80)

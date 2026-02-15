@@ -95,6 +95,7 @@ class MainApp:
             purpose="observability_only",
             affects_runtime_behavior=False,
         )
+        log_event(logger, logging.INFO, "mqtt", "feature.enabled", enabled=self.enable_mqtt)
 
     def _init_state_and_timestamps(self):
         self.music_object = None
@@ -115,6 +116,15 @@ class MainApp:
 
     def is_network_available(self, timeout=2):
         return self.network_bootstrap_service.is_network_available(timeout=timeout)
+
+    def is_mqtt_enabled(self):
+        return bool(getattr(self, "enable_mqtt", False))
+
+    def notify_setup_required(self, setup_name: str):
+        message = f"First complete {setup_name} setup"
+        log_event(logger, logging.WARNING, "app", "setup.required", setup=setup_name)
+        if hasattr(self, "display_controller") and self.display_controller:
+            self.display_controller.place_action_label(text=message)
 
     def init_mqtt(self):
         self.mqtt_lifecycle_service.init_mqtt()

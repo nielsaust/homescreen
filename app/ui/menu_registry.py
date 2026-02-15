@@ -206,11 +206,20 @@ def _build_entry(schema_entry):
 
 
 _BUTTON_SETTING_REQUIREMENTS = {
-    "doorbell": ("mqtt_topic_doorbell",),
-    "calendar": ("mqtt_topic_calendar",),
-    "calendar_add": ("mqtt_topic_calendar",),
-    "3d_printer_progress": ("mqtt_topic_printer_progress",),
-    "3d_printer_cam": ("mqtt_topic_printer_progress",),
+    "cinema": ("enable_mqtt",),
+    "debug_cinema": ("enable_mqtt",),
+    "music": ("enable_mqtt",),
+    "light_scenes": ("enable_mqtt",),
+    "cover_kitchen": ("enable_mqtt",),
+    "blinds_control": ("enable_mqtt",),
+    "smart_home_quick": ("enable_mqtt",),
+    "doorbell": ("enable_mqtt", "mqtt_topic_doorbell"),
+    "calendar": ("enable_mqtt", "mqtt_topic_calendar"),
+    "calendar_add": ("enable_mqtt", "mqtt_topic_calendar"),
+    "trash_warning_toggle": ("enable_mqtt",),
+    "in_bed_toggle": ("enable_mqtt",),
+    "3d_printer_progress": ("enable_mqtt", "mqtt_topic_printer_progress"),
+    "3d_printer_cam": ("enable_mqtt", "mqtt_topic_printer_progress"),
 }
 
 
@@ -221,7 +230,12 @@ def _is_enabled_by_settings(button_id, settings):
     if settings is None:
         return True
     for key in required_settings:
-        value = str(getattr(settings, key, "")).strip()
+        raw_value = getattr(settings, key, "")
+        if isinstance(raw_value, bool):
+            if not raw_value:
+                return False
+            continue
+        value = str(raw_value).strip()
         if not value:
             return False
     return True

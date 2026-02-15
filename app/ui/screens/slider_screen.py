@@ -122,6 +122,10 @@ class SliderScreen:
         self.update_box(value)
 
     def on_slider_release(self, event):
+        if not self.main_app.is_mqtt_enabled():
+            self.main_app.notify_setup_required("MQTT")
+            self.close_timer()
+            return
         self.main_app.mqtt_controller.publish_action(self.entity, self.scale_var.get())
         self.close_timer()
 

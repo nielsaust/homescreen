@@ -12,10 +12,12 @@ The wizard updates `settings.json` interactively.
 ## Sections
 
 1. MQTT base
+- Enable/disable MQTT integration (`enable_mqtt`)
 - Broker host/IP
 - Port
 - Username/password
 - QoS
+  - If MQTT is disabled, music/smart-home sections require: `First complete MQTT setup`.
 
 2. Music integration
 - Music topic (`mqtt_topic_music`)

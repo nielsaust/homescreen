@@ -40,9 +40,13 @@ class ActionDispatcher:
             self.main_app.request_menu_navigation(spec["command"], source="action_dispatcher")
             return
         if kind == "mqtt_action":
+            if not self._ensure_mqtt_enabled():
+                return
             self.main_app.mqtt_controller.publish_action(spec["action"])
             return
         if kind == "mqtt_message":
+            if not self._ensure_mqtt_enabled():
+                return
             self.main_app.mqtt_controller.publish_message(topic=spec["topic"])
             return
         if kind == "show_image":
@@ -127,6 +131,14 @@ class ActionDispatcher:
             self.main_app.root.after(120, self.main_app.media_controller.show_music_overlays)
 
     def _doorbell_action(self) -> None:
+        if not self._ensure_mqtt_enabled():
+            return
+        doorbell_command_topic = str(
+            getattr(self.main_app.settings, "mqtt_topic_doorbell_command", "")
+        ).strip()
+        if not doorbell_command_topic:
+            self.main_app.notify_setup_required("Doorbell")
+            return
         # Always open the camera immediately on local press, even if HA state is already active.
         self.main_app.request_overlay(
             OverlayCommand.SHOW_CAM,
@@ -140,7 +152,13 @@ class ActionDispatcher:
         )
         # Also notify HA flow so timeout/automation behavior remains in sync.
         self.main_app.mqtt_controller.publish_message(
-            topic=getattr(self.main_app.settings, "mqtt_topic_doorbell_command", "screen_commands/doorbell")
+            topic=doorbell_command_topic
         )
+
+    def _ensure_mqtt_enabled(self) -> bool:
+        if self.main_app.is_mqtt_enabled():
+            return True
+        self.main_app.notify_setup_required("MQTT")
+        return False
     def _test_mij_todo(self) -> None:
         logger.info("Custom action stub triggered: test_mij_todo")

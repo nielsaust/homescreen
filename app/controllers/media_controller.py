@@ -14,7 +14,15 @@ class MediaController:
     def show_music_overlays(self):
         self.main_app.display_controller.show_music_overlays()
 
+    def _ensure_mqtt_enabled(self):
+        if self.main_app.is_mqtt_enabled():
+            return True
+        self.main_app.notify_setup_required("MQTT")
+        return False
+
     def media_play_pause(self):
+        if not self._ensure_mqtt_enabled():
+            return
         self.main_app.mqtt_controller.publish_action("media-play-pause")
         if self.main_app.music_object and self.main_app.music_object.state == "playing":
             self.main_app.display_controller.place_action_label(image="pause-white.png")
@@ -22,6 +30,8 @@ class MediaController:
             self.main_app.display_controller.place_action_label(image="play-white.png")
 
     def media_skip_song(self, next_previous):
+        if not self._ensure_mqtt_enabled():
+            return
         if self.main_app.music_object and self.main_app.music_object.channel is None:
             if next_previous == "next":
                 self.main_app.mqtt_controller.publish_action("media-next")
@@ -33,6 +43,8 @@ class MediaController:
             logger.info("Can't skip song; radio is playing.")
 
     def media_volume(self, up_down):
+        if not self._ensure_mqtt_enabled():
+            return
         if up_down == "up":
             self.main_app.mqtt_controller.publish_action("media-volume-up")
             self.main_app.display_controller.place_action_label(image="volume-up-white.png")

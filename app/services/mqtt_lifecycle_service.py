@@ -10,6 +10,8 @@ class MqttLifecycleService:
     def init_mqtt(self) -> None:
         if self.main_app.mqtt_initialized:
             return
+        if not self.main_app.is_mqtt_enabled():
+            return
         from app.controllers.mqtt_controller import MqttController
 
         self.main_app.mqtt_controller = MqttController(

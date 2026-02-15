@@ -30,6 +30,7 @@ class NetworkBootstrapService:
 
     def __init__(self, main_app):
         self.main_app = main_app
+        self._mqtt_disabled_logged = False
 
     def is_internet_connected(self, host="8.8.8.8", timeout=3):
         try:
@@ -105,6 +106,12 @@ class NetworkBootstrapService:
     def maybe_init_mqtt_if_online(self, online=None):
         if self.main_app.mqtt_initialized:
             return
+        if not self.main_app.is_mqtt_enabled():
+            if not self._mqtt_disabled_logged:
+                log_event(logger, logging.INFO, "mqtt", "controller.init_skipped", reason="disabled_in_settings")
+                self._mqtt_disabled_logged = True
+            return
+        self._mqtt_disabled_logged = False
         if online is None:
             online = self.is_network_available(timeout=1)
         if not online:

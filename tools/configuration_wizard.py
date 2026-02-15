@@ -60,6 +60,10 @@ def _prompt_choice(text: str, options: list[str], default: str) -> str:
 
 def configure_mqtt_base(settings: dict) -> None:
     print("\n[configuration] MQTT base settings")
+    settings["enable_mqtt"] = _prompt_bool("Enable MQTT integration", bool(settings.get("enable_mqtt", False)))
+    if not settings["enable_mqtt"]:
+        print("[configuration] MQTT disabled. Music and smart-home integrations will stay inactive.")
+        return
     settings["mqtt_broker"] = _prompt("MQTT broker host/ip", str(settings.get("mqtt_broker", "127.0.0.1")))
     settings["mqtt_port"] = _prompt_int("MQTT port", int(settings.get("mqtt_port", 1883)))
     settings["mqtt_user"] = _prompt("MQTT username", str(settings.get("mqtt_user", "")))
@@ -70,6 +74,9 @@ def configure_mqtt_base(settings: dict) -> None:
 
 def configure_music(settings: dict) -> None:
     print("\n[configuration] Music integration")
+    if not bool(settings.get("enable_mqtt", False)):
+        print("First complete MQTT setup.")
+        return
     print("Expected payload shape is documented in docs/music-integration.md.")
     settings["mqtt_topic_music"] = _prompt("MQTT topic to receive music state", str(settings.get("mqtt_topic_music", "music")))
     settings["home_assistant_api_base_url"] = _prompt(
@@ -95,6 +102,9 @@ def configure_weather(settings: dict) -> None:
 
 def configure_smart_home(settings: dict) -> None:
     print("\n[configuration] Smart-home MQTT integration")
+    if not bool(settings.get("enable_mqtt", False)):
+        print("First complete MQTT setup.")
+        return
     print("State topics are consumed by the app; action topics are published by the app.")
     print("Tip: leave optional integration topics empty to disable that integration.")
     settings["mqtt_topic_devices"] = _prompt(

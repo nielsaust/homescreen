@@ -31,6 +31,7 @@ Full deploy/systemd setup: `docs/deploy.md`
 - Handle network outages with degraded mode + reconnect behavior
 - Keep Tk updates on the UI thread via queue/intents
 - Uses `menu_profile=minimal` by default for clean installs
+- MQTT is optional (`enable_mqtt=false` by default for clean installs)
 
 ## Documentation Map
 
