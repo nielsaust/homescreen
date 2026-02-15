@@ -38,7 +38,7 @@ class MenuScreen:
         self.exit_timeout_ms = self.main_app.settings.close_menu_timeout
         self.button_click_time = None
         
-        self.buttons = build_menu_buttons()
+        self.buttons = build_menu_buttons(self.main_app.settings)
         self.state_resolver = MenuStateResolver(self.main_app)
         self.button_index = {}
 

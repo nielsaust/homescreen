@@ -49,6 +49,15 @@ def _prompt_bool(text: str, default: bool) -> bool:
         print("Please answer y or n.")
 
 
+def _prompt_choice(text: str, options: list[str], default: str) -> str:
+    option_set = {opt.lower() for opt in options}
+    while True:
+        raw = _prompt(f"{text} ({'/'.join(options)})", default).strip().lower()
+        if raw in option_set:
+            return raw
+        print(f"Please choose one of: {', '.join(options)}.")
+
+
 def configure_mqtt_base(settings: dict) -> None:
     print("\n[configuration] MQTT base settings")
     settings["mqtt_broker"] = _prompt("MQTT broker host/ip", str(settings.get("mqtt_broker", "127.0.0.1")))
@@ -87,6 +96,7 @@ def configure_weather(settings: dict) -> None:
 def configure_smart_home(settings: dict) -> None:
     print("\n[configuration] Smart-home MQTT integration")
     print("State topics are consumed by the app; action topics are published by the app.")
+    print("Tip: leave optional integration topics empty to disable that integration.")
     settings["mqtt_topic_devices"] = _prompt(
         "State topic for device states",
         str(settings.get("mqtt_topic_devices", "screen_commands/incoming")),
@@ -95,13 +105,76 @@ def configure_smart_home(settings: dict) -> None:
         "Action topic for outgoing commands",
         str(settings.get("mqtt_topic_actions_outgoing", "screen_commands/outgoing")),
     )
+    settings["mqtt_topic_alert"] = _prompt(
+        "Alert topic (optional but recommended)",
+        str(settings.get("mqtt_topic_alert", "screen_commands/alert")),
+    )
     settings["mqtt_topic_update_music"] = _prompt(
         "Action topic to request music state refresh",
         str(settings.get("mqtt_topic_update_music", "screen_commands/update_music")),
     )
-    settings["mqtt_topic_doorbell_command"] = _prompt(
-        "Action topic for doorbell command",
-        str(settings.get("mqtt_topic_doorbell_command", "screen_commands/doorbell")),
+    enable_doorbell = _prompt_bool("Enable doorbell integration topics?", bool(settings.get("mqtt_topic_doorbell")))
+    if enable_doorbell:
+        settings["mqtt_topic_doorbell"] = _prompt(
+            "Doorbell state/event topic",
+            str(settings.get("mqtt_topic_doorbell", "doorbell")),
+        )
+        default_command_topic = str(settings.get("mqtt_topic_doorbell_command", "")).strip() or "screen_commands/doorbell"
+        settings["mqtt_topic_doorbell_command"] = _prompt(
+            "Action topic for doorbell command",
+            default_command_topic,
+        )
+    else:
+        settings["mqtt_topic_doorbell"] = ""
+        settings["mqtt_topic_doorbell_command"] = ""
+
+    enable_calendar = _prompt_bool("Enable calendar integration topic?", bool(settings.get("mqtt_topic_calendar")))
+    if enable_calendar:
+        settings["mqtt_topic_calendar"] = _prompt(
+            "Calendar topic",
+            str(settings.get("mqtt_topic_calendar", "calendar")),
+        )
+    else:
+        settings["mqtt_topic_calendar"] = ""
+
+    enable_printer = _prompt_bool("Enable 3D printer integration topics?", bool(settings.get("mqtt_topic_printer_progress")))
+    if enable_printer:
+        settings["mqtt_topic_printer_progress"] = _prompt(
+            "Printer progress topic",
+            str(settings.get("mqtt_topic_printer_progress", "octoPrint/progress/printing")),
+        )
+        settings["mqtt_topic_print_start"] = _prompt(
+            "Printer start topic",
+            str(settings.get("mqtt_topic_print_start", "octoPrint/event/PrintStarted")),
+        )
+        settings["mqtt_topic_print_done"] = _prompt(
+            "Printer done topic",
+            str(settings.get("mqtt_topic_print_done", "octoPrint/event/PrintDone")),
+        )
+        settings["mqtt_topic_print_cancelled"] = _prompt(
+            "Printer cancelled topic",
+            str(settings.get("mqtt_topic_print_cancelled", "octoPrint/event/PrintCancelled")),
+        )
+        settings["mqtt_topic_print_change_filament"] = _prompt(
+            "Printer filament-change topic",
+            str(settings.get("mqtt_topic_print_change_filament", "octoPrint/event/FilamentChange")),
+        )
+        settings["mqtt_topic_print_change_z"] = _prompt(
+            "Printer Z-change topic",
+            str(settings.get("mqtt_topic_print_change_z", "octoPrint/event/ZChange")),
+        )
+    else:
+        settings["mqtt_topic_printer_progress"] = ""
+        settings["mqtt_topic_print_start"] = ""
+        settings["mqtt_topic_print_done"] = ""
+        settings["mqtt_topic_print_cancelled"] = ""
+        settings["mqtt_topic_print_change_filament"] = ""
+        settings["mqtt_topic_print_change_z"] = ""
+
+    settings["menu_profile"] = _prompt_choice(
+        "Menu profile",
+        ["minimal", "full"],
+        str(settings.get("menu_profile", "minimal")),
     )
     print("[configuration] Smart-home integration updated.")
 

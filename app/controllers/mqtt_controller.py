@@ -176,19 +176,25 @@ class MqttController:
 
     def subscribe_to_topics(self):
         """Subscribes to predefined topics."""
-        topics = [
-            self.main_app.settings.mqtt_topic_music,
-            self.main_app.settings.mqtt_topic_doorbell,
-            self.main_app.settings.mqtt_topic_printer_progress,
-            self.main_app.settings.mqtt_topic_calendar,
-            self.main_app.settings.mqtt_topic_devices,
-            self.main_app.settings.mqtt_topic_alert,
-            # Additional topics can be added here
-            #self.main_app.settings.mqtt_topic_print_start
-            #self.main_app.settings.mqtt_topic_print_done
-            #self.main_app.settings.mqtt_topic_print_cancelled
-            #self.main_app.settings.mqtt_topic_print_change_filament
+        topic_candidates = [
+            getattr(self.main_app.settings, "mqtt_topic_music", ""),
+            getattr(self.main_app.settings, "mqtt_topic_devices", ""),
+            getattr(self.main_app.settings, "mqtt_topic_alert", ""),
+            getattr(self.main_app.settings, "mqtt_topic_doorbell", ""),
+            getattr(self.main_app.settings, "mqtt_topic_printer_progress", ""),
+            getattr(self.main_app.settings, "mqtt_topic_calendar", ""),
+            getattr(self.main_app.settings, "mqtt_topic_print_start", ""),
+            getattr(self.main_app.settings, "mqtt_topic_print_done", ""),
+            getattr(self.main_app.settings, "mqtt_topic_print_cancelled", ""),
+            getattr(self.main_app.settings, "mqtt_topic_print_change_filament", ""),
+            getattr(self.main_app.settings, "mqtt_topic_print_change_z", ""),
         ]
+        # Ignore disabled/empty topics and deduplicate while keeping order.
+        topics = []
+        for topic in topic_candidates:
+            topic = str(topic).strip()
+            if topic and topic not in topics:
+                topics.append(topic)
         for topic in topics:
             log_event(logger, logging.DEBUG, "mqtt", "subscribe.requested", topic=topic)
             self.subscribe_to_topic(topic)

@@ -30,8 +30,13 @@ The wizard updates `settings.json` interactively.
 4. Smart-home integration
 - Device state topic (`mqtt_topic_devices`)
 - Outgoing action topic (`mqtt_topic_actions_outgoing`)
+- Alert topic (`mqtt_topic_alert`)
 - Music refresh topic (`mqtt_topic_update_music`)
-- Doorbell command topic (`mqtt_topic_doorbell_command`)
+- Optional integrations (doorbell, calendar, printer)
+  - When disabled, related MQTT topics are set to empty strings.
+- Menu profile (`menu_profile`)
+  - `minimal`: clean install profile (music + system essentials)
+  - `full`: full feature menu
 
 5. Auto-start/update setup
 - Linux/systemd only.
@@ -42,4 +47,3 @@ The wizard updates `settings.json` interactively.
 - `make service-setup`: Linux systemd setup wizard (optional)
 - `make menu-item-scaffold`: interactive menu item create/edit/remove/verify
 - `make menu-contract-check`: validates menu/action/settings wiring
-

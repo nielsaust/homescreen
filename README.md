@@ -26,10 +26,11 @@ Full deploy/systemd setup: `docs/deploy.md`
 ## What This App Does
 
 - Startup in idle screen (`weather` or `off` based on settings)
-- React to MQTT topics (music, doorbell, calendar, printer, device states)
+- React to MQTT topics (music + optional integrations like doorbell/calendar/printer)
 - Provide menu-based control (schema-driven buttons/actions/states)
 - Handle network outages with degraded mode + reconnect behavior
 - Keep Tk updates on the UI thread via queue/intents
+- Uses `menu_profile=minimal` by default for clean installs
 
 ## Documentation Map
 
