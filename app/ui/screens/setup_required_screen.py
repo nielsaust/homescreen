@@ -19,7 +19,9 @@ class SetupRequiredScreen:
         fg = getattr(settings, "alert_default_foreground_color", "#000000")
         bg = getattr(settings, "alert_default_background_color", "#ffffff")
         width = int(settings.screen_width * 0.7)
-        height = int(settings.screen_height * 0.7)
+        max_height = int(settings.screen_height * 0.7)
+        pad = 24
+        message = "Run 'make configuration' in your project root\nto setup the homescreen."
 
         self.frame.configure(bg="black")
 
@@ -28,21 +30,25 @@ class SetupRequiredScreen:
             bg=bg,
             highlightthickness=0,
             width=width,
-            height=height,
         )
         card.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
-        card.pack_propagate(False)
-
         label = tk.Label(
             card,
-            text="Run 'make configuration' in your project root\nto setup the homescreen.",
+            text=message,
             bg=bg,
             fg=fg,
             justify=tk.CENTER,
             font=("Helvetica", 24, "bold"),
             wraplength=int(width * 0.85),
         )
-        label.pack(expand=True, fill=tk.BOTH, padx=24, pady=24)
+        # Measure required text height first, then size card dynamically while keeping center alignment.
+        label.pack(padx=pad, pady=pad)
+        self.frame.update_idletasks()
+        target_height = min(max_height, label.winfo_reqheight() + (pad * 2))
+        label.pack_forget()
+        card.configure(height=target_height)
+        card.pack_propagate(False)
+        label.pack(expand=True, fill=tk.BOTH, padx=pad, pady=pad)
 
     def show(self):
         return True

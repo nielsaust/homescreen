@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+import logging
+
+from app.observability.domain_logger import log_event
+
+logger = logging.getLogger(__name__)
+
 
 class MqttLifecycleService:
     """Owns MQTT controller lifecycle (init/start/stop)."""
@@ -22,6 +28,14 @@ class MqttLifecycleService:
             self.main_app.settings.mqtt_password,
         )
         self.main_app.mqtt_initialized = True
+        log_event(
+            logger,
+            logging.INFO,
+            "mqtt",
+            "controller.initialized",
+            broker=self.main_app.settings.mqtt_broker,
+            port=self.main_app.settings.mqtt_port,
+        )
 
     def start_mqtt(self) -> None:
         self.main_app.mqtt_controller.start()

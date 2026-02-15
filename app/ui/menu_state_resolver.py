@@ -30,7 +30,8 @@ class MenuStateResolver:
         return [
             self._spec("cinema", harmony_state != "Off", action_text="[cinema_action]", on_text="uit", off_text="aan"),
             self._spec("cover_kitchen", cover_kitchen < 50, action_text="[cover_action]", on_text="open", off_text="dicht"),
-            self._spec("in_bed_toggle", in_bed, action_text="[in_bed_action]", on_text="uit", off_text="aan"),
+            self._spec("in_bed_toggle", in_bed, action_text="[sleep_mode_action]", on_text="uit", off_text="aan"),
+            self._spec("sleep_mode_toggle_option", in_bed, action_text="[sleep_mode_action]", on_text="uit", off_text="aan"),
             self._spec("trash_warning_toggle", trash_warning, action_text="[trash_action]", on_text="uit", off_text="aan"),
             self._spec("music_play_pause", playing, action_text="[music_action]", on_text="Pauzeer", off_text="Speel"),
             self._spec(
@@ -70,11 +71,8 @@ class MenuStateResolver:
                 off_text="aan",
             ),
             self._spec("show_weather_on_idle", bool(settings.show_weather_on_idle)),
-            self._spec("verify_ssl_on_trusted_sources", bool(settings.verify_ssl_on_trusted_sources)),
             self._spec("media_show_titles", bool(settings.media_show_titles)),
             self._spec("media_sanitize_titles", bool(settings.media_sanitize_titles)),
-            self._spec("force_update", bool(getattr(settings, "force_update", False))),
-            self._spec("enable_network_simulation", bool(getattr(settings, "enable_network_simulation", True))),
             self._spec("store_settings", bool(getattr(settings, "store_settings", True))),
         ]
 
