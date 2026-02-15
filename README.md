@@ -47,3 +47,6 @@ Full deploy/systemd setup: `docs/deploy.md`
 - Run app: `make run`
 - Pi checks: `make test-device`
 - Simulate outage locally: `make net-down`, `make net-status`, `make net-up`
+- Menu item scaffolder (interactive): `make menu-item-scaffold`
+- Menu wiring check (interactive picker): `make menu-item-verify-toggle`
+- Menu contract check: `make menu-contract-check`

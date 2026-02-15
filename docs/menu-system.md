@@ -39,6 +39,48 @@ self._spec(
 )
 ```
 
+## Step-By-Step Helper (Make)
+
+Use the new scaffolder:
+
+```bash
+make menu-item-scaffold
+```
+
+Wizard modes:
+- `create`: creates a menu item and updates required files automatically.
+- `edit`: edits an existing item (label/icon/action) and can scaffold missing action specs.
+- `remove`: removes an existing item and optionally removes unreferenced action/settings keys.
+- `verify`: checks one item wiring.
+
+Supported item types in `create`:
+- `setting_toggle`
+- `mqtt_action`
+- `mqtt_message`
+- `show_image`
+- `custom` (includes action-dispatcher stub method)
+- `submenu` (includes placeholder child action + custom stub)
+
+Files updated automatically (as needed):
+- `app/ui/menu_registry.py`
+- `app/controllers/action_registry.py`
+- `app/ui/menu_state_resolver.py` (for `setting_toggle`)
+- `app/controllers/action_dispatcher.py` (for `custom` stubs)
+- `settings.json.example` and `settings.json` (for new setting keys)
+
+Validation:
+
+```bash
+make menu-item-verify-toggle ITEM_ID=my_item
+make menu-contract-check
+make settings-check
+```
+
+Notes:
+- Selection is done via numbered options in the terminal (not arrow-key navigation).
+- You can add items to top-level or any existing submenu container listed by the wizard.
+- Icon guidelines live in `images/buttons/README.md`.
+
 ## Supported Action Kinds
 
 Defined in `/Users/niels/Documents/Workspace/Personal/homescreen/app/controllers/action_registry.py`.

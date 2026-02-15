@@ -23,6 +23,7 @@ class ActionDispatcher:
             "turn_screen_off": self._turn_screen_off,
             "doorbell": self._doorbell_action,
             "music_show_title": self._music_show_title,
+            "test_mij_todo": self._test_mij_todo,
         }
 
     def dispatch(self, action: str) -> None:
@@ -94,9 +95,17 @@ class ActionDispatcher:
         logger.warning("Unsupported action kind '%s' for action '%s'", kind, action)
 
     def _toggle_setting(self, attr: str) -> None:
-        current = bool(getattr(self.main_app.settings, attr))
+        default = True if attr == "store_settings" else False
+        current = bool(getattr(self.main_app.settings, attr, default))
         setattr(self.main_app.settings, attr, not current)
-        self.main_app.settings.save_settings()
+
+        should_persist = bool(getattr(self.main_app.settings, "store_settings", True))
+        # Always persist the store_settings toggle itself so the persistence mode is explicit.
+        if attr == "store_settings" or should_persist:
+            self.main_app.settings.save_settings()
+        else:
+            logger.info("Setting '%s' changed runtime-only (store_settings=false)", attr)
+
         self.main_app.publish_event(
             "menu.refresh.requested",
             {"reason": f"setting.toggled:{attr}"},
@@ -131,3 +140,6 @@ class ActionDispatcher:
         )
         # Also notify HA flow so timeout/automation behavior remains in sync.
         self.main_app.mqtt_controller.publish_message(topic="screen_commands/doorbell")
+    def _test_mij_todo(self) -> None:
+        logger.info("Custom action stub triggered: test_mij_todo")
+

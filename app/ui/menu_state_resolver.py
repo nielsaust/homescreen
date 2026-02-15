@@ -75,6 +75,7 @@ class MenuStateResolver:
             self._spec("media_sanitize_titles", bool(settings.media_sanitize_titles)),
             self._spec("force_update", bool(getattr(settings, "force_update", False))),
             self._spec("enable_network_simulation", bool(getattr(settings, "enable_network_simulation", True))),
+            self._spec("store_settings", bool(getattr(settings, "store_settings", True))),
         ]
 
     @staticmethod
