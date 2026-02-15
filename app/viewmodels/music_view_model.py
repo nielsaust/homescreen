@@ -12,15 +12,51 @@ class MusicOverlayViewModel:
     show_bottom: bool
 
 
-def sanitize_title(value: str) -> str:
-    pattern_remaster = (
-        r"\s*[-(].*?(\bremaster(ed)?\b|\bbonus\b|\blive\b|\bacoustic\b|\bremix\b|"
-        r"\b(deluxe|extended|expanded|anniversary|single)\s+(version|edition)\b|\bfeat\..*\b).*\s*((\)|\]))?"
-    )
-    pattern_movie_score = r" \((Original Motion Picture Soundtrack|Soundtrack|OST|Score|Music from the Motion Picture)\)"
+_BRACKET_META_PATTERN = re.compile(
+    r"\s*[\(\[][^)\]]*"
+    r"(?:"
+    r"remaster(?:ed)?|remix|live|acoustic|mono|stereo|instrumental|karaoke|"
+    r"bonus|radio\s*edit|edit|version|deluxe|extended|expanded|anniversary|single|"
+    r"ost|soundtrack|score|motion\s+picture|from\s+the\s+motion\s+picture"
+    r")"
+    r"[^)\]]*[\)\]]",
+    flags=re.IGNORECASE,
+)
+_FEAT_PATTERN = re.compile(
+    r"\s*[\(\[]?\s*(?:feat\.?|ft\.?|featuring)\s+[^)\]-]+[\)\]]?\s*",
+    flags=re.IGNORECASE,
+)
+_TRAILING_META_PATTERN = re.compile(
+    r"\s*[-–—]\s*"
+    r"(?:"
+    r"(?:20\d{2}\s+)?remaster(?:ed)?(?:\s+\d{4})?|remix|live.*|acoustic.*|"
+    r"radio\s*edit|edit|version|deluxe.*|extended.*|expanded.*|anniversary.*|single.*|"
+    r"(?:from\s+.+\s+)?(?:ost|soundtrack|score|motion\s+picture.*)"
+    r")\s*$",
+    flags=re.IGNORECASE,
+)
+_WHITESPACE_PATTERN = re.compile(r"\s+")
 
-    cleaned = re.sub(pattern_remaster, "", value, flags=re.IGNORECASE)
-    cleaned = re.sub(pattern_movie_score, "", cleaned, flags=re.IGNORECASE)
+
+def sanitize_title(value: str) -> str:
+    cleaned = str(value or "").strip()
+    if not cleaned:
+        return ""
+
+    # Remove noisy feature tags and bracketed metadata blocks.
+    cleaned = _FEAT_PATTERN.sub(" ", cleaned)
+    previous = None
+    while previous != cleaned:
+        previous = cleaned
+        cleaned = _BRACKET_META_PATTERN.sub("", cleaned)
+
+    # Remove trailing dash metadata suffixes.
+    cleaned = _TRAILING_META_PATTERN.sub("", cleaned)
+
+    # Normalize spacing and trailing separators.
+    cleaned = _WHITESPACE_PATTERN.sub(" ", cleaned).strip(" -–—:;,.")
+    if not cleaned:
+        return str(value).strip()
     return cleaned
 
 
