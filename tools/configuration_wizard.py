@@ -25,7 +25,10 @@ def _save_settings(data: dict) -> None:
 
 def _prompt(text: str, default: str = "") -> str:
     suffix = f" [{default}]" if default else ""
-    value = input(f"{text}{suffix}: ").strip()
+    try:
+        value = input(f"{text}{suffix}: ").strip()
+    except KeyboardInterrupt as exc:
+        raise KeyboardInterrupt from exc
     return value if value else default
 
 
@@ -221,42 +224,46 @@ def main() -> int:
     settings = _load_settings()
     dirty = False
 
-    while True:
-        print("\n=== Homescreen Configuration ===")
-        print("1) MQTT base")
-        print("2) Music integration")
-        print("3) Weather integration")
-        print("4) Smart-home integration")
-        print("5) Auto-start/update setup (Linux/systemd)")
-        print("6) Save and exit")
-        print("7) Exit without saving")
+    try:
+        while True:
+            print("\n=== Homescreen Configuration ===")
+            print("1) MQTT base")
+            print("2) Music integration")
+            print("3) Weather integration")
+            print("4) Smart-home integration")
+            print("5) Auto-start/update setup (Linux/systemd)")
+            print("6) Save and exit")
+            print("7) Exit without saving")
 
-        choice = _prompt("Choose option", "6")
-        if choice == "1":
-            configure_mqtt_base(settings)
-            dirty = True
-        elif choice == "2":
-            configure_music(settings)
-            dirty = True
-        elif choice == "3":
-            configure_weather(settings)
-            dirty = True
-        elif choice == "4":
-            configure_smart_home(settings)
-            dirty = True
-        elif choice == "5":
-            configure_services()
-        elif choice == "6":
-            _save_settings(settings)
-            print("[configuration] Saved to settings.json")
-            return 0
-        elif choice == "7":
-            if dirty and not _prompt_bool("Discard unsaved changes?", False):
-                continue
-            print("[configuration] Exiting without saving.")
-            return 0
-        else:
-            print("Invalid option.")
+            choice = _prompt("Choose option", "6")
+            if choice == "1":
+                configure_mqtt_base(settings)
+                dirty = True
+            elif choice == "2":
+                configure_music(settings)
+                dirty = True
+            elif choice == "3":
+                configure_weather(settings)
+                dirty = True
+            elif choice == "4":
+                configure_smart_home(settings)
+                dirty = True
+            elif choice == "5":
+                configure_services()
+            elif choice == "6":
+                _save_settings(settings)
+                print("[configuration] Saved to settings.json")
+                return 0
+            elif choice == "7":
+                if dirty and not _prompt_bool("Discard unsaved changes?", False):
+                    continue
+                print("[configuration] Exiting without saving.")
+                return 0
+            else:
+                print("Invalid option.")
+    except KeyboardInterrupt:
+        print("\n[configuration] Interrupted by user. No changes saved.")
+        return 130
 
 
 if __name__ == "__main__":

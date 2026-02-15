@@ -10,44 +10,8 @@ import requests
 import tkinter as tk
 from tkinter import font as tkFont
 
-'''
-todo: 
-- fix issues with show print or delete option
-- estimated time left
-- 
-
-2023-12-17 14:11:16,578 - INFO - Checking print status (99%)
-2023-12-17 14:11:16,582 - INFO - Show cam with data: {'location': 'local', 'path': 'pencilHolderMidQ_0.2mm_PLA_MK3S_1h52m.gcode', 'progress': 99, '_timestamp': 1702818676}, url=http://octopi.local/webcam/?action=snapshot
-2023-12-17 14:11:22,101 - INFO - On MQTT message: (1702818682.1016395) - music
-2023-12-17 14:11:22,143 - ERROR - Error retrieving album art from Home Assistant API (Attempt 1/3): Cannot connect to host 127.0.0.1none:443 ssl:default [Name or service not known]
-2023-12-17 14:11:22,180 - ERROR - Error retrieving album art from Home Assistant API (Attempt 2/3): Cannot connect to host 127.0.0.1none:443 ssl:default [Name or service not known]
-2023-12-17 14:11:22,202 - ERROR - Error retrieving album art from Home Assistant API (Attempt 3/3): Cannot connect to host 127.0.0.1none:443 ssl:default [Name or service not known]
-
-Komt daarna nog eens omhoog:
-2023-12-17 14:11:22,472 - INFO - time since boot: 76756.65379047394
-
->> kijken waar dit vandaan komt?
-2023-12-17 14:11:22,473 - WARNING - Unknown or untimely topic received: music
-2023-12-17 14:11:23,366 - INFO - On MQTT message: (1702818683.365946) - music
-2023-12-17 14:11:23,407 - INFO - time since boot: 76757.9180958271
-2023-12-17 14:11:23,408 - WARNING - Unknown or untimely topic received: music
-2023-12-17 14:13:33,679 - INFO - On MQTT message: (1702818813.6793475) - octoPrint/progress/printing
-2023-12-17 14:13:33,680 - INFO - time since boot: 76888.2314991951
-2023-12-17 14:13:33,681 - INFO - Checking print status (100%)
-2023-12-17 14:13:33,682 - INFO - Show cam with data: {'location': 'local', 'path': 'pencilHolderMidQ_0.2mm_PLA_MK3S_1h52m.gcode', 'progress': 100, '_timestamp': 1702818813}, url=http://octopi.local/webcam/?action=snapshot
-2023-12-17 14:13:34,305 - INFO - On MQTT message: (1702818814.3049552) - octoPrint/progress/printing
-2023-12-17 14:13:34,306 - INFO - time since boot: 76888.8571062088
-2023-12-17 14:13:34,307 - INFO - Checking print status (100%)
-2023-12-17 14:13:34,354 - INFO - Show cam with data: {'location': 'local', 'path': 'pencilHolderMidQ_0.2mm_PLA_MK3S_1h52m.gcode', 'progress': 100, '_timestamp': 1702818813}, url=http://octopi.local/webcam/?action=snapshot
-
-> hiernaar luisteren ipv percent
-
-2023-12-17 14:13:36,437 - INFO - On MQTT message: (1702818816.4376583) - octoPrint/event/PrintDone
-2023-12-17 14:13:36,438 - INFO - time since boot: 76890.9898121357
-2023-12-17 14:15:11,234 - INFO - On MQTT message: (1702818911.2341585) - octoPrint/progress/printing
-2023-12-17 14:15:11,235 - INFO - time since boot: 76985.78630948067
-2023-12-17 14:15:11,236 - INFO - Checking print status (0%)
-'''
+# Notes:
+# Keep PrintScreen behavior tied to current MQTT print events only.
 
 class PrintScreen:
     def __init__(self, main_app):
