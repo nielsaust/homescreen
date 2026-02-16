@@ -44,12 +44,12 @@ class ActionDispatcher:
         if kind == "mqtt_action":
             if not self._ensure_mqtt_enabled():
                 return
-            self.main_app.mqtt_controller.publish_action(spec["action"])
+            self._publish_mqtt_action(spec)
             return
-        if kind == "mqtt_message":
+        if kind in ("mqtt_message", "mqtt_publish"):
             if not self._ensure_mqtt_enabled():
                 return
-            self.main_app.mqtt_controller.publish_message(topic=spec["topic"])
+            self._publish_mqtt_message(spec)
             return
         if kind == "show_image":
             self.main_app.display_controller.show_fullscreen_image(spec["image"])
@@ -123,6 +123,52 @@ class ActionDispatcher:
                 logger.warning("No custom action handler found for '%s'", action)
             return
         logger.warning("Unsupported action kind '%s' for action '%s'", kind, action)
+
+    def _resolve_topic_for_spec(self, spec: dict, default_topic_key: str = "") -> str:
+        topic = str(spec.get("topic", "")).strip()
+        if topic:
+            return topic
+        topic_key = str(spec.get("topic_key", "")).strip() or default_topic_key
+        if topic_key and hasattr(self.main_app, "get_topic"):
+            fallback = "screen_commands/outgoing" if topic_key == "actions_outgoing" else ""
+            return self.main_app.get_topic(topic_key, fallback)
+        if topic_key == "actions_outgoing":
+            return "screen_commands/outgoing"
+        return ""
+
+    def _normalize_payload(self, payload):
+        if isinstance(payload, (dict, list)):
+            return json.dumps(payload)
+        if payload is None:
+            return None
+        return str(payload)
+
+    def _publish_mqtt_action(self, spec: dict) -> None:
+        topic = self._resolve_topic_for_spec(spec, default_topic_key="actions_outgoing")
+        if not topic:
+            logger.warning("MQTT action missing publish topic")
+            self.main_app.notify_setup_required("MQTT")
+            return
+
+        payload = {"action": spec.get("action")}
+        if "value" in spec:
+            payload["value"] = spec.get("value")
+        extra = spec.get("extra")
+        if isinstance(extra, dict):
+            payload.update(extra)
+        self.main_app.mqtt_controller.publish_message(
+            payload=self._normalize_payload(payload),
+            topic=topic,
+        )
+
+    def _publish_mqtt_message(self, spec: dict) -> None:
+        topic = self._resolve_topic_for_spec(spec, default_topic_key="")
+        if not topic:
+            logger.warning("MQTT publish missing topic")
+            self.main_app.notify_setup_required("MQTT")
+            return
+        payload = self._normalize_payload(spec.get("payload"))
+        self.main_app.mqtt_controller.publish_message(payload=payload, topic=topic)
 
     def _toggle_setting(self, attr: str) -> None:
         default = True if attr == "store_settings" else False

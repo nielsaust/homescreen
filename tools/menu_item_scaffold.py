@@ -53,6 +53,10 @@ def _prompt_choice(text: str, options: list[str], default: str) -> str:
         print(f"Invalid choice '{value}'. Allowed: {allowed}")
 
 
+def _prompt_optional(text: str, default: str = "") -> str:
+    return _prompt(text, default).strip()
+
+
 def _select_from_list(title: str, rows: list[dict[str, Any]], allow_cancel: bool = True) -> dict[str, Any] | None:
     if not rows:
         return None
@@ -275,7 +279,29 @@ def _ensure_action_spec(action_specs: dict[str, dict[str, Any]], action_id: str,
 
     if item_type == "mqtt_message":
         topic = _prompt_required("MQTT topic", "screen_commands/outgoing")
-        action_specs[action_id] = {"kind": "mqtt_message", "topic": topic}
+        action_specs[action_id] = {"kind": "mqtt_message", "topic": topic, "payload": None}
+        return action_specs, None
+
+    if item_type == "mqtt_publish":
+        mode = _prompt_choice("Use topic key or explicit topic?", ["topic_key", "topic"], "topic_key")
+        spec: dict[str, Any] = {"kind": "mqtt_publish", "payload": None}
+        if mode == "topic_key":
+            spec["topic_key"] = _prompt_required(
+                "MQTT topic key (from local_config/mqtt_topics.json)",
+                "actions_outgoing",
+            )
+        else:
+            spec["topic"] = _prompt_required("MQTT topic", "screen_commands/outgoing")
+        payload_raw = _prompt_optional("Payload (blank for none, JSON object/array, or plain string)", "")
+        if payload_raw:
+            try:
+                if payload_raw.startswith("{") or payload_raw.startswith("["):
+                    spec["payload"] = json.loads(payload_raw)
+                else:
+                    spec["payload"] = payload_raw
+            except Exception:
+                spec["payload"] = payload_raw
+        action_specs[action_id] = spec
         return action_specs, None
 
     if item_type == "show_image":
@@ -328,7 +354,7 @@ def _create_item() -> int:
     action_id = _prompt_required("Action id", item_id)
     item_type = _prompt_choice(
         "Item type",
-        ["setting_toggle", "mqtt_action", "mqtt_message", "show_image", "show_qr", "show_camera", "custom", "submenu"],
+        ["setting_toggle", "mqtt_action", "mqtt_message", "mqtt_publish", "show_image", "show_qr", "show_camera", "custom", "submenu"],
         "show_qr",
     )
 
@@ -392,7 +418,7 @@ def _edit_item() -> int:
         if create_spec == "y":
             action_type = _prompt_choice(
                 "Action type",
-                ["setting_toggle", "mqtt_action", "mqtt_message", "show_image", "show_qr", "show_camera", "custom"],
+                ["setting_toggle", "mqtt_action", "mqtt_message", "mqtt_publish", "show_image", "show_qr", "show_camera", "custom"],
                 "custom",
             )
             action_specs, _ = _ensure_action_spec(action_specs, new_action, action_type)

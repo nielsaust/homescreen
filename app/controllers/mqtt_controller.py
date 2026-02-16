@@ -199,12 +199,12 @@ class MqttController:
     def on_publish(self, client, userdata, mid):
         log_event(logger, logging.DEBUG, "mqtt", "publish.ack", message_id=mid)
 
-    def publish_action(self, action, value=None):
+    def publish_action(self, action, value=None, topic=None):
         data = {"action": action}
-        if value:
+        if value is not None:
             data["value"] = value
         payload = json.dumps(data)
-        self.publish_message(payload)
+        self.publish_message(payload=payload, topic=topic)
 
     def publish_message(self, payload=None, topic=None):
         """Publishes a message to a specified topic with retry logic if not connected."""

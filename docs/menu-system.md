@@ -59,6 +59,7 @@ Supported item types in `create`:
 - `setting_toggle`
 - `mqtt_action`
 - `mqtt_message`
+- `mqtt_publish`
 - `show_image`
 - `show_qr` (reads payload from `local_config/qr_items.json`)
 - `show_camera` (reads payload from `local_config/cameras.json`)
@@ -93,9 +94,20 @@ Defined in `action_specs` in `/Users/niels/Documents/Workspace/Personal/homescre
 - `mqtt_action`
   - Example:
   - `{"kind": "mqtt_action", "action": "scene_movie"}`
+  - Optional:
+  - `topic_key` (e.g. `"actions_outgoing"`, default for `mqtt_action`)
+  - `topic` (explicit topic string, overrides `topic_key`)
+  - `value` (included as `{"value": ...}`)
+  - `extra` (object merged into outgoing payload)
 - `mqtt_message`
   - Example:
-  - `{"kind": "mqtt_message", "topic": "screen_commands/doorbell"}`
+  - `{"kind": "mqtt_message", "topic": "screen_commands/doorbell", "payload": {"active": true}}`
+  - Optional:
+  - `topic_key` (resolve via `mqtt_topics.json`)
+- `mqtt_publish`
+  - Alias of `mqtt_message` (same behavior) for clearer naming in new configs.
+  - Example:
+  - `{"kind": "mqtt_publish", "topic_key": "actions_outgoing", "payload": {"action": "scene_movie"}}`
 - `show_image`
   - Example:
   - `{"kind": "show_image", "image": "qr-wifi.png"}`
