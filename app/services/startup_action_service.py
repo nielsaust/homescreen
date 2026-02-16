@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from app.controllers.action_registry import ACTION_SPECS
+from app.config.startup_actions import get_startup_actions
 from app.observability.domain_logger import log_event
 
 if TYPE_CHECKING:
@@ -30,13 +30,14 @@ class StartupActionService:
 
     def _collect_startup_actions(self) -> list[dict]:
         out: list[dict] = []
-        for action_id, spec in ACTION_SPECS.items():
+        for spec in get_startup_actions():
             if not isinstance(spec, dict):
                 continue
-            if not bool(spec.get("run_on_startup", False)):
+            if not bool(spec.get("enabled", True)):
                 continue
-            delay_ms = int(spec.get("startup_delay_ms", 0) or 0)
-            require_mqtt = spec.get("startup_require_mqtt")
+            action_id = str(spec.get("id", "")).strip() or "startup_action"
+            delay_ms = int(spec.get("delay_ms", 0) or 0)
+            require_mqtt = spec.get("require_mqtt")
             if require_mqtt is None:
                 require_mqtt = str(spec.get("kind", "")).strip() in MQTT_ACTION_KINDS
             out.append(
@@ -81,4 +82,4 @@ class StartupActionService:
             attempts=attempts,
             require_mqtt=require_mqtt,
         )
-        self.main_app.action_dispatcher.dispatch(action_id)
+        self.main_app.action_dispatcher.dispatch_spec(action_id, item.get("spec", {}))

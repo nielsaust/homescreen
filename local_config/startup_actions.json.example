@@ -1,0 +1,13 @@
+{
+  "actions": [
+    {
+      "id": "refresh_music_state",
+      "kind": "mqtt_publish",
+      "topic_key": "update_music",
+      "payload": null,
+      "delay_ms": 1500,
+      "require_mqtt": true,
+      "enabled": true
+    }
+  ]
+}

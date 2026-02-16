@@ -16,6 +16,8 @@ MQTT_ROUTES = ROOT / "local_config" / "mqtt_routes.json"
 MQTT_ROUTES_EXAMPLE = ROOT / "local_config" / "mqtt_routes.json.example"
 DEVICE_STATE_MAPPING = ROOT / "local_config" / "device_state_mapping.json"
 DEVICE_STATE_MAPPING_EXAMPLE = ROOT / "local_config" / "device_state_mapping.json.example"
+STARTUP_ACTIONS = ROOT / "local_config" / "startup_actions.json"
+STARTUP_ACTIONS_EXAMPLE = ROOT / "local_config" / "startup_actions.json.example"
 
 
 def _load_json(path: Path) -> dict:
@@ -66,6 +68,18 @@ def ensure_device_state_mapping_file() -> None:
         )
 
 
+def ensure_startup_actions_file() -> None:
+    if STARTUP_ACTIONS.exists():
+        return
+    STARTUP_ACTIONS.parent.mkdir(parents=True, exist_ok=True)
+    if STARTUP_ACTIONS_EXAMPLE.exists():
+        shutil.copy2(STARTUP_ACTIONS_EXAMPLE, STARTUP_ACTIONS)
+        print(
+            "[setup] created local_config/startup_actions.json "
+            "from local_config/startup_actions.json.example"
+        )
+
+
 def ensure_settings_keys() -> None:
     local = _load_json(SETTINGS)
     example = _load_json(SETTINGS_EXAMPLE)
@@ -90,6 +104,7 @@ def main() -> int:
     ensure_mqtt_topics_file()
     ensure_mqtt_routes_file()
     ensure_device_state_mapping_file()
+    ensure_startup_actions_file()
     ensure_settings_keys()
     ensure_directories()
     print("[setup] post-pull setup complete")

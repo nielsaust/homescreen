@@ -23,6 +23,8 @@ CAMERAS_LOCAL = ROOT / "local_config" / "cameras.json"
 MQTT_TOPICS_LOCAL = ROOT / "local_config" / "mqtt_topics.json"
 MQTT_TOPICS_EXAMPLE = ROOT / "local_config" / "mqtt_topics.json.example"
 MQTT_ROUTES_LOCAL = ROOT / "local_config" / "mqtt_routes.json"
+STARTUP_ACTIONS_LOCAL = ROOT / "local_config" / "startup_actions.json"
+STARTUP_ACTIONS_EXAMPLE = ROOT / "local_config" / "startup_actions.json.example"
 IMAGES_DIR = ROOT / "images" / "buttons"
 
 
@@ -156,17 +158,6 @@ def main() -> int:
     referenced_topic_keys = set()
     for action_id, spec in ACTION_SPECS.items():
         kind = str(spec.get("kind", "")).strip()
-        if "run_on_startup" in spec and not isinstance(spec.get("run_on_startup"), bool):
-            issues.append(f"Action '{action_id}' has non-bool run_on_startup")
-        if "startup_delay_ms" in spec:
-            try:
-                delay = int(spec.get("startup_delay_ms"))
-                if delay < 0:
-                    issues.append(f"Action '{action_id}' has negative startup_delay_ms")
-            except Exception:
-                issues.append(f"Action '{action_id}' has invalid startup_delay_ms")
-        if "startup_require_mqtt" in spec and not isinstance(spec.get("startup_require_mqtt"), bool):
-            issues.append(f"Action '{action_id}' has non-bool startup_require_mqtt")
         if kind == "show_qr":
             item_id = str(spec.get("item_id", "")).strip()
             if item_id:
@@ -210,9 +201,42 @@ def main() -> int:
                 route_topic_keys.add(key)
                 if mqtt_topics and key not in mqtt_topics:
                     issues.append(f"MQTT route references missing topic key: '{key}'")
-    internally_used_topic_keys = {"update_music"}
+    startup_actions = _load_json(STARTUP_ACTIONS_LOCAL)
+    if not startup_actions:
+        startup_actions = _load_json(STARTUP_ACTIONS_EXAMPLE)
+    startup_topic_keys = set()
+    startup_entries = startup_actions.get("actions", [])
+    if startup_entries and not isinstance(startup_entries, list):
+        issues.append("startup_actions.json has invalid 'actions' type; expected list")
+        startup_entries = []
+    for entry in startup_entries if isinstance(startup_entries, list) else []:
+        if not isinstance(entry, dict):
+            issues.append("startup_actions.json contains non-object action entry")
+            continue
+        action_id = str(entry.get("id", "startup_action")).strip() or "startup_action"
+        kind = str(entry.get("kind", "")).strip()
+        if kind not in ("mqtt_action", "mqtt_publish"):
+            issues.append(f"Startup action '{action_id}' has unsupported kind '{kind}'")
+        if "enabled" in entry and not isinstance(entry.get("enabled"), bool):
+            issues.append(f"Startup action '{action_id}' has non-bool enabled")
+        if "require_mqtt" in entry and not isinstance(entry.get("require_mqtt"), bool):
+            issues.append(f"Startup action '{action_id}' has non-bool require_mqtt")
+        if "delay_ms" in entry:
+            try:
+                delay = int(entry.get("delay_ms"))
+                if delay < 0:
+                    issues.append(f"Startup action '{action_id}' has negative delay_ms")
+            except Exception:
+                issues.append(f"Startup action '{action_id}' has invalid delay_ms")
+        topic_key = str(entry.get("topic_key", "")).strip()
+        if topic_key:
+            startup_topic_keys.add(topic_key)
+            if mqtt_topics and topic_key not in mqtt_topics:
+                issues.append(f"Startup action '{action_id}' references missing mqtt topic key: '{topic_key}'")
+
+    internally_used_topic_keys = set()
     unused_topic_keys = sorted(
-        set(mqtt_topics.keys()) - (referenced_topic_keys | route_topic_keys | internally_used_topic_keys)
+        set(mqtt_topics.keys()) - (referenced_topic_keys | route_topic_keys | startup_topic_keys | internally_used_topic_keys)
     )
     if unused_topic_keys:
         warnings.append(f"MQTT topic keys defined but unused by menu actions/routes: {unused_topic_keys}")

@@ -34,6 +34,12 @@ class ActionDispatcher:
         if spec is None:
             logger.warning("No action handler found for '%s'", action)
             return
+        self.dispatch_spec(action, spec)
+
+    def dispatch_spec(self, action: str, spec: dict) -> None:
+        if not isinstance(spec, dict):
+            logger.warning("Invalid action spec for '%s'", action)
+            return
         self._execute(action, spec)
 
     def _execute(self, action: str, spec: dict) -> None:

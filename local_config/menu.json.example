@@ -193,14 +193,6 @@
       "kind": "custom",
       "name": "music_show_title"
     },
-    "startup_refresh_music_state": {
-      "kind": "mqtt_publish",
-      "topic_key": "update_music",
-      "payload": null,
-      "run_on_startup": true,
-      "startup_delay_ms": 1500,
-      "startup_require_mqtt": true
-    },
     "show_weather_on_idle": {
       "kind": "setting_toggle",
       "attr": "show_weather_on_idle"

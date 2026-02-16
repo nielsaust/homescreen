@@ -6,6 +6,7 @@ Primary files:
 - `settings.json`: app runtime settings
 - `mqtt_topics.json`: MQTT topic mapping
 - `mqtt_routes.json`: topic -> behavior routing
+- `startup_actions.json`: startup-triggered actions (e.g., MQTT refresh calls)
 - `device_state_mapping.json`: mapping for incoming device-state payload fields
 - `cameras.json`: camera URLs/credentials
 - `menu.json`: personal menu schema/actions/state
@@ -55,6 +56,20 @@ Route fields:
   - `print_screen_attention`
   - `close_print_screen`
   - `cancel_attention`
+
+## Startup actions
+
+1. Copy `startup_actions.json.example` to `startup_actions.json`.
+2. Define actions that should run after app startup.
+
+Action fields:
+- `id`: unique action id for logging.
+- `kind`: action type currently supporting `mqtt_publish` and `mqtt_action`.
+- `topic_key` or `topic`: publish destination.
+- `payload`/`action`/`value`/`extra`: action payload fields depending on kind.
+- `delay_ms`: optional startup delay.
+- `require_mqtt`: wait for MQTT controller readiness before execution.
+- `enabled`: quick on/off toggle.
 
 ## Cameras
 
