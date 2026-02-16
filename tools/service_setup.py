@@ -103,7 +103,7 @@ def wizard() -> int:
             "sudo",
             "sed",
             "-i",
-            f"/^Environment=PYTHONUNBUFFERED=1/a Environment=DISPLAY=:0\\nEnvironment=XAUTHORITY=/home/{user}/.Xauthority",
+            f"s|^Environment=XAUTHORITY=.*|Environment=XAUTHORITY=/home/{user}/.Xauthority|",
             "/etc/systemd/system/homescreen.service",
         ]
     )

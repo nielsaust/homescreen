@@ -314,7 +314,7 @@ def configure_services() -> None:
         return
 
     run = _prompt_bool(
-        "Run Linux service setup helper now (systemd autostart + optional deploy timer)?",
+        "Run Linux service setup helper now (systemd autostart, X display readiness, optional deploy timer)?",
         False,
     )
     if not run:
@@ -334,7 +334,7 @@ def main() -> int:
             print("2) Music integration")
             print("3) Weather integration")
             print("4) Smart-home integration")
-            print("5) Auto-start/update setup (Linux/systemd)")
+            print("5) Auto-start/update setup (Linux/systemd, recommended on Pi)")
             print("6) Save and exit")
             print("7) Exit without saving")
 

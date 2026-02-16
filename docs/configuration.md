@@ -51,6 +51,11 @@ MQTT topics are stored separately in `local_config/mqtt_topics.json`.
 5. Auto-start/update setup
 - Linux/systemd only.
 - On non-Linux platforms this option is shown as unavailable.
+- On Raspberry Pi this is recommended:
+  - installs/updates `homescreen.service` and deploy timer units
+  - configures `DISPLAY=:0` + `XAUTHORITY`
+  - configures a startup wait for X display availability (`/tmp/.X11-unix/X0`)
+  - enables app autostart on `graphical.target`
 
 ## Related Commands
 

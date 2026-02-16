@@ -63,8 +63,15 @@ sudo sed -i 's|^ExecStart=.*|ExecStart=/usr/bin/bash /home/<USER>/homescreen/too
 GUI environment for Tk:
 
 ```bash
-sudo sed -i '/^Environment=PYTHONUNBUFFERED=1/a Environment=DISPLAY=:0\nEnvironment=XAUTHORITY=/home/<USER>/.Xauthority' /etc/systemd/system/homescreen.service
+sudo sed -i 's|^Environment=XAUTHORITY=.*|Environment=XAUTHORITY=/home/<USER>/.Xauthority|' /etc/systemd/system/homescreen.service
 ```
+
+The shipped service file already includes:
+- `After=network-online.target display-manager.service`
+- `Environment=DISPLAY=:0`
+- `Environment=XAUTHORITY=/home/<USER>/.Xauthority`
+- `ExecStartPre` wait loop for `/tmp/.X11-unix/X0` (prevents early-start race on boot)
+- `WantedBy=graphical.target`
 
 ## 4) Allow deploy service restart without password
 
@@ -85,7 +92,8 @@ sudo git config --global --add safe.directory /home/<USER>/homescreen
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now homescreen.service
+sudo systemctl reenable homescreen.service
+sudo systemctl start homescreen.service
 sudo systemctl enable --now homescreen-deploy.timer
 ```
 
@@ -114,6 +122,23 @@ Common startup failures:
 - `local_config/settings.json not found` -> copy from example.
 - `logs/<date>.log not found` -> create `logs/`.
 - `RPi.GPIO import` error -> install/update GPIO deps on Pi.
+- Service starts manually but not after reboot:
+  - run `sudo systemctl reenable homescreen.service`
+  - verify `systemctl get-default` is `graphical.target`
+  - verify unit install target is `WantedBy=graphical.target`
+
+If service file drifted during older setup attempts, reset it to the example:
+
+```bash
+sudo cp deploy/systemd/homescreen.service.example /etc/systemd/system/homescreen.service
+sudo sed -i 's|^User=.*|User=<USER>|' /etc/systemd/system/homescreen.service
+sudo sed -i 's|^WorkingDirectory=.*|WorkingDirectory=/home/<USER>/homescreen|' /etc/systemd/system/homescreen.service
+sudo sed -i 's|^ExecStart=.*|ExecStart=/home/<USER>/homescreen/.venv/bin/python /home/<USER>/homescreen/main.py|' /etc/systemd/system/homescreen.service
+sudo sed -i 's|^Environment=XAUTHORITY=.*|Environment=XAUTHORITY=/home/<USER>/.Xauthority|' /etc/systemd/system/homescreen.service
+sudo systemctl daemon-reload
+sudo systemctl reenable homescreen.service
+sudo systemctl restart homescreen.service
+```
 
 ## 9) Test deploy manually
 
