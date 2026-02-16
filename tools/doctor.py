@@ -12,6 +12,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from app.config.mqtt_topics import load_mqtt_topics
 
 REQUIRED_IMPORTS = [
     "tkinter",
@@ -30,8 +34,6 @@ REQUIRED_SETTINGS_KEYS = [
     "mqtt_port",
     "mqtt_user",
     "mqtt_password",
-    "mqtt_topic_music",
-    "mqtt_topic_devices",
     "weather_api_key",
     "weather_city_id",
 ]
@@ -97,6 +99,12 @@ def _check_settings() -> list[str]:
             importlib.import_module("sentry_sdk")
         except Exception as exc:  # pragma: no cover
             errors.append(f"Sentry enabled but sentry-sdk import failed: {exc}")
+
+    topics = load_mqtt_topics(data)
+    if not str(topics.get("mqtt_topic_music", "")).strip():
+        errors.append("Missing mqtt topic: mqtt_topic_music (set in local_config/mqtt_topics.json)")
+    if not str(topics.get("mqtt_topic_devices", "")).strip():
+        errors.append("Missing mqtt topic: mqtt_topic_devices (set in local_config/mqtt_topics.json)")
 
     return errors
 

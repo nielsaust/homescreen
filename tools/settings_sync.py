@@ -20,6 +20,10 @@ SENSITIVE_KEY_PARTS = (
     "dsn",
 )
 
+IGNORED_LOCAL_ONLY_PREFIXES = (
+    "mqtt_topic_",
+)
+
 
 def is_sensitive_key(path: str) -> bool:
     lowered = path.lower()
@@ -151,7 +155,12 @@ def command_check() -> int:
     local_paths = flatten_paths(local)
     example_paths = flatten_paths(example)
 
-    only_local = sorted(set(local_paths) - set(example_paths))
+    raw_only_local = sorted(set(local_paths) - set(example_paths))
+    only_local = sorted(
+        path
+        for path in raw_only_local
+        if not any(path.startswith(prefix) for prefix in IGNORED_LOCAL_ONLY_PREFIXES)
+    )
     only_example = sorted(set(example_paths) - set(local_paths))
 
     type_mismatches = []
@@ -241,7 +250,12 @@ def command_prune_local(apply: bool) -> int:
 
     local_paths = flatten_paths(local)
     example_paths = flatten_paths(example)
-    extra_paths = sorted(set(local_paths) - set(example_paths))
+    raw_extra_paths = sorted(set(local_paths) - set(example_paths))
+    extra_paths = sorted(
+        path
+        for path in raw_extra_paths
+        if not any(path.startswith(prefix) for prefix in IGNORED_LOCAL_ONLY_PREFIXES)
+    )
 
     print("[settings-sync] prune-local")
     print(f"- extra keys in local_config/settings.json: {len(extra_paths)}")

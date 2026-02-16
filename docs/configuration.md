@@ -8,6 +8,7 @@ make configuration
 ```
 
 The wizard updates `local_config/settings.json` interactively.
+MQTT topics are stored separately in `local_config/mqtt_topics.json`.
 
 ## Sections
 
@@ -21,7 +22,7 @@ The wizard updates `local_config/settings.json` interactively.
 
 2. Music integration
 - Enable/disable music integration (`enable_music`)
-- Music topic (`mqtt_topic_music`)
+- Music topic (`mqtt_topic_music`, stored in `local_config/mqtt_topics.json`)
 - Home Assistant API base URL (`home_assistant_api_base_url`)
 - Music display toggles (`media_show_titles`, `media_sanitize_titles`)
 
@@ -50,5 +51,6 @@ The wizard updates `local_config/settings.json` interactively.
 ## Related Commands
 
 - `make service-setup`: Linux systemd setup wizard (optional)
+- `make mqtt-topics`: interactive MQTT topic overview/edit wizard
 - `make menu-item-scaffold`: interactive menu item create/edit/remove/verify
 - `make menu-contract-check`: validates menu/action/settings wiring

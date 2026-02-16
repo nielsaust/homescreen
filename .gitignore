@@ -18,6 +18,7 @@ settings.json
 images/custom/
 local_config/qr_items.json
 local_config/cameras.json
+local_config/mqtt_topics.json
 local_config/menu.json
 local_config/*.backup.json
 local_config/*.json.backup

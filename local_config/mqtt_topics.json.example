@@ -1,0 +1,18 @@
+{
+  "topics": {
+    "mqtt_topic_music": "music",
+    "mqtt_topic_devices": "screen_commands/incoming",
+    "mqtt_topic_actions_outgoing": "screen_commands/outgoing",
+    "mqtt_topic_update_music": "screen_commands/update_music",
+    "mqtt_topic_alert": "screen_commands/alert",
+    "mqtt_topic_doorbell_command": "",
+    "mqtt_topic_doorbell": "",
+    "mqtt_topic_printer_progress": "",
+    "mqtt_topic_calendar": "",
+    "mqtt_topic_print_start": "",
+    "mqtt_topic_print_done": "",
+    "mqtt_topic_print_cancelled": "",
+    "mqtt_topic_print_change_filament": "",
+    "mqtt_topic_print_change_z": ""
+  }
+}

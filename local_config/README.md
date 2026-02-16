@@ -18,6 +18,12 @@ Supported types:
 - `url`: fields `url`
 - `wifi`: fields `ssid`, `password`, optional `auth` (`WPA`, `WEP`, `nopass`), optional `hidden` (`true`/`false`)
 
+## MQTT topics
+
+1. Copy `mqtt_topics.json.example` to `mqtt_topics.json`.
+2. Set only the topics you use.
+3. Use `make mqtt-topics` for interactive overview/edit.
+
 ## Cameras
 
 1. Copy `cameras.json.example` to `cameras.json`.

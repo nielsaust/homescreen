@@ -4,11 +4,16 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SETTINGS_PATH = ROOT / "local_config" / "settings.json"
 SETTINGS_EXAMPLE_PATH = ROOT / "settings.json.example"
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from app.config.mqtt_topics import load_mqtt_topics
 
 
 def _load_settings() -> dict:
@@ -18,7 +23,7 @@ def _load_settings() -> dict:
 
 def main() -> int:
     settings = _load_settings()
-    topic = settings.get("mqtt_topic_music", "music")
+    topic = load_mqtt_topics(settings).get("mqtt_topic_music", "music")
 
     yaml_text = f"""script:
   action: mqtt.publish

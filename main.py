@@ -15,6 +15,7 @@ from app.services.queue_pump_service import QueuePumpService
 from app.services.system_info_service import SystemInfoService
 from app.ui.widgets.network_status_widget import NetworkStatusWidget
 from app.config.settings import Settings
+from app.config.mqtt_topics import apply_mqtt_topics_to_settings
 from app.config.settings_paths import resolve_settings_path
 from app.observability.sentry_setup import init_sentry
 from app.observability.domain_logger import log_event
@@ -29,6 +30,7 @@ class MainApp:
     def __init__(self, root):
         log_event(logger, logging.INFO, "app", "startup.begin", at=self.print_current_datetime())
         self.settings = Settings(str(resolve_settings_path()))
+        self.mqtt_topics = apply_mqtt_topics_to_settings(self.settings)
         log_setup.apply_runtime_logging_policy(self.settings)
         init_sentry(self.settings)
         self.composition_service = AppCompositionService(self)

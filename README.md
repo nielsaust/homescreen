@@ -48,6 +48,7 @@ Full deploy/systemd setup: `docs/deploy.md`
 
 - Install/update env: `make install`
 - Configure integrations: `make configuration`
+- Configure MQTT topics: `make mqtt-topics`
 - Local checks: `make test-local`
 - Run app: `make run`
 - Pi checks: `make test-device`
