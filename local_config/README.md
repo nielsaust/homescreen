@@ -6,6 +6,7 @@ Primary files:
 - `settings.json`: app runtime settings
 - `mqtt_topics.json`: MQTT topic mapping
 - `mqtt_routes.json`: topic -> behavior routing
+- `device_state_mapping.json`: mapping for incoming device-state payload fields
 - `cameras.json`: camera URLs/credentials
 - `menu.json`: personal menu schema/actions/state
 - `qr_items.json`: personal QR payloads
@@ -65,3 +66,14 @@ Optional fields per camera:
 - `command_topic`: publish topic when opening the camera.
 - `command_payload`: payload to publish to `command_topic`.
 - `overlay_data`: payload passed to camera overlay (defaults to `{"active": true}`).
+
+## Device state mapping
+
+1. Copy `device_state_mapping.json.example` to `device_state_mapping.json`.
+2. Configure how incoming device-state payload fields are mapped/coerced into `DeviceStates`.
+
+Field spec:
+- `source`: key in incoming payload.
+- `type`: one of `string`, `float`, `on_off_bool`, `light`, `availability`.
+- `default`: optional fallback.
+- `track_original`: optional (useful for edge-trigger behavior like `in_bed`).

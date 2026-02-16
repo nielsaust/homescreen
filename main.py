@@ -17,6 +17,7 @@ from app.ui.widgets.network_status_widget import NetworkStatusWidget
 from app.config.settings import Settings
 from app.config.mqtt_topics import apply_mqtt_topics_to_settings
 from app.config.mqtt_routes import load_mqtt_routes, resolve_topic_routes
+from app.config.device_state_mapping import load_device_state_mapping
 from app.config.settings_paths import resolve_settings_path
 from app.observability.sentry_setup import init_sentry
 from app.observability.domain_logger import log_event
@@ -33,6 +34,7 @@ class MainApp:
         self.settings = Settings(str(resolve_settings_path()))
         self.mqtt_topics = apply_mqtt_topics_to_settings(self.settings)
         self.mqtt_routes = resolve_topic_routes(self.mqtt_topics, load_mqtt_routes())
+        self.device_state_mapping = load_device_state_mapping()
         log_setup.apply_runtime_logging_policy(self.settings)
         init_sentry(self.settings)
         self.composition_service = AppCompositionService(self)

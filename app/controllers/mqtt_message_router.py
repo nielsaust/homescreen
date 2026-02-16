@@ -80,7 +80,10 @@ class MqttMessageRouter:
 
     def _handle_device_states(self, data):
         try:
-            self.main_app.device_states.update_states(data)
+            self.main_app.device_states.update_states(
+                data,
+                mapping=getattr(self.main_app, "device_state_mapping", None),
+            )
             self.main_app.publish_event(
                 "device.state.updated",
                 {

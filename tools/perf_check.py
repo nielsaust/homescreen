@@ -106,7 +106,7 @@ class _FakeDeviceStates:
         self.in_bed = "off"
         self.printer_progress = 0
 
-    def update_states(self, data):
+    def update_states(self, data, mapping=None):
         if "in_bed" in data:
             self.in_bed = data["in_bed"]
 
@@ -125,14 +125,26 @@ class _FakeMainApp:
             enable_weather=True,
         )
         self.mqtt_routes = [
-            {"topic": "music", "handler": "music_update", "phase": "essential"},
-            {"topic": "screen_commands/incoming", "handler": "device_states_update", "phase": "essential"},
-            {"topic": "octoPrint/progress/printing", "handler": "printer_progress", "phase": "nonessential"},
-            {"topic": "calendar", "handler": "overlay_calendar", "phase": "nonessential"},
+            {"topic": "music", "action": "music_update", "phase": "essential"},
+            {"topic": "screen_commands/incoming", "action": "device_states_update", "phase": "essential"},
+            {"topic": "octoPrint/progress/printing", "action": "printer_progress_update", "phase": "nonessential"},
+            {"topic": "calendar", "action": "overlay_command", "overlay_command": "show_calendar", "phase": "nonessential"},
         ]
+        self.device_state_mapping = None
         self.device_states = _FakeDeviceStates()
         self.display_controller = _FakeDisplayController()
         self.music_object = SimpleNamespace(state="idle")
+        self.startup_sync_service = SimpleNamespace(check_queue=self.check_mqtt_message_queue)
+        self.music_update_service = SimpleNamespace(queue_update=self.queue_music_update)
+        self.power_policy_service = SimpleNamespace(check_bed_time=self.check_bed_time)
+        self.music_playback_policy_service = SimpleNamespace(
+            cancel_pause_idle_timeout=self._cancel_music_pause_timeout,
+            schedule_pause_idle=self._schedule_music_pause_idle,
+        )
+        self.screen_state_controller = SimpleNamespace(
+            switch_to_music=self.switch_to_music,
+            switch_to_idle=self.switch_to_idle,
+        )
 
     def publish_event(self, *_args, **_kwargs):
         self.events += 1

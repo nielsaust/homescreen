@@ -14,6 +14,8 @@ MQTT_TOPICS = ROOT / "local_config" / "mqtt_topics.json"
 MQTT_TOPICS_EXAMPLE = ROOT / "local_config" / "mqtt_topics.json.example"
 MQTT_ROUTES = ROOT / "local_config" / "mqtt_routes.json"
 MQTT_ROUTES_EXAMPLE = ROOT / "local_config" / "mqtt_routes.json.example"
+DEVICE_STATE_MAPPING = ROOT / "local_config" / "device_state_mapping.json"
+DEVICE_STATE_MAPPING_EXAMPLE = ROOT / "local_config" / "device_state_mapping.json.example"
 
 
 def _load_json(path: Path) -> dict:
@@ -52,6 +54,18 @@ def ensure_mqtt_routes_file() -> None:
         print("[setup] created local_config/mqtt_routes.json from local_config/mqtt_routes.json.example")
 
 
+def ensure_device_state_mapping_file() -> None:
+    if DEVICE_STATE_MAPPING.exists():
+        return
+    DEVICE_STATE_MAPPING.parent.mkdir(parents=True, exist_ok=True)
+    if DEVICE_STATE_MAPPING_EXAMPLE.exists():
+        shutil.copy2(DEVICE_STATE_MAPPING_EXAMPLE, DEVICE_STATE_MAPPING)
+        print(
+            "[setup] created local_config/device_state_mapping.json "
+            "from local_config/device_state_mapping.json.example"
+        )
+
+
 def ensure_settings_keys() -> None:
     local = _load_json(SETTINGS)
     example = _load_json(SETTINGS_EXAMPLE)
@@ -75,6 +89,7 @@ def main() -> int:
     ensure_settings_file()
     ensure_mqtt_topics_file()
     ensure_mqtt_routes_file()
+    ensure_device_state_mapping_file()
     ensure_settings_keys()
     ensure_directories()
     print("[setup] post-pull setup complete")

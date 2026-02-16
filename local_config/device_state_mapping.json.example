@@ -1,0 +1,21 @@
+{
+  "fields": {
+    "harmony_state": {"source": "harmony_state", "type": "string", "default": "Off"},
+    "cover_kitchen": {"source": "cover_kitchen", "type": "float", "default": 0},
+    "living_room_temp": {"source": "living_room_temp", "type": "float", "default": 15},
+    "light_tafel": {"source": "light_tafel", "type": "light"},
+    "light_keuken": {"source": "light_keuken", "type": "light"},
+    "light_kleur": {"source": "light_kleur", "type": "light"},
+    "light_woonkamer": {"source": "light_woonkamer", "type": "light"},
+    "in_bed": {"source": "in_bed", "type": "on_off_bool", "default": false, "track_original": true},
+    "trash_warning": {"source": "trash_warning", "type": "on_off_bool", "default": false},
+    "bed_heating_on": {"source": "bed_heating_on", "type": "on_off_bool", "default": false},
+    "playstation_power": {"source": "playstation_power", "type": "on_off_bool", "default": false},
+    "playstation_available": {
+      "source": "playstation_power",
+      "type": "availability",
+      "unavailable_value": "unavailable",
+      "default": true
+    }
+  }
+}

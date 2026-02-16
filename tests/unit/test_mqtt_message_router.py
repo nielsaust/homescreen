@@ -14,8 +14,9 @@ class _DeviceStates:
         self.printer_progress = 0
         self.in_bed = "off"
 
-    def update_states(self, data):
-        self.in_bed = data.get("in_bed", self.in_bed)
+    def update_states(self, data, mapping=None):
+        value = data.get("in_bed", self.in_bed)
+        self.in_bed = str(value).strip().lower() in ("on", "true", "1", "yes")
 
 
 class _MainApp:
@@ -31,11 +32,12 @@ class _MainApp:
             show_cam_on_print_percentage=80,
         )
         self.mqtt_routes = [
-            {"topic": "music", "handler": "music_update", "phase": "essential"},
-            {"topic": "screen_commands/incoming", "handler": "device_states_update", "phase": "essential"},
-            {"topic": "octoPrint/progress/printing", "handler": "printer_progress", "phase": "nonessential"},
-            {"topic": "calendar", "handler": "overlay_calendar", "phase": "nonessential"},
+            {"topic": "music", "action": "music_update", "phase": "essential"},
+            {"topic": "screen_commands/incoming", "action": "device_states_update", "phase": "essential"},
+            {"topic": "octoPrint/progress/printing", "action": "printer_progress_update", "phase": "nonessential"},
+            {"topic": "calendar", "action": "overlay_command", "overlay_command": "show_calendar", "phase": "nonessential"},
         ]
+        self.device_state_mapping = None
         self.device_states = _DeviceStates()
         self.startup_sync_service = SimpleNamespace(check_queue=self.check_mqtt_message_queue)
         self.music_update_service = SimpleNamespace(queue_update=self.queue_music_update)
@@ -95,7 +97,7 @@ class TestMqttMessageRouter(unittest.TestCase):
 
         router.handle("screen_commands/incoming", {"in_bed": "on"})
 
-        self.assertEqual(app.device_states.in_bed, "on")
+        self.assertTrue(app.device_states.in_bed)
         self.assertEqual(app.bed_time_checks, 1)
         event_names = [entry[0] for entry in app.events]
         self.assertIn("device.state.updated", event_names)
