@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from app.controllers.overlay_commands import OverlayCommand
 from app.controllers.action_registry import ACTION_SPECS
 from app.config.camera_config_loader import get_camera_specs
+from app.observability.domain_logger import log_event
 
 if TYPE_CHECKING:
     from main import MainApp
@@ -153,6 +154,14 @@ class ActionDispatcher:
         topic = self._resolve_topic_for_spec(spec, default_topic_key="actions_outgoing")
         if not topic:
             logger.warning("MQTT action missing publish topic")
+            log_event(
+                logger,
+                logging.WARNING,
+                "mqtt",
+                "action.publish_topic_missing",
+                action=str(spec.get("action", "")),
+                topic_key=str(spec.get("topic_key", "actions_outgoing")),
+            )
             self.main_app.notify_setup_required("MQTT")
             return
 
@@ -171,6 +180,14 @@ class ActionDispatcher:
         topic = self._resolve_topic_for_spec(spec, default_topic_key="")
         if not topic:
             logger.warning("MQTT publish missing topic")
+            log_event(
+                logger,
+                logging.WARNING,
+                "mqtt",
+                "publish_topic_missing",
+                topic_key=str(spec.get("topic_key", "")),
+                topic=str(spec.get("topic", "")),
+            )
             self.main_app.notify_setup_required("MQTT")
             return
         payload = self._normalize_payload(spec.get("payload"))
