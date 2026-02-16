@@ -61,6 +61,7 @@ Supported item types in `create`:
 - `mqtt_message`
 - `show_image`
 - `show_qr` (reads payload from `local_config/qr_items.json`)
+- `show_camera` (reads payload from `local_config/cameras.json`)
 - `custom` (includes action-dispatcher stub method)
 - `submenu` (includes placeholder child action + custom stub)
 
@@ -101,6 +102,11 @@ Defined in `action_specs` in `/Users/niels/Documents/Workspace/Personal/homescre
 - `show_qr`
   - Example:
   - `{"kind": "show_qr", "item_id": "wifi_home"}`
+- `show_camera`
+  - Example:
+  - `{"kind": "show_camera", "camera_id": "doorbell"}`
+  - Optional override fields:
+  - `command_topic`, `command_payload`
 - `setting_toggle`
   - Example:
   - `{"kind": "setting_toggle", "attr": "media_show_titles"}`

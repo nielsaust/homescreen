@@ -17,3 +17,14 @@ This directory contains machine-local config that should not be committed.
 Supported types:
 - `url`: fields `url`
 - `wifi`: fields `ssid`, `password`, optional `auth` (`WPA`, `WEP`, `nopass`), optional `hidden` (`true`/`false`)
+
+## Cameras
+
+1. Copy `cameras.json.example` to `cameras.json`.
+2. Fill in your local values.
+3. Reference camera ids from menu actions using action kind `show_camera`.
+
+Optional fields per camera:
+- `command_topic`: publish topic when opening the camera.
+- `command_payload`: payload to publish to `command_topic`.
+- `overlay_data`: payload passed to camera overlay (defaults to `{"active": true}`).

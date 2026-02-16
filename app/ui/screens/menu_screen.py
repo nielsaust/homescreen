@@ -268,7 +268,17 @@ class MenuScreen:
 
     def remove_children(self, widget):
         for child in widget.winfo_children():
-            child.grid_forget()
+            # Toplevel overlays (e.g. QR window) are not managed by grid/pack.
+            if isinstance(child, tk.Toplevel):
+                child.destroy()
+                continue
+            manager = child.winfo_manager()
+            if manager == "grid":
+                child.grid_forget()
+            elif manager == "pack":
+                child.pack_forget()
+            elif manager == "place":
+                child.place_forget()
 
     def change_button_background(self, button, new_color, duration_ms):
         widget = button.label

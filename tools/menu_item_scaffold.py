@@ -288,6 +288,11 @@ def _ensure_action_spec(action_specs: dict[str, dict[str, Any]], action_id: str,
         action_specs[action_id] = {"kind": "show_qr", "item_id": qr_item_id}
         return action_specs, None
 
+    if item_type == "show_camera":
+        camera_id = _prompt_required("Camera id (from local_config/cameras.json)", action_id)
+        action_specs[action_id] = {"kind": "show_camera", "camera_id": camera_id}
+        return action_specs, None
+
     if item_type == "custom":
         handler_name = _prompt_required("Custom handler name", action_id)
         action_specs[action_id] = {"kind": "custom", "name": handler_name}
@@ -323,7 +328,7 @@ def _create_item() -> int:
     action_id = _prompt_required("Action id", item_id)
     item_type = _prompt_choice(
         "Item type",
-        ["setting_toggle", "mqtt_action", "mqtt_message", "show_image", "show_qr", "custom", "submenu"],
+        ["setting_toggle", "mqtt_action", "mqtt_message", "show_image", "show_qr", "show_camera", "custom", "submenu"],
         "show_qr",
     )
 
@@ -387,7 +392,7 @@ def _edit_item() -> int:
         if create_spec == "y":
             action_type = _prompt_choice(
                 "Action type",
-                ["setting_toggle", "mqtt_action", "mqtt_message", "show_image", "show_qr", "custom"],
+                ["setting_toggle", "mqtt_action", "mqtt_message", "show_image", "show_qr", "show_camera", "custom"],
                 "custom",
             )
             action_specs, _ = _ensure_action_spec(action_specs, new_action, action_type)

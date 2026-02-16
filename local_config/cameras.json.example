@@ -1,0 +1,20 @@
+{
+  "cameras": {
+    "doorbell": {
+      "url": "http://doorbell.url/cgi-bin/snapshot.cgi?channel=1",
+      "username": "CHANGE_ME",
+      "password": "CHANGE_ME",
+      "overlay_data": {
+        "active": true
+      },
+      "command_topic": "screen_commands/doorbell",
+      "command_payload": {
+        "active": true
+      }
+    },
+    "printer": {
+      "url": "http://octopi.local/webcam/?action=snapshot",
+      "overlay_data": {}
+    }
+  }
+}

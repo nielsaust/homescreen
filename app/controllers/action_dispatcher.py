@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from app.controllers.overlay_commands import OverlayCommand
 from app.controllers.action_registry import ACTION_SPECS
+from app.config.camera_config_loader import get_camera_specs
 
 if TYPE_CHECKING:
     from main import MainApp
@@ -60,6 +61,13 @@ class ActionDispatcher:
             if payload is None:
                 return
             self.main_app.display_controller.show_fullscreen_qr(payload)
+            return
+        if kind == "show_camera":
+            self._show_camera(
+                spec.get("camera_id", ""),
+                command_topic=spec.get("command_topic"),
+                command_payload=spec.get("command_payload"),
+            )
             return
         if kind == "setting_toggle":
             self._toggle_setting(spec["attr"])
@@ -143,29 +151,8 @@ class ActionDispatcher:
             self.main_app.root.after(120, self.main_app.media_controller.show_music_overlays)
 
     def _doorbell_action(self) -> None:
-        if not self._ensure_mqtt_enabled():
-            return
-        doorbell_command_topic = str(
-            getattr(self.main_app.settings, "mqtt_topic_doorbell_command", "")
-        ).strip()
-        if not doorbell_command_topic:
-            self.main_app.notify_setup_required("Doorbell")
-            return
-        # Always open the camera immediately on local press, even if HA state is already active.
-        self.main_app.request_overlay(
-            OverlayCommand.SHOW_CAM,
-            {
-                "data": {"active": True},
-                "url": f"http://{self.main_app.settings.doorbell_url}{self.main_app.settings.doorbell_path}",
-                "username": self.main_app.settings.doorbell_username,
-                "password": self.main_app.settings.doorbell_password,
-            },
-            source="action_dispatcher",
-        )
-        # Also notify HA flow so timeout/automation behavior remains in sync.
-        self.main_app.mqtt_controller.publish_message(
-            topic=doorbell_command_topic
-        )
+        # Backward compatibility with older menu actions.
+        self._show_camera("doorbell")
 
     def _ensure_mqtt_enabled(self) -> bool:
         if self.main_app.is_mqtt_enabled():
@@ -193,3 +180,82 @@ class ActionDispatcher:
             logger.warning("QR item '%s' not found in %s", item_id, QR_ITEMS_PATH)
             return None
         return payload
+
+    def _show_camera(
+        self,
+        camera_id: str,
+        command_topic: str | None = None,
+        command_payload=None,
+    ) -> None:
+        camera_id = str(camera_id or "").strip()
+        if not camera_id:
+            logger.warning("Camera action missing camera_id")
+            return
+
+        camera = self._load_camera_item(camera_id)
+        if camera is None:
+            self.main_app.notify_setup_required("Camera")
+            return
+
+        url = str(camera.get("url", "")).strip()
+        if not url:
+            logger.warning("Camera '%s' missing URL", camera_id)
+            self.main_app.notify_setup_required("Camera")
+            return
+
+        username = camera.get("username")
+        password = camera.get("password")
+        overlay_data = camera.get("overlay_data")
+        if not isinstance(overlay_data, dict):
+            overlay_data = {"active": True}
+
+        self.main_app.request_overlay(
+            OverlayCommand.SHOW_CAM,
+            {
+                "data": overlay_data,
+                "url": url,
+                "username": username,
+                "password": password,
+            },
+            source="action_dispatcher",
+        )
+
+        topic = str(command_topic or camera.get("command_topic") or "").strip()
+        if not topic:
+            return
+
+        if not self._ensure_mqtt_enabled():
+            return
+
+        payload = command_payload if command_payload is not None else camera.get("command_payload")
+        if payload is None:
+            payload = overlay_data
+        if isinstance(payload, (dict, list)):
+            payload = json.dumps(payload)
+        elif payload is not None:
+            payload = str(payload)
+        self.main_app.mqtt_controller.publish_message(payload=payload, topic=topic)
+
+    def _load_camera_item(self, camera_id: str) -> dict | None:
+        specs = get_camera_specs()
+        payload = specs.get(camera_id)
+        if isinstance(payload, dict):
+            return payload
+        # Legacy fallback so existing setups continue to work until migrated.
+        if camera_id == "doorbell":
+            return {
+                "url": f"http://{self.main_app.settings.doorbell_url}{self.main_app.settings.doorbell_path}",
+                "username": self.main_app.settings.doorbell_username,
+                "password": self.main_app.settings.doorbell_password,
+                "command_topic": str(
+                    getattr(self.main_app.settings, "mqtt_topic_doorbell_command", "")
+                ).strip(),
+                "overlay_data": {"active": True},
+            }
+        if camera_id == "printer":
+            return {
+                "url": self.main_app.settings.printer_url,
+                "overlay_data": {},
+            }
+        logger.warning("Camera '%s' not found in local_config/cameras.json", camera_id)
+        return None
