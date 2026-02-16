@@ -35,7 +35,30 @@ class DisplayController:
         self._in_bed_user_wake_active = False
         if(not self.main_app.system_info["is_desktop"]):
             self.backlight = Backlight()
+            self._apply_kiosk_window_mode()
+            # Some Pi desktop/session combinations briefly override window flags
+            # during startup; retry a few times to keep kiosk fullscreen stable.
+            for delay_ms in (150, 600, 2000):
+                self.main_app.root.after(delay_ms, self._apply_kiosk_window_mode)
+
+    def _apply_kiosk_window_mode(self):
+        try:
+            screen_w = int(self.main_app.root.winfo_screenwidth())
+            screen_h = int(self.main_app.root.winfo_screenheight())
+            self.main_app.root.geometry(f"{screen_w}x{screen_h}+0+0")
             self.main_app.root.attributes("-fullscreen", True)
+            self.main_app.root.lift()
+            self.main_app.root.focus_force()
+            log_event(
+                logger,
+                logging.DEBUG,
+                "display",
+                "window.kiosk_applied",
+                width=screen_w,
+                height=screen_h,
+            )
+        except Exception as exc:
+            log_event(logger, logging.WARNING, "display", "window.kiosk_apply_failed", error=exc)
 
     def _create_base_screens(self):
         for screen_name in ("off", "setup", "weather", "music", "menu"):
