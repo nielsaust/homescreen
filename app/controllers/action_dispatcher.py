@@ -25,7 +25,6 @@ class ActionDispatcher:
         self.touch_controller = touch_controller
         self._custom_handlers = {
             "turn_screen_off": self._turn_screen_off,
-            "doorbell": self._doorbell_action,
             "music_show_title": self._music_show_title,
         }
 
@@ -159,10 +158,6 @@ class ActionDispatcher:
         self.main_app.request_menu_navigation("exit", source="action_dispatcher")
         if not self.main_app.settings.media_show_titles:
             self.main_app.root.after(120, self.main_app.media_controller.show_music_overlays)
-
-    def _doorbell_action(self) -> None:
-        # Alias custom action name to declarative camera flow.
-        self._show_camera("doorbell")
 
     def _ensure_mqtt_enabled(self) -> bool:
         if self.main_app.is_mqtt_enabled():
