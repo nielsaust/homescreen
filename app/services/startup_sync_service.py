@@ -33,14 +33,21 @@ class StartupSyncService:
         if not self._startup_mqtt_messages:
             return
 
+        should_advance = topic is None
         if topic:
             processed_queue_item = self._startup_mqtt_messages.pop(topic, None)
             if processed_queue_item is not None:
                 log_event(logger, logging.DEBUG, "mqtt", "startup_queue.removed", topic=topic)
+                should_advance = True
             else:
                 # Messages can arrive out-of-order or after a topic was already processed.
-                # Do not abort queue progression in this case.
+                # Do not advance queue here; otherwise unrelated topic bursts can repeatedly
+                # retrigger startup requests and race state hydration.
                 log_event(logger, logging.DEBUG, "mqtt", "startup_queue.remove_missing", topic=topic)
+                should_advance = False
+
+        if not should_advance:
+            return
 
         try:
             next_key, next_handler = next(iter(self._startup_mqtt_messages.items()))
@@ -58,6 +65,9 @@ class StartupSyncService:
 
         log_event(logger, logging.DEBUG, "mqtt", "startup_queue.checked", size=len(self._startup_mqtt_messages))
         self.main_app.publish_event("startup.queue.size", {"size": len(self._startup_mqtt_messages)})
+
+    def pending_count(self) -> int:
+        return len(self._startup_mqtt_messages)
 
     def request_device_states(self) -> None:
         if not self._is_mqtt_enabled():

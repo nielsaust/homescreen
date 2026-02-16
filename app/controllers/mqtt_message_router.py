@@ -46,10 +46,32 @@ class MqttMessageRouter:
             return bool(self.main_app.is_music_enabled())
         return bool(getattr(self.main_app.settings, "enable_music", True))
 
+    def _get_topic(self, key: str, default: str) -> str:
+        getter = getattr(self.main_app, "get_topic", None)
+        if callable(getter):
+            return str(getter(key, default))
+        return str(default)
+
     def handle(self, topic, data):
         time_since_boot = time.time() - self.main_app.boot_time
         self.main_app.publish_event("mqtt.message.received", {"topic": topic})
         log_event(logger, logging.DEBUG, "mqtt", "router.message", topic=topic)
+        startup_queue_pending = 0
+        if hasattr(self.main_app, "startup_sync_service"):
+            try:
+                startup_queue_pending = int(self.main_app.startup_sync_service.pending_count())
+            except Exception:
+                startup_queue_pending = 0
+        if str(topic) == self._get_topic("music", "music"):
+            log_event(
+                logger,
+                logging.DEBUG,
+                "mqtt",
+                "music_topic.received",
+                seconds_since_boot=round(max(0.0, time_since_boot), 3),
+                startup_queue_pending=startup_queue_pending,
+                payload_keys=sorted((data or {}).keys()) if isinstance(data, dict) else [],
+            )
         self.main_app.startup_sync_service.check_queue(topic)
         routes = self._routes_by_topic.get(str(topic), [])
         if not routes:
@@ -143,6 +165,19 @@ class MqttMessageRouter:
         if not self._is_music_enabled():
             log_event(logger, logging.DEBUG, "mqtt", "router.music_ignored", reason="enable_music_false")
             return
+        startup_queue_pending = 0
+        if hasattr(self.main_app, "startup_sync_service"):
+            try:
+                startup_queue_pending = int(self.main_app.startup_sync_service.pending_count())
+            except Exception:
+                startup_queue_pending = 0
+        log_event(
+            logger,
+            logging.DEBUG,
+            "mqtt",
+            "music_topic.dispatching",
+            startup_queue_pending=startup_queue_pending,
+        )
         self.main_app.music_update_service.queue_update(data)
 
     def _dispatch_overlay_command(self, route, data):

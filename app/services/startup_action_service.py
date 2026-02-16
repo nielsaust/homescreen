@@ -59,6 +59,17 @@ class StartupActionService:
         attempts = int(item.get("attempts", 0))
 
         if require_mqtt and not bool(getattr(self.main_app, "mqtt_initialized", False)):
+            # Emit sparse readiness logs so startup timing issues stay diagnosable without spam.
+            if attempts in (0, 1, 3, 5, 10, 20):
+                log_event(
+                    logger,
+                    logging.DEBUG,
+                    "app",
+                    "startup_action.waiting",
+                    action=action_id,
+                    reason="mqtt_not_ready",
+                    attempts=attempts,
+                )
             if attempts >= 20:
                 log_event(
                     logger,
@@ -78,6 +89,16 @@ class StartupActionService:
             touch = getattr(self.main_app, "touch_controller", None)
             dispatcher = getattr(touch, "action_dispatcher", None)
         if dispatcher is None:
+            if attempts in (0, 1, 3, 5, 10, 20):
+                log_event(
+                    logger,
+                    logging.DEBUG,
+                    "app",
+                    "startup_action.waiting",
+                    action=action_id,
+                    reason="dispatcher_not_ready",
+                    attempts=attempts,
+                )
             if attempts >= 20:
                 log_event(
                     logger,

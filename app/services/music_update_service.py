@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import logging
+import time
 from typing import TYPE_CHECKING
+
+from app.observability.domain_logger import log_event
 
 if TYPE_CHECKING:
     from main import MainApp
+
+logger = logging.getLogger(__name__)
 
 
 class MusicUpdateService:
@@ -15,8 +21,32 @@ class MusicUpdateService:
         self._update_after_id = None
         self._update_seq = 0
 
+    def _boot_seconds(self) -> float:
+        try:
+            return round(max(0.0, time.time() - float(getattr(self.main_app, "boot_time", 0.0))), 3)
+        except Exception:
+            return 0.0
+
+    def _startup_queue_size(self) -> int:
+        if hasattr(self.main_app, "startup_sync_service"):
+            try:
+                return int(self.main_app.startup_sync_service.pending_count())
+            except Exception:
+                return 0
+        return 0
+
     def queue_update(self, data):
         self.main_app.record_music_metric("received")
+        boot_seconds = self._boot_seconds()
+        startup_queue_size = self._startup_queue_size()
+        log_event(
+            logger,
+            logging.DEBUG,
+            "music",
+            "update.received",
+            boot_seconds=boot_seconds,
+            startup_queue_size=startup_queue_size,
+        )
         self._update_seq += 1
         update_seq = self._update_seq
         self.main_app.log_music_debug(
@@ -54,6 +84,17 @@ class MusicUpdateService:
         if payload is None:
             self.main_app.log_music_debug("[music] flush skipped: no pending payload")
             return
+        boot_seconds = self._boot_seconds()
+        startup_queue_size = self._startup_queue_size()
+        log_event(
+            logger,
+            logging.DEBUG,
+            "music",
+            "update.flush",
+            reason=reason,
+            boot_seconds=boot_seconds,
+            startup_queue_size=startup_queue_size,
+        )
         self.main_app.log_music_debug(f"[music] flush pending payload reason={reason}", payload)
         resolved_payload = self.main_app.music_service.resolve_payload(self.main_app.music_object, payload)
         self.main_app.log_music_debug("[music] resolved payload", resolved_payload)
