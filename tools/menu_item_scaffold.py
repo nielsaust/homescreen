@@ -4,10 +4,8 @@
 from __future__ import annotations
 
 import argparse
-import ast
 import copy
 import json
-import pprint
 import re
 import sys
 from pathlib import Path
@@ -17,11 +15,8 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from app.controllers.action_registry import ACTION_SPECS
-from app.ui.menu_registry import MENU_SCHEMA
+from app.ui.menu_config_loader import load_menu_config, save_local_menu_config
 
-MENU_REGISTRY = ROOT / "app" / "ui" / "menu_registry.py"
-ACTION_REGISTRY = ROOT / "app" / "controllers" / "action_registry.py"
 ACTION_DISPATCHER = ROOT / "app" / "controllers" / "action_dispatcher.py"
 SETTINGS_EXAMPLE = ROOT / "settings.json.example"
 SETTINGS_LOCAL = ROOT / "local_config" / "settings.json"
@@ -119,35 +114,22 @@ def _choose_icon(default: str = "tools.png") -> str:
         return filename
 
 
-def _replace_assignment(path: Path, var_name: str, new_value: Any) -> None:
-    text = path.read_text(encoding="utf-8")
-    tree = ast.parse(text)
-    target_node = None
-    for node in tree.body:
-        if isinstance(node, ast.Assign):
-            for target in node.targets:
-                if isinstance(target, ast.Name) and target.id == var_name:
-                    target_node = node
-                    break
-        if target_node:
-            break
-    if target_node is None:
-        raise RuntimeError(f"Could not find assignment for {var_name} in {path}")
-
-    lines = text.splitlines()
-    start = target_node.lineno - 1
-    end = target_node.end_lineno
-    replacement = f"{var_name} = {pprint.pformat(new_value, width=120, sort_dicts=False)}"
-    new_lines = lines[:start] + [replacement] + lines[end:]
-    path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+def _load_menu_config_data() -> dict[str, Any]:
+    return copy.deepcopy(load_menu_config())
 
 
-def _load_menu_schema() -> list[dict[str, Any]]:
-    return copy.deepcopy(MENU_SCHEMA)
+def _load_menu_schema(config: dict[str, Any]) -> list[dict[str, Any]]:
+    return copy.deepcopy(config.get("menu_schema", []))
 
 
-def _load_action_specs() -> dict[str, dict[str, Any]]:
-    return copy.deepcopy(ACTION_SPECS)
+def _load_action_specs(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return copy.deepcopy(config.get("action_specs", {}))
+
+
+def _save_menu_config_data(config: dict[str, Any], schema: list[dict[str, Any]], action_specs: dict[str, dict[str, Any]]) -> None:
+    config["menu_schema"] = schema
+    config["action_specs"] = action_specs
+    save_local_menu_config(config)
 
 
 def _get_container(schema: list[dict[str, Any]], container_path: list[int]) -> list[dict[str, Any]]:
@@ -321,8 +303,9 @@ def _ensure_action_spec(action_specs: dict[str, dict[str, Any]], action_id: str,
 
 
 def _create_item() -> int:
-    schema = _load_menu_schema()
-    action_specs = _load_action_specs()
+    config = _load_menu_config_data()
+    schema = _load_menu_schema(config)
+    action_specs = _load_action_specs(config)
 
     container = _select_from_list("Select target container", _collect_containers(schema))
     if container is None:
@@ -354,15 +337,15 @@ def _create_item() -> int:
     target = _get_container(schema, container["path"])
     target.append(new_entry)
 
-    _replace_assignment(MENU_REGISTRY, "MENU_SCHEMA", schema)
-    _replace_assignment(ACTION_REGISTRY, "ACTION_SPECS", action_specs)
+    _save_menu_config_data(config, schema, action_specs)
     print(f"[menu-item] created '{item_id}' in {container['label']}")
     return 0
 
 
 def _verify_item() -> int:
-    schema = _load_menu_schema()
-    action_specs = _load_action_specs()
+    config = _load_menu_config_data()
+    schema = _load_menu_schema(config)
+    action_specs = _load_action_specs(config)
     row = _select_container_then_entry(schema, "verify")
     if row is None:
         print("[menu-item] verify canceled")
@@ -377,8 +360,9 @@ def _verify_item() -> int:
 
 
 def _edit_item() -> int:
-    schema = _load_menu_schema()
-    action_specs = _load_action_specs()
+    config = _load_menu_config_data()
+    schema = _load_menu_schema(config)
+    action_specs = _load_action_specs(config)
     row = _select_container_then_entry(schema, "edit")
     if row is None:
         print("[menu-item] edit canceled")
@@ -411,15 +395,15 @@ def _edit_item() -> int:
             print("[menu-item] edit aborted: action spec missing")
             return 1
 
-    _replace_assignment(MENU_REGISTRY, "MENU_SCHEMA", schema)
-    _replace_assignment(ACTION_REGISTRY, "ACTION_SPECS", action_specs)
+    _save_menu_config_data(config, schema, action_specs)
     print(f"[menu-item] updated '{entry.get('id')}'")
     return 0
 
 
 def _remove_item() -> int:
-    schema = _load_menu_schema()
-    action_specs = _load_action_specs()
+    config = _load_menu_config_data()
+    schema = _load_menu_schema(config)
+    action_specs = _load_action_specs(config)
     row = _select_container_then_entry(schema, "remove")
     if row is None:
         print("[menu-item] remove canceled")
@@ -453,8 +437,7 @@ def _remove_item() -> int:
                 ) == "y":
                     _remove_setting_key(setting_key)
 
-    _replace_assignment(MENU_REGISTRY, "MENU_SCHEMA", schema)
-    _replace_assignment(ACTION_REGISTRY, "ACTION_SPECS", action_specs)
+    _save_menu_config_data(config, schema, action_specs)
     print(f"[menu-item] removed '{item_id}'")
     return 0
 

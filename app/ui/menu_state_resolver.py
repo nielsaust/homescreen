@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from app.ui.menu_config_loader import get_state_specs
+
 
 class MenuStateResolver:
     """Resolves button visual state from app/settings/device/music state."""
@@ -8,73 +10,80 @@ class MenuStateResolver:
         self.main_app = main_app
 
     def resolve(self):
-        device_states = self.main_app.device_states
-        settings = self.main_app.settings
+        specs = get_state_specs()
+        resolved = []
+        for spec in specs:
+            resolved_spec = self._resolve_spec(spec)
+            if resolved_spec is not None:
+                resolved.append(resolved_spec)
+        return resolved
 
-        harmony_state = device_states.harmony_state or "Off"
-        cover_kitchen = device_states.cover_kitchen if device_states.cover_kitchen is not None else 0
-        in_bed = bool(device_states.in_bed) if device_states.in_bed is not None else False
-        trash_warning = bool(device_states.trash_warning) if device_states.trash_warning is not None else False
-        playstation_power = bool(device_states.playstation_power) if device_states.playstation_power is not None else False
-        playstation_available = (
-            bool(device_states.playstation_available) if device_states.playstation_available is not None else True
+    def _resolve_spec(self, spec: dict):
+        button_id = spec.get("button_id")
+        if not button_id:
+            return None
+
+        spec_type = str(spec.get("type", "")).strip()
+        active = False
+        available = True
+
+        if spec_type == "device_not_equals":
+            current = self._get_device_value(spec.get("source"), spec.get("default"))
+            active = current != spec.get("value")
+        elif spec_type == "device_less_than":
+            current = self._get_device_value(spec.get("source"), spec.get("default", 0))
+            try:
+                active = float(current) < float(spec.get("value", 0))
+            except (TypeError, ValueError):
+                active = False
+        elif spec_type == "device_bool":
+            current = self._get_device_value(spec.get("source"), spec.get("default", False))
+            active = bool(current)
+            available_source = spec.get("available_source")
+            if available_source:
+                available = bool(self._get_device_value(available_source, spec.get("available_default", True)))
+        elif spec_type == "music_state":
+            music = getattr(self.main_app, "music_object", None)
+            active = music is not None and getattr(music, "state", None) == spec.get("state")
+        elif spec_type == "setting_bool":
+            active = bool(self._get_settings_value(spec.get("source"), spec.get("default", False)))
+        elif spec_type == "light":
+            light = self._light_state(self._get_device_value(spec.get("source"), {}))
+            active = light["state"] == "on"
+            brightness = self._brightness(light["brightness"])
+            on_text = str(spec.get("on_text", "")).replace("{brightness}", str(brightness))
+            return self._spec(
+                button_id,
+                active,
+                action_text=spec.get("action_text", ""),
+                on_text=on_text,
+                off_text=spec.get("off_text", ""),
+                available=available,
+            )
+        else:
+            return None
+
+        return self._spec(
+            button_id,
+            active,
+            action_text=spec.get("action_text", ""),
+            on_text=spec.get("on_text", ""),
+            off_text=spec.get("off_text", ""),
+            available=available,
         )
 
-        light_tafel = self._light_state(device_states.light_tafel)
-        light_keuken = self._light_state(device_states.light_keuken)
-        light_kleur = self._light_state(device_states.light_kleur)
-        light_woonkamer = self._light_state(device_states.light_woonkamer)
+    def _get_device_value(self, source: str | None, default=None):
+        if not source:
+            return default
+        device_states = self.main_app.device_states
+        value = getattr(device_states, source, default)
+        return default if value is None else value
 
-        playing = self.main_app.music_object is not None and self.main_app.music_object.state == "playing"
-
-        return [
-            self._spec("cinema", harmony_state != "Off", action_text="[cinema_action]", on_text="uit", off_text="aan"),
-            self._spec("cover_kitchen", cover_kitchen < 50, action_text="[cover_action]", on_text="open", off_text="dicht"),
-            self._spec("in_bed_toggle", in_bed, action_text="[sleep_mode_action]", on_text="uit", off_text="aan"),
-            self._spec("sleep_mode_toggle_option", in_bed, action_text="[sleep_mode_action]", on_text="uit", off_text="aan"),
-            self._spec("trash_warning_toggle", trash_warning, action_text="[trash_action]", on_text="uit", off_text="aan"),
-            self._spec("music_play_pause", playing, action_text="[music_action]", on_text="Pauzeer", off_text="Speel"),
-            self._spec(
-                "ps_toggle",
-                playstation_power,
-                action_text="[ps_action]",
-                on_text="uit",
-                off_text="aan",
-                available=playstation_available,
-            ),
-            self._spec(
-                "light_woonkamer",
-                light_woonkamer["state"] == "on",
-                action_text="[woonkamer_licht_action]",
-                on_text=f"({self._brightness(light_woonkamer['brightness'])}%) uit",
-                off_text="aan",
-            ),
-            self._spec(
-                "light_keuken",
-                light_keuken["state"] == "on",
-                action_text="[keuken_licht_action]",
-                on_text=f"({self._brightness(light_keuken['brightness'])}%) uit",
-                off_text="aan",
-            ),
-            self._spec(
-                "light_tafel",
-                light_tafel["state"] == "on",
-                action_text="[tafel_licht_action]",
-                on_text=f"({self._brightness(light_tafel['brightness'])}%) uit",
-                off_text="aan",
-            ),
-            self._spec(
-                "light_kleur",
-                light_kleur["state"] == "on",
-                action_text="[kleur_licht_action]",
-                on_text=f"({self._brightness(light_kleur['brightness'])}%) uit",
-                off_text="aan",
-            ),
-            self._spec("show_weather_on_idle", bool(settings.show_weather_on_idle)),
-            self._spec("media_show_titles", bool(settings.media_show_titles)),
-            self._spec("media_sanitize_titles", bool(settings.media_sanitize_titles)),
-            self._spec("store_settings", bool(getattr(settings, "store_settings", True))),
-        ]
+    def _get_settings_value(self, source: str | None, default=None):
+        if not source:
+            return default
+        settings = self.main_app.settings
+        return getattr(settings, source, default)
 
     @staticmethod
     def _spec(button_id, active, action_text="", on_text="", off_text="", available=True):

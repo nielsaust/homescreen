@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 from pathlib import Path
 
@@ -15,11 +14,11 @@ if str(ROOT) not in sys.path:
 
 from app.controllers.action_registry import ACTION_SPECS
 from app.ui.menu_registry import MENU_SCHEMA
+from app.ui.menu_config_loader import get_state_specs
 
 SETTINGS_EXAMPLE = ROOT / "settings.json.example"
 SETTINGS_LOCAL = ROOT / "local_config" / "settings.json"
 IMAGES_DIR = ROOT / "images" / "buttons"
-STATE_RESOLVER = ROOT / "app" / "ui" / "menu_state_resolver.py"
 
 
 def flatten_menu_entries(entries):
@@ -32,8 +31,11 @@ def flatten_menu_entries(entries):
 
 
 def extract_state_button_ids() -> set[str]:
-    text = STATE_RESOLVER.read_text(encoding="utf-8")
-    return set(re.findall(r'_spec\("([^"]+)"', text))
+    return {
+        str(spec.get("button_id"))
+        for spec in get_state_specs()
+        if spec.get("button_id")
+    }
 
 
 def main() -> int:
