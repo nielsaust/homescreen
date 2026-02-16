@@ -5,6 +5,7 @@ This directory contains machine-local config that should not be committed.
 Primary files:
 - `settings.json`: app runtime settings
 - `mqtt_topics.json`: MQTT topic mapping
+- `mqtt_routes.json`: topic -> behavior routing
 - `cameras.json`: camera URLs/credentials
 - `menu.json`: personal menu schema/actions/state
 - `qr_items.json`: personal QR payloads
@@ -30,6 +31,12 @@ Supported types:
 1. Copy `mqtt_topics.json.example` to `mqtt_topics.json`.
 2. Set only the topics you use.
 3. Use `make mqtt-topics` for interactive overview/edit.
+
+## MQTT routes
+
+1. Copy `mqtt_routes.json.example` to `mqtt_routes.json`.
+2. Define how incoming topics map to app behavior.
+3. Keep `topic_key` values aligned with keys in `mqtt_topics.json`.
 
 ## Cameras
 

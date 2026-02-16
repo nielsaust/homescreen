@@ -23,7 +23,7 @@ MQTT topics are stored separately in `local_config/mqtt_topics.json`.
 
 2. Music integration
 - Enable/disable music integration (`enable_music`)
-- Music topic (`mqtt_topic_music`, stored in `local_config/mqtt_topics.json`)
+- Music topic (`music`, stored in `local_config/mqtt_topics.json`)
 - Home Assistant API base URL (`home_assistant_api_base_url`)
 - Music display toggles (`media_show_titles`, `media_sanitize_titles`)
 
@@ -35,10 +35,10 @@ MQTT topics are stored separately in `local_config/mqtt_topics.json`.
 - Language (`weather_langage`)
 
 4. Smart-home integration
-- Device state topic (`mqtt_topic_devices`)
-- Outgoing action topic (`mqtt_topic_actions_outgoing`)
-- Alert topic (`mqtt_topic_alert`)
-- Music refresh topic (`mqtt_topic_update_music`)
+- Device state topic (`devices`)
+- Outgoing action topic (`actions_outgoing`)
+- Alert topic (`alert`)
+- Music refresh topic (`update_music`)
 - Optional integrations (doorbell, calendar, printer)
   - When disabled, related MQTT topics are set to empty strings.
 - Feature menu wiring

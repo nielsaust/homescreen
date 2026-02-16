@@ -1,0 +1,15 @@
+{
+  "routes": [
+    {"topic_key": "music", "handler": "music_update", "phase": "essential"},
+    {"topic_key": "devices", "handler": "device_states_update", "phase": "essential"},
+    {"topic_key": "doorbell", "handler": "overlay_camera", "camera_id": "doorbell", "phase": "nonessential"},
+    {"topic_key": "printer_progress", "handler": "printer_progress", "phase": "nonessential"},
+    {"topic_key": "calendar", "handler": "overlay_calendar", "phase": "nonessential"},
+    {"topic_key": "alert", "handler": "overlay_alert", "phase": "nonessential"},
+    {"topic_key": "print_start", "handler": "print_status_show", "reset": true, "phase": "nonessential"},
+    {"topic_key": "print_done", "handler": "print_attention", "phase": "nonessential"},
+    {"topic_key": "print_change_filament", "handler": "print_attention", "phase": "nonessential"},
+    {"topic_key": "print_cancelled", "handler": "print_close", "phase": "nonessential"},
+    {"topic_key": "print_change_z", "handler": "print_cancel_attention", "phase": "nonessential"}
+  ]
+}

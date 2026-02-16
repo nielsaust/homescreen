@@ -7,7 +7,7 @@
       "overlay_data": {
         "active": true
       },
-      "command_topic": "screen_commands/doorbell",
+      "command_topic_key": "doorbell_command",
       "command_payload": {
         "active": true
       }

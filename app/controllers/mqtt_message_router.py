@@ -15,6 +15,7 @@ class MqttMessageRouter:
 
     def __init__(self, main_app):
         self.main_app = main_app
+        self._routes_by_topic = self._build_routes_by_topic()
 
     def _is_music_enabled(self):
         if hasattr(self.main_app, "is_music_enabled"):
@@ -26,16 +27,9 @@ class MqttMessageRouter:
         self.main_app.publish_event("mqtt.message.received", {"topic": topic})
         log_event(logger, logging.DEBUG, "mqtt", "router.message", topic=topic)
         self.main_app.startup_sync_service.check_queue(topic)
-
-        if topic == self.main_app.settings.mqtt_topic_music:
-            if not self._is_music_enabled():
-                log_event(logger, logging.DEBUG, "mqtt", "router.music_ignored", reason="enable_music_false")
-                return
-            self.main_app.music_update_service.queue_update(data)
-            return
-
-        if topic == self.main_app.settings.mqtt_topic_devices:
-            self._handle_device_states(data)
+        routes = self._routes_by_topic.get(str(topic), [])
+        if not routes:
+            log_event(logger, logging.WARNING, "mqtt", "router.unknown_topic", topic=topic)
             return
 
         log_event(
@@ -54,9 +48,11 @@ class MqttMessageRouter:
                 "router.nonessential_deferred",
                 accept_after_seconds=self.main_app.settings.mqtt_accept_nonessential_messages_after,
             )
-            return
-
-        self._handle_nonessential(topic, data)
+        for route in routes:
+            phase = str(route.get("phase", "nonessential"))
+            if phase != "essential" and time_since_boot < self.main_app.settings.mqtt_accept_nonessential_messages_after:
+                continue
+            self._dispatch_route(route, data)
 
     def _handle_device_states(self, data):
         try:
@@ -78,9 +74,19 @@ class MqttMessageRouter:
         except Exception as exc:
             log_event(logger, logging.ERROR, "mqtt", "router.device_state_update_failed", error=exc)
 
-    def _handle_nonessential(self, topic, data):
-        if topic == self.main_app.settings.mqtt_topic_doorbell:
-            camera = self._get_camera("doorbell")
+    def _dispatch_route(self, route, data):
+        handler = str(route.get("handler", "")).strip()
+        if handler == "music_update":
+            if not self._is_music_enabled():
+                log_event(logger, logging.DEBUG, "mqtt", "router.music_ignored", reason="enable_music_false")
+                return
+            self.main_app.music_update_service.queue_update(data)
+            return
+        if handler == "device_states_update":
+            self._handle_device_states(data)
+            return
+        if handler == "overlay_camera":
+            camera = self._get_camera(str(route.get("camera_id", "")).strip())
             if camera is None:
                 return
             self.main_app.request_overlay(
@@ -94,20 +100,14 @@ class MqttMessageRouter:
                 source="mqtt_router",
             )
             return
-
-        if topic == self.main_app.settings.mqtt_topic_printer_progress:
-            self._check_print_status(data)
-            return
-
-        if topic == self.main_app.settings.mqtt_topic_calendar:
+        if handler == "overlay_calendar":
             self.main_app.request_overlay(
                 OverlayCommand.SHOW_CALENDAR,
                 {"data": data},
                 source="mqtt_router",
             )
             return
-
-        if topic == self.main_app.settings.mqtt_topic_alert:
+        if handler == "overlay_alert":
             log_event(logger, logging.DEBUG, "mqtt", "router.alert_received")
             self.main_app.request_overlay(
                 OverlayCommand.SHOW_ALERT,
@@ -115,31 +115,29 @@ class MqttMessageRouter:
                 source="mqtt_router",
             )
             return
-
-        if topic == self.main_app.settings.mqtt_topic_print_start:
+        if handler == "printer_progress":
+            self._check_print_status(data)
+            return
+        if handler == "print_status_show":
             self.main_app.request_overlay(
                 OverlayCommand.SHOW_PRINT_STATUS,
-                {"progress": self.main_app.device_states.printer_progress, "reset": True},
+                {
+                    "progress": self.main_app.device_states.printer_progress,
+                    "reset": bool(route.get("reset", False)),
+                },
                 source="mqtt_router",
             )
             return
-
-        if topic in (
-            self.main_app.settings.mqtt_topic_print_done,
-            self.main_app.settings.mqtt_topic_print_change_filament,
-        ):
+        if handler == "print_attention":
             self.main_app.request_overlay(OverlayCommand.PRINT_SCREEN_ATTENTION, source="mqtt_router")
             return
-
-        if topic == self.main_app.settings.mqtt_topic_print_cancelled:
+        if handler == "print_close":
             self.main_app.request_overlay(OverlayCommand.CLOSE_PRINT_SCREEN, source="mqtt_router")
             return
-
-        if topic == self.main_app.settings.mqtt_topic_print_change_z:
+        if handler == "print_cancel_attention":
             self.main_app.request_overlay(OverlayCommand.CANCEL_ATTENTION, source="mqtt_router")
             return
-
-        log_event(logger, logging.WARNING, "mqtt", "router.unknown_topic", topic=topic)
+        log_event(logger, logging.WARNING, "mqtt", "router.unknown_handler", handler=handler)
 
     def _check_print_status(self, data):
         progress = data.get("progress")
@@ -186,3 +184,12 @@ class MqttMessageRouter:
             config="local_config/cameras.json",
         )
         return None
+
+    def _build_routes_by_topic(self) -> dict[str, list[dict]]:
+        out: dict[str, list[dict]] = {}
+        for route in getattr(self.main_app, "mqtt_routes", []):
+            topic = str(route.get("topic", "")).strip()
+            if not topic:
+                continue
+            out.setdefault(topic, []).append(route)
+        return out

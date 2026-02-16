@@ -100,10 +100,10 @@ def _check_settings() -> list[str]:
             errors.append(f"Sentry enabled but sentry-sdk import failed: {exc}")
 
     topics = load_mqtt_topics()
-    if not str(topics.get("mqtt_topic_music", "")).strip():
-        errors.append("Missing mqtt topic: mqtt_topic_music (set in local_config/mqtt_topics.json)")
-    if not str(topics.get("mqtt_topic_devices", "")).strip():
-        errors.append("Missing mqtt topic: mqtt_topic_devices (set in local_config/mqtt_topics.json)")
+    if not str(topics.get("music", "")).strip():
+        errors.append("Missing mqtt topic: music (set in local_config/mqtt_topics.json)")
+    if not str(topics.get("devices", "")).strip():
+        errors.append("Missing mqtt topic: devices (set in local_config/mqtt_topics.json)")
 
     return errors
 

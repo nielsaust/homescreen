@@ -2,7 +2,7 @@
 
 ## Expected MQTT Payload
 
-The app expects music messages on `mqtt_topic_music` (configured in `local_config/mqtt_topics.json`) with this JSON shape:
+The app expects music messages on `music` (configured in `local_config/mqtt_topics.json`) with this JSON shape:
 
 ```json
 {
@@ -23,7 +23,7 @@ Generate the script snippet from current settings:
 python3 tools/generate_ha_music_script.py
 ```
 
-This uses your configured `mqtt_topic_music` from `local_config/mqtt_topics.json`.
+This uses your configured `music` from `local_config/mqtt_topics.json`.
 
 ## Blueprint
 

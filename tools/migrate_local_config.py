@@ -28,6 +28,23 @@ OTHER_LEGACY_KEYS = (
     "menu_profile",
 )
 
+LEGACY_TOPIC_KEY_MAP = {
+    "mqtt_topic_music": "music",
+    "mqtt_topic_devices": "devices",
+    "mqtt_topic_actions_outgoing": "actions_outgoing",
+    "mqtt_topic_update_music": "update_music",
+    "mqtt_topic_alert": "alert",
+    "mqtt_topic_doorbell_command": "doorbell_command",
+    "mqtt_topic_doorbell": "doorbell",
+    "mqtt_topic_printer_progress": "printer_progress",
+    "mqtt_topic_calendar": "calendar",
+    "mqtt_topic_print_start": "print_start",
+    "mqtt_topic_print_done": "print_done",
+    "mqtt_topic_print_cancelled": "print_cancelled",
+    "mqtt_topic_print_change_filament": "print_change_filament",
+    "mqtt_topic_print_change_z": "print_change_z",
+}
+
 
 def _load_json(path: Path) -> dict:
     if not path.exists():
@@ -47,6 +64,10 @@ def _migrate_topics(settings: dict) -> tuple[dict, list[str]]:
         if key in settings:
             topics[key] = settings.pop(key)
             moved.append(key)
+    for old_key, new_key in LEGACY_TOPIC_KEY_MAP.items():
+        if old_key in settings and new_key not in topics:
+            topics[new_key] = settings.pop(old_key)
+            moved.append(old_key)
     if topics:
         save_local_mqtt_topics(topics)
     return topics, moved

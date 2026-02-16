@@ -27,7 +27,6 @@ class ActionDispatcher:
             "turn_screen_off": self._turn_screen_off,
             "doorbell": self._doorbell_action,
             "music_show_title": self._music_show_title,
-            "test_mij_todo": self._test_mij_todo,
         }
 
     def dispatch(self, action: str) -> None:
@@ -66,6 +65,7 @@ class ActionDispatcher:
             self._show_camera(
                 spec.get("camera_id", ""),
                 command_topic=spec.get("command_topic"),
+                command_topic_key=spec.get("command_topic_key"),
                 command_payload=spec.get("command_payload"),
             )
             return
@@ -169,8 +169,6 @@ class ActionDispatcher:
             return True
         self.main_app.notify_setup_required("MQTT")
         return False
-    def _test_mij_todo(self) -> None:
-        logger.info("Custom action stub triggered: test_mij_todo")
 
     def _load_qr_item(self, item_id: str) -> dict | None:
         if not item_id:
@@ -195,6 +193,7 @@ class ActionDispatcher:
         self,
         camera_id: str,
         command_topic: str | None = None,
+        command_topic_key: str | None = None,
         command_payload=None,
     ) -> None:
         camera_id = str(camera_id or "").strip()
@@ -230,7 +229,10 @@ class ActionDispatcher:
             source="action_dispatcher",
         )
 
+        topic_key = str(command_topic_key or camera.get("command_topic_key") or "").strip()
         topic = str(command_topic or camera.get("command_topic") or "").strip()
+        if not topic and topic_key and hasattr(self.main_app, "get_topic"):
+            topic = self.main_app.get_topic(topic_key)
         if not topic:
             return
 

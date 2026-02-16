@@ -18,8 +18,8 @@ class StartupSyncService:
         self.main_app = main_app
         self._startup_mqtt_messages = {}
         if self._is_mqtt_enabled():
-            topic_devices = str(getattr(self.main_app.settings, "mqtt_topic_devices", "")).strip()
-            topic_music = str(getattr(self.main_app.settings, "mqtt_topic_music", "")).strip()
+            topic_devices = self.main_app.get_topic("devices")
+            topic_music = self.main_app.get_topic("music")
             if topic_devices:
                 self._startup_mqtt_messages[topic_devices] = self.request_device_states
             if topic_music and self._is_music_enabled():
@@ -70,7 +70,7 @@ class StartupSyncService:
             return
         log_event(logger, logging.DEBUG, "mqtt", "music_state.requested")
         self.main_app.mqtt_controller.publish_message(
-            topic=getattr(self.main_app.settings, "mqtt_topic_update_music", "screen_commands/update_music")
+            topic=self.main_app.get_topic("update_music", "screen_commands/update_music")
         )
 
     def _is_mqtt_enabled(self) -> bool:

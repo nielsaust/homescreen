@@ -190,7 +190,7 @@ def configure_music(settings: dict, topics: dict) -> None:
         print("First complete MQTT setup.")
         return
     print("Expected payload shape is documented in docs/music-integration.md.")
-    topics["mqtt_topic_music"] = _prompt("MQTT topic to receive music state", str(topics.get("mqtt_topic_music", "music")))
+    topics["music"] = _prompt("MQTT topic to receive music state", str(topics.get("music", "music")))
     settings["home_assistant_api_base_url"] = _prompt(
         "Home Assistant API base URL (for album art proxy)",
         str(settings.get("home_assistant_api_base_url", "https://homeassistant.local")),
@@ -230,79 +230,79 @@ def configure_smart_home(settings: dict, topics: dict) -> None:
         return
     print("State topics are consumed by the app; action topics are published by the app.")
     print("Tip: leave optional integration topics empty to disable that integration.")
-    topics["mqtt_topic_devices"] = _prompt(
+    topics["devices"] = _prompt(
         "State topic for device states",
-        str(topics.get("mqtt_topic_devices", "screen_commands/incoming")),
+        str(topics.get("devices", "screen_commands/incoming")),
     )
-    topics["mqtt_topic_actions_outgoing"] = _prompt(
+    topics["actions_outgoing"] = _prompt(
         "Action topic for outgoing commands",
-        str(topics.get("mqtt_topic_actions_outgoing", "screen_commands/outgoing")),
+        str(topics.get("actions_outgoing", "screen_commands/outgoing")),
     )
-    topics["mqtt_topic_alert"] = _prompt(
+    topics["alert"] = _prompt(
         "Alert topic (optional but recommended)",
-        str(topics.get("mqtt_topic_alert", "screen_commands/alert")),
+        str(topics.get("alert", "screen_commands/alert")),
     )
-    topics["mqtt_topic_update_music"] = _prompt(
+    topics["update_music"] = _prompt(
         "Action topic to request music state refresh",
-        str(topics.get("mqtt_topic_update_music", "screen_commands/update_music")),
+        str(topics.get("update_music", "screen_commands/update_music")),
     )
-    enable_doorbell = _prompt_bool("Enable doorbell integration topics?", bool(topics.get("mqtt_topic_doorbell")))
+    enable_doorbell = _prompt_bool("Enable doorbell integration topics?", bool(topics.get("doorbell")))
     if enable_doorbell:
-        topics["mqtt_topic_doorbell"] = _prompt(
+        topics["doorbell"] = _prompt(
             "Doorbell state/event topic",
-            str(topics.get("mqtt_topic_doorbell", "doorbell")),
+            str(topics.get("doorbell", "doorbell")),
         )
-        default_command_topic = str(topics.get("mqtt_topic_doorbell_command", "")).strip() or "screen_commands/doorbell"
-        topics["mqtt_topic_doorbell_command"] = _prompt(
+        default_command_topic = str(topics.get("doorbell_command", "")).strip() or "screen_commands/doorbell"
+        topics["doorbell_command"] = _prompt(
             "Action topic for doorbell command",
             default_command_topic,
         )
     else:
-        topics["mqtt_topic_doorbell"] = ""
-        topics["mqtt_topic_doorbell_command"] = ""
+        topics["doorbell"] = ""
+        topics["doorbell_command"] = ""
 
-    enable_calendar = _prompt_bool("Enable calendar integration topic?", bool(topics.get("mqtt_topic_calendar")))
+    enable_calendar = _prompt_bool("Enable calendar integration topic?", bool(topics.get("calendar")))
     if enable_calendar:
-        topics["mqtt_topic_calendar"] = _prompt(
+        topics["calendar"] = _prompt(
             "Calendar topic",
-            str(topics.get("mqtt_topic_calendar", "calendar")),
+            str(topics.get("calendar", "calendar")),
         )
     else:
-        topics["mqtt_topic_calendar"] = ""
+        topics["calendar"] = ""
 
-    enable_printer = _prompt_bool("Enable 3D printer integration topics?", bool(topics.get("mqtt_topic_printer_progress")))
+    enable_printer = _prompt_bool("Enable 3D printer integration topics?", bool(topics.get("printer_progress")))
     if enable_printer:
-        topics["mqtt_topic_printer_progress"] = _prompt(
+        topics["printer_progress"] = _prompt(
             "Printer progress topic",
-            str(topics.get("mqtt_topic_printer_progress", "octoPrint/progress/printing")),
+            str(topics.get("printer_progress", "octoPrint/progress/printing")),
         )
-        topics["mqtt_topic_print_start"] = _prompt(
+        topics["print_start"] = _prompt(
             "Printer start topic",
-            str(topics.get("mqtt_topic_print_start", "octoPrint/event/PrintStarted")),
+            str(topics.get("print_start", "octoPrint/event/PrintStarted")),
         )
-        topics["mqtt_topic_print_done"] = _prompt(
+        topics["print_done"] = _prompt(
             "Printer done topic",
-            str(topics.get("mqtt_topic_print_done", "octoPrint/event/PrintDone")),
+            str(topics.get("print_done", "octoPrint/event/PrintDone")),
         )
-        topics["mqtt_topic_print_cancelled"] = _prompt(
+        topics["print_cancelled"] = _prompt(
             "Printer cancelled topic",
-            str(topics.get("mqtt_topic_print_cancelled", "octoPrint/event/PrintCancelled")),
+            str(topics.get("print_cancelled", "octoPrint/event/PrintCancelled")),
         )
-        topics["mqtt_topic_print_change_filament"] = _prompt(
+        topics["print_change_filament"] = _prompt(
             "Printer filament-change topic",
-            str(topics.get("mqtt_topic_print_change_filament", "octoPrint/event/FilamentChange")),
+            str(topics.get("print_change_filament", "octoPrint/event/FilamentChange")),
         )
-        topics["mqtt_topic_print_change_z"] = _prompt(
+        topics["print_change_z"] = _prompt(
             "Printer Z-change topic",
-            str(topics.get("mqtt_topic_print_change_z", "octoPrint/event/ZChange")),
+            str(topics.get("print_change_z", "octoPrint/event/ZChange")),
         )
     else:
-        topics["mqtt_topic_printer_progress"] = ""
-        topics["mqtt_topic_print_start"] = ""
-        topics["mqtt_topic_print_done"] = ""
-        topics["mqtt_topic_print_cancelled"] = ""
-        topics["mqtt_topic_print_change_filament"] = ""
-        topics["mqtt_topic_print_change_z"] = ""
+        topics["printer_progress"] = ""
+        topics["print_start"] = ""
+        topics["print_done"] = ""
+        topics["print_cancelled"] = ""
+        topics["print_change_filament"] = ""
+        topics["print_change_z"] = ""
 
     print("[configuration] Smart-home integration updated.")
 

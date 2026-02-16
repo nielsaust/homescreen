@@ -117,17 +117,6 @@ class _FakeMainApp:
         self.events = 0
         self.overlay_requests = 0
         self.settings = SimpleNamespace(
-            mqtt_topic_music="music",
-            mqtt_topic_devices="screen_commands/incoming",
-            mqtt_topic_doorbell="doorbell",
-            mqtt_topic_printer_progress="octoPrint/progress/printing",
-            mqtt_topic_calendar="calendar",
-            mqtt_topic_alert="screen_commands/alert",
-            mqtt_topic_print_start="screen_commands/print_start",
-            mqtt_topic_print_done="screen_commands/print_done",
-            mqtt_topic_print_change_filament="screen_commands/print_change_filament",
-            mqtt_topic_print_cancelled="screen_commands/print_cancelled",
-            mqtt_topic_print_change_z="screen_commands/print_change_z",
             mqtt_accept_nonessential_messages_after=0,
             show_cam_on_print_percentage=90,
             show_weather_on_idle=True,
@@ -135,6 +124,12 @@ class _FakeMainApp:
             enable_music=True,
             enable_weather=True,
         )
+        self.mqtt_routes = [
+            {"topic": "music", "handler": "music_update", "phase": "essential"},
+            {"topic": "screen_commands/incoming", "handler": "device_states_update", "phase": "essential"},
+            {"topic": "octoPrint/progress/printing", "handler": "printer_progress", "phase": "nonessential"},
+            {"topic": "calendar", "handler": "overlay_calendar", "phase": "nonessential"},
+        ]
         self.device_states = _FakeDeviceStates()
         self.display_controller = _FakeDisplayController()
         self.music_object = SimpleNamespace(state="idle")
@@ -190,9 +185,9 @@ def _check_router_cost(iterations):
     payload = {"progress": 73, "in_bed": "off"}
 
     def _run_once():
-        router.handle(app.settings.mqtt_topic_devices, payload)
-        router.handle(app.settings.mqtt_topic_printer_progress, payload)
-        router.handle(app.settings.mqtt_topic_calendar, {"event": "x"})
+        router.handle("screen_commands/incoming", payload)
+        router.handle("octoPrint/progress/printing", payload)
+        router.handle("calendar", {"event": "x"})
 
     result = _measure("router.handle.mixed", iterations, _run_once)
     print(f"[perf] router.events={app.events} overlay_requests={app.overlay_requests}")

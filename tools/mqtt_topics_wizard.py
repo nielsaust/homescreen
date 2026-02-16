@@ -50,8 +50,8 @@ def _edit_topic(topics: dict) -> None:
 
 
 def main() -> int:
-    settings = _load_settings()
-    topics = load_mqtt_topics(settings)
+    _ = _load_settings()
+    topics = load_mqtt_topics()
 
     try:
         while True:

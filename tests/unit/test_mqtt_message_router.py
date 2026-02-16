@@ -27,20 +27,15 @@ class _MainApp:
         self.queue_checks = []
         self.bed_time_checks = 0
         self.settings = SimpleNamespace(
-            mqtt_topic_music="music",
-            mqtt_topic_devices="screen_commands/incoming",
-            mqtt_topic_doorbell="doorbell",
-            mqtt_topic_printer_progress="octoPrint/progress/printing",
-            mqtt_topic_calendar="calendar",
-            mqtt_topic_alert="screen_commands/alert",
-            mqtt_topic_print_start="screen_commands/print_start",
-            mqtt_topic_print_done="screen_commands/print_done",
-            mqtt_topic_print_change_filament="screen_commands/print_change_filament",
-            mqtt_topic_print_cancelled="screen_commands/print_cancelled",
-            mqtt_topic_print_change_z="screen_commands/print_change_z",
             mqtt_accept_nonessential_messages_after=0,
             show_cam_on_print_percentage=80,
         )
+        self.mqtt_routes = [
+            {"topic": "music", "handler": "music_update", "phase": "essential"},
+            {"topic": "screen_commands/incoming", "handler": "device_states_update", "phase": "essential"},
+            {"topic": "octoPrint/progress/printing", "handler": "printer_progress", "phase": "nonessential"},
+            {"topic": "calendar", "handler": "overlay_calendar", "phase": "nonessential"},
+        ]
         self.device_states = _DeviceStates()
         self.startup_sync_service = SimpleNamespace(check_queue=self.check_mqtt_message_queue)
         self.music_update_service = SimpleNamespace(queue_update=self.queue_music_update)
@@ -76,7 +71,7 @@ class TestMqttMessageRouter(unittest.TestCase):
         app = _MainApp()
         router = MqttMessageRouter(app)
 
-        router.handle(app.settings.mqtt_topic_printer_progress, {"progress": 50})
+        router.handle("octoPrint/progress/printing", {"progress": 50})
 
         self.assertEqual(app.overlay_calls[-1][0], OverlayCommand.UPDATE_PRINT_PROGRESS)
         self.assertEqual(app.overlay_calls[-1][1]["progress"], 50)
@@ -89,7 +84,7 @@ class TestMqttMessageRouter(unittest.TestCase):
             "app.controllers.mqtt_message_router.get_camera_specs",
             return_value={"printer": {"url": "http://printer-test"}},
         ):
-            router.handle(app.settings.mqtt_topic_printer_progress, {"progress": 95})
+            router.handle("octoPrint/progress/printing", {"progress": 95})
 
         self.assertEqual(app.overlay_calls[-1][0], OverlayCommand.SHOW_CAM)
         self.assertEqual(app.overlay_calls[-1][1]["url"], "http://printer-test")
@@ -98,7 +93,7 @@ class TestMqttMessageRouter(unittest.TestCase):
         app = _MainApp()
         router = MqttMessageRouter(app)
 
-        router.handle(app.settings.mqtt_topic_devices, {"in_bed": "on"})
+        router.handle("screen_commands/incoming", {"in_bed": "on"})
 
         self.assertEqual(app.device_states.in_bed, "on")
         self.assertEqual(app.bed_time_checks, 1)

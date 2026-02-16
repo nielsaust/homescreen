@@ -175,20 +175,8 @@ class MqttController:
             log_event(logger, logging.ERROR, "mqtt", "session.connect_failed", rc=rc)
 
     def subscribe_to_topics(self):
-        """Subscribes to predefined topics."""
-        topic_candidates = [
-            getattr(self.main_app.settings, "mqtt_topic_music", ""),
-            getattr(self.main_app.settings, "mqtt_topic_devices", ""),
-            getattr(self.main_app.settings, "mqtt_topic_alert", ""),
-            getattr(self.main_app.settings, "mqtt_topic_doorbell", ""),
-            getattr(self.main_app.settings, "mqtt_topic_printer_progress", ""),
-            getattr(self.main_app.settings, "mqtt_topic_calendar", ""),
-            getattr(self.main_app.settings, "mqtt_topic_print_start", ""),
-            getattr(self.main_app.settings, "mqtt_topic_print_done", ""),
-            getattr(self.main_app.settings, "mqtt_topic_print_cancelled", ""),
-            getattr(self.main_app.settings, "mqtt_topic_print_change_filament", ""),
-            getattr(self.main_app.settings, "mqtt_topic_print_change_z", ""),
-        ]
+        """Subscribes to all topics referenced by configured mqtt routes."""
+        topic_candidates = [route.get("topic", "") for route in getattr(self.main_app, "mqtt_routes", [])]
         # Ignore disabled/empty topics and deduplicate while keeping order.
         topics = []
         for topic in topic_candidates:
@@ -222,7 +210,10 @@ class MqttController:
         """Publishes a message to a specified topic with retry logic if not connected."""
         try:
             if topic is None:
-                topic = getattr(self.main_app.settings, "mqtt_topic_actions_outgoing", "screen_commands/outgoing")
+                if hasattr(self.main_app, "get_topic"):
+                    topic = self.main_app.get_topic("actions_outgoing", "screen_commands/outgoing")
+                else:
+                    topic = "screen_commands/outgoing"
             if not self.client.is_connected():
                 log_event(logger, logging.WARNING, "mqtt", "publish.reconnect_before_send")
                 self.reconnect()

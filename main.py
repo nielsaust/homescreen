@@ -16,6 +16,7 @@ from app.services.system_info_service import SystemInfoService
 from app.ui.widgets.network_status_widget import NetworkStatusWidget
 from app.config.settings import Settings
 from app.config.mqtt_topics import apply_mqtt_topics_to_settings
+from app.config.mqtt_routes import load_mqtt_routes, resolve_topic_routes
 from app.config.settings_paths import resolve_settings_path
 from app.observability.sentry_setup import init_sentry
 from app.observability.domain_logger import log_event
@@ -31,6 +32,7 @@ class MainApp:
         log_event(logger, logging.INFO, "app", "startup.begin", at=self.print_current_datetime())
         self.settings = Settings(str(resolve_settings_path()))
         self.mqtt_topics = apply_mqtt_topics_to_settings(self.settings)
+        self.mqtt_routes = resolve_topic_routes(self.mqtt_topics, load_mqtt_routes())
         log_setup.apply_runtime_logging_policy(self.settings)
         init_sentry(self.settings)
         self.composition_service = AppCompositionService(self)
@@ -136,6 +138,14 @@ class MainApp:
 
     def is_any_visual_feature_enabled(self):
         return self.is_music_enabled() or self.is_weather_enabled()
+
+    def get_topic(self, key: str, default: str = "") -> str:
+        value = ""
+        if hasattr(self, "mqtt_topics") and isinstance(self.mqtt_topics, dict):
+            value = str(self.mqtt_topics.get(key, "")).strip()
+        if value:
+            return value
+        return str(default or "").strip()
 
     def notify_setup_required(self, setup_name: str):
         message = f"First complete {setup_name} setup"
