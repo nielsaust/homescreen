@@ -4,7 +4,7 @@ This directory contains machine-local config that should not be committed.
 
 ## QR items
 
-1. Copy `qr_items.example.json` to `qr_items.json`.
+1. Copy `qr_items.json.example` to `qr_items.json`.
 2. Fill in your local values.
 3. Reference item ids from menu actions using action kind `show_qr`.
 
