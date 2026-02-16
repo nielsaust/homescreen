@@ -6,30 +6,30 @@ Startup-triggered actions are configured separately in `local_config/startup_act
 ## Where Things Live
 
 - Menu layout and buttons:
-  - `/Users/niels/Documents/Workspace/Personal/homescreen/local_config/menu.json` (local, gitignored)
-  - `/Users/niels/Documents/Workspace/Personal/homescreen/local_config/menu.json.example` (template)
+  - `local_config/menu.json` (local, gitignored)
+  - `local_config/menu.json.example` (template)
 - Action behavior mapping:
-  - `action_specs` section inside `/Users/niels/Documents/Workspace/Personal/homescreen/local_config/menu.json`
+  - `action_specs` section inside `local_config/menu.json`
 - Dynamic button state/labels (active/inactive/available/text updates):
-  - `state_specs` section inside `/Users/niels/Documents/Workspace/Personal/homescreen/local_config/menu.json`
+  - `state_specs` section inside `local_config/menu.json`
 - Action execution engine:
-  - `/Users/niels/Documents/Workspace/Personal/homescreen/app/controllers/action_dispatcher.py`
+  - `app/controllers/action_dispatcher.py`
 
 ## Add A New Button
 
-1. Add button in `menu_schema` in `/Users/niels/Documents/Workspace/Personal/homescreen/local_config/menu.json`.
+1. Add button in `menu_schema` in `local_config/menu.json`.
 
 ```python
 {"id": "my_feature", "text": "Mijn feature", "image": "tools.png", "action": "my_feature"}
 ```
 
-2. Add action spec in `action_specs` in `/Users/niels/Documents/Workspace/Personal/homescreen/local_config/menu.json`.
+2. Add action spec in `action_specs` in `local_config/menu.json`.
 
 ```python
 "my_feature": {"kind": "mqtt_action", "action": "my_feature_toggle"},
 ```
 
-3. Optional: add dynamic state/label in `state_specs` in `/Users/niels/Documents/Workspace/Personal/homescreen/local_config/menu.json`.
+3. Optional: add dynamic state/label in `state_specs` in `local_config/menu.json`.
 
 ```python
 {
@@ -88,7 +88,7 @@ Notes:
 
 ## Supported Action Kinds
 
-Defined in `action_specs` in `/Users/niels/Documents/Workspace/Personal/homescreen/local_config/menu.json`.
+Defined in `action_specs` in `local_config/menu.json`.
 
 - `menu_nav`
   - Example:
@@ -141,11 +141,11 @@ Defined in `action_specs` in `/Users/niels/Documents/Workspace/Personal/homescre
 - `custom`
   - Example:
   - `{"kind": "custom", "name": "doorbell"}`
-  - Implemented in `/Users/niels/Documents/Workspace/Personal/homescreen/app/controllers/action_dispatcher.py` (`_custom_handlers` + method).
+  - Implemented in `app/controllers/action_dispatcher.py` (`_custom_handlers` + method).
 
 ## Add A Submenu
 
-Add a `screen` list to a menu entry in `/Users/niels/Documents/Workspace/Personal/homescreen/local_config/menu.json`:
+Add a `screen` list to a menu entry in `local_config/menu.json`:
 
 ```python
 {
@@ -163,13 +163,13 @@ Add a `screen` list to a menu entry in `/Users/niels/Documents/Workspace/Persona
 ## Common Issues
 
 - Button shows but does nothing:
-  - Check `action` exists in `action_specs` in `/Users/niels/Documents/Workspace/Personal/homescreen/local_config/menu.json`.
+  - Check `action` exists in `action_specs` in `local_config/menu.json`.
 - Label does not change (e.g., `[music_action]` still visible):
-  - Add/update entry in `state_specs` in `/Users/niels/Documents/Workspace/Personal/homescreen/local_config/menu.json`.
+  - Add/update entry in `state_specs` in `local_config/menu.json`.
 - Wrong light percentage or unavailable state:
-  - Check incoming device payload parsing in `/Users/niels/Documents/Workspace/Personal/homescreen/app/models/device_states.py`.
+  - Check incoming device payload parsing in `app/models/device_states.py`.
 - Icon missing:
-  - Ensure image exists in `/Users/niels/Documents/Workspace/Personal/homescreen/images/buttons/`.
+  - Ensure image exists in `images/buttons/`.
 
 ## Quick Validation
 
