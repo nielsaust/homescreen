@@ -125,7 +125,12 @@ def _import_modules() -> list[str]:
 
 def _load_settings() -> list[str]:
     errors: list[str] = []
-    settings_file = "settings.json" if (ROOT / "settings.json").exists() else "settings.json.example"
+    if (ROOT / "local_config" / "settings.json").exists():
+        settings_file = "local_config/settings.json"
+    elif (ROOT / "settings.json").exists():
+        settings_file = "settings.json"
+    else:
+        settings_file = "settings.json.example"
 
     try:
         from app.config.settings import Settings

@@ -1,6 +1,6 @@
 # Settings Workflow
 
-Use this workflow to keep `settings.json` and `settings.json.example` aligned without leaking secrets.
+Use this workflow to keep `local_config/settings.json` and `settings.json.example` aligned without leaking secrets.
 
 ## Commands
 
@@ -28,7 +28,7 @@ Preview keys that exist only in local settings (and could be removed):
 make settings-prune-local-preview
 ```
 
-Remove local-only keys from `settings.json`:
+Remove local-only keys from `local_config/settings.json`:
 
 ```bash
 make settings-prune-local
@@ -36,7 +36,7 @@ make settings-prune-local
 
 ## Recommended routine
 
-1. Add/change settings in `settings.json` while developing.
+1. Add/change settings in `local_config/settings.json` while developing.
 2. Run `make settings-update-example`.
 3. Review `settings.json.example` and commit.
 4. Run `make settings-check` to confirm both files are aligned.
@@ -58,7 +58,7 @@ Legacy keys (`console_log_level`, `file_log_level`, `logger_levels`, `log_level`
 
 ## Secret safety
 
-- `settings.json` is gitignored.
+- `local_config/settings.json` is local-only and gitignored.
 - `settings-update-example` uses placeholder values for sensitive keys (`password`, `secret`, `token`, `api_key`, `dsn`).
 - The check output shows only paths and types, never secret values.
 - `settings-prune-local-preview` is a dry run; removal only happens with `settings-prune-local` (apply mode).

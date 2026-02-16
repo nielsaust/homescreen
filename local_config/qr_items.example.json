@@ -9,5 +9,9 @@
   "project_site": {
     "type": "url",
     "url": "https://example.com"
+  },
+  "calendar_add": {
+    "type": "url",
+    "url": "https://example.com/calendar/add"
   }
 }

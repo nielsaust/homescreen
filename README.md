@@ -5,7 +5,6 @@ Tkinter homescreen app for Raspberry Pi (HyperPixel) with MQTT-driven automation
 ## Quick Start (Local)
 
 ```bash
-cp settings.json.example settings.json
 make install
 make configuration
 make test-local
@@ -15,7 +14,6 @@ make run
 ## Quick Start (Pi)
 
 ```bash
-cp settings.json.example settings.json
 mkdir -p logs
 make install
 sudo systemctl restart homescreen.service

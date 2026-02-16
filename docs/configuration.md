@@ -7,7 +7,7 @@ make install
 make configuration
 ```
 
-The wizard updates `settings.json` interactively.
+The wizard updates `local_config/settings.json` interactively.
 
 ## Sections
 

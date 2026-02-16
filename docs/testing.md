@@ -48,7 +48,7 @@ Behavior:
 
 ## Music Diagnostics
 
-Enable in `settings.json`:
+Enable in `local_config/settings.json`:
 
 ```json
 {
@@ -69,7 +69,7 @@ This enables detailed music pipeline debug logs and periodic observability-only 
 
 ## Settings Hygiene During Testing
 
-- `settings.json` is local-only and gitignored.
+- `local_config/settings.json` is local-only and gitignored.
 - Keep `settings.json.example` aligned:
   - `make settings-check`
   - `make settings-update-example`

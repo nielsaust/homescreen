@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SETTINGS_PATH = ROOT / "settings.json"
+SETTINGS_PATH = ROOT / "local_config" / "settings.json"
 SETTINGS_EXAMPLE_PATH = ROOT / "settings.json.example"
 
 

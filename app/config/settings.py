@@ -1,17 +1,17 @@
 import json
 import logging
-import os
 import pathlib
 import sys
 logger = logging.getLogger(__name__)
 
 class Settings:
     def __init__(self, json_file):
-        self.json_file = json_file
-        json_file_path = os.fspath(pathlib.Path(__file__).resolve().parents[2] / f"{json_file}")
-        self.load_settings(json_file_path)
+        self.json_file = pathlib.Path(json_file)
+        if not self.json_file.is_absolute():
+            self.json_file = pathlib.Path(__file__).resolve().parents[2] / self.json_file
+        self.load_settings(self.json_file)
 
-    def load_settings(self, json_file):
+    def load_settings(self, json_file: pathlib.Path):
         logger.info(f"Loading settings from {json_file}")
         try:
             with open(json_file, 'r') as file:
@@ -23,7 +23,7 @@ class Settings:
         except FileNotFoundError:
             logger.critical(
                 f"Settings file '{json_file}' not found. Copy 'settings.json.example' to "
-                f"'settings.json' first. Example: cp settings.json.example settings.json"
+                f"'local_config/settings.json' first. Example: cp settings.json.example local_config/settings.json"
             )
             sys.exit(1)
         except json.JSONDecodeError as e:
@@ -33,6 +33,7 @@ class Settings:
     def save_settings(self):
         try:
             serializable = self.to_serializable_dict()
+            self.json_file.parent.mkdir(parents=True, exist_ok=True)
             with open(self.json_file, 'w') as file:
                 json.dump(serializable, file, indent=4)
             logger.info(f"Settings successfully saved to '{self.json_file}'.")

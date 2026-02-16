@@ -58,6 +58,7 @@ Supported item types in `create`:
 - `mqtt_action`
 - `mqtt_message`
 - `show_image`
+- `show_qr` (reads payload from `local_config/qr_items.json`)
 - `custom` (includes action-dispatcher stub method)
 - `submenu` (includes placeholder child action + custom stub)
 
@@ -67,6 +68,7 @@ Files updated automatically (as needed):
 - `app/ui/menu_state_resolver.py` (for `setting_toggle`)
 - `app/controllers/action_dispatcher.py` (for `custom` stubs)
 - `settings.json.example` and `settings.json` (for new setting keys)
+- `settings.json.example` and `local_config/settings.json` (for new setting keys)
 
 Validation:
 
@@ -97,6 +99,9 @@ Defined in `/Users/niels/Documents/Workspace/Personal/homescreen/app/controllers
 - `show_image`
   - Example:
   - `{"kind": "show_image", "image": "qr-wifi.png"}`
+- `show_qr`
+  - Example:
+  - `{"kind": "show_qr", "item_id": "wifi_home"}`
 - `setting_toggle`
   - Example:
   - `{"kind": "setting_toggle", "attr": "media_show_titles"}`

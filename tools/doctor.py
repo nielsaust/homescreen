@@ -62,10 +62,11 @@ def _check_imports() -> list[str]:
 
 
 def _load_settings() -> tuple[dict, Path] | tuple[None, None]:
-    primary = ROOT / "settings.json"
+    primary = ROOT / "local_config" / "settings.json"
+    legacy = ROOT / "settings.json"
     fallback = ROOT / "settings.json.example"
 
-    settings_file = primary if primary.exists() else fallback
+    settings_file = primary if primary.exists() else (legacy if legacy.exists() else fallback)
     if not settings_file.exists():
         return None, None
 
@@ -80,7 +81,7 @@ def _check_settings() -> list[str]:
     data, path = _load_settings()
     if data is None:
         if path is None:
-            errors.append("Missing both settings.json and settings.json.example")
+            errors.append("Missing both local_config/settings.json and settings.json.example")
         else:
             errors.append(f"Invalid JSON in {path}")
         return errors

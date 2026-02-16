@@ -27,9 +27,12 @@ import socket
 from pathlib import Path
 
 root = Path(".")
-settings_path = root / "settings.json"
+settings_path = root / "local_config" / "settings.json"
+legacy_path = root / "settings.json"
+if not settings_path.exists() and legacy_path.exists():
+    settings_path = legacy_path
 if not settings_path.exists():
-    print("[device-smoke][warn] settings.json missing; skipping broker socket check")
+    print("[device-smoke][warn] settings file missing; skipping broker socket check")
     raise SystemExit(0)
 
 data = json.loads(settings_path.read_text())

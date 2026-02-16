@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Utilities to keep settings.json and settings.json.example in sync safely."""
+"""Utilities to keep local_config/settings.json and settings.json.example in sync safely."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
-LOCAL_FILE = ROOT / "settings.json"
+LOCAL_FILE = ROOT / "local_config" / "settings.json"
 EXAMPLE_FILE = ROOT / "settings.json.example"
 
 SENSITIVE_KEY_PARTS = (
@@ -36,6 +36,7 @@ def load_json(path: Path) -> dict[str, Any]:
 
 
 def save_json(path: Path, data: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=4) + "\n")
 
 
@@ -161,12 +162,12 @@ def command_check() -> int:
             type_mismatches.append((path, type(a).__name__, type(b).__name__))
 
     print("[settings-sync] check")
-    print(f"- only in settings.json: {len(only_local)}")
+    print(f"- only in local_config/settings.json: {len(only_local)}")
     print(f"- only in settings.json.example: {len(only_example)}")
     print(f"- type mismatches: {len(type_mismatches)}")
 
     if only_local:
-        print("\n[only in settings.json]")
+        print("\n[only in local_config/settings.json]")
         for path in only_local:
             print(f"  - {path}")
 
@@ -243,13 +244,13 @@ def command_prune_local(apply: bool) -> int:
     extra_paths = sorted(set(local_paths) - set(example_paths))
 
     print("[settings-sync] prune-local")
-    print(f"- extra keys in settings.json: {len(extra_paths)}")
+    print(f"- extra keys in local_config/settings.json: {len(extra_paths)}")
     if extra_paths:
         for path in extra_paths:
             print(f"  - {path}")
 
     if not apply:
-        print("\n[settings-sync] dry-run only. Use '--apply' to remove these keys from settings.json.")
+        print("\n[settings-sync] dry-run only. Use '--apply' to remove these keys from local_config/settings.json.")
         return 0
 
     removed = 0
@@ -268,16 +269,16 @@ def main() -> int:
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("check", help="Show key/type differences")
-    sub.add_parser("update-example", help="Add missing keys from settings.json to settings.json.example")
-    sub.add_parser("update-local", help="Add missing keys from settings.json.example to settings.json")
+    sub.add_parser("update-example", help="Add missing keys from local_config/settings.json to settings.json.example")
+    sub.add_parser("update-local", help="Add missing keys from settings.json.example to local_config/settings.json")
     prune_local = sub.add_parser(
         "prune-local",
-        help="Preview/remove keys in settings.json that do not exist in settings.json.example",
+        help="Preview/remove keys in local_config/settings.json that do not exist in settings.json.example",
     )
     prune_local.add_argument(
         "--apply",
         action="store_true",
-        help="Actually remove extra keys from settings.json (default is dry-run preview).",
+        help="Actually remove extra keys from local_config/settings.json (default is dry-run preview).",
     )
 
     args = parser.parse_args()

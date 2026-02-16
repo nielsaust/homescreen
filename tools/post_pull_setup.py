@@ -8,7 +8,8 @@ import shutil
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SETTINGS = ROOT / "settings.json"
+SETTINGS = ROOT / "local_config" / "settings.json"
+LEGACY_SETTINGS = ROOT / "settings.json"
 SETTINGS_EXAMPLE = ROOT / "settings.json.example"
 
 
@@ -25,8 +26,13 @@ def _save_json(path: Path, data: dict) -> None:
 def ensure_settings_file() -> None:
     if SETTINGS.exists():
         return
+    SETTINGS.parent.mkdir(parents=True, exist_ok=True)
+    if LEGACY_SETTINGS.exists():
+        shutil.copy2(LEGACY_SETTINGS, SETTINGS)
+        print("[setup] migrated settings.json to local_config/settings.json")
+        return
     shutil.copy2(SETTINGS_EXAMPLE, SETTINGS)
-    print("[setup] created settings.json from settings.json.example")
+    print("[setup] created local_config/settings.json from settings.json.example")
 
 
 def ensure_settings_keys() -> None:
@@ -38,11 +44,11 @@ def ensure_settings_keys() -> None:
     for key in missing:
         local[key] = example[key]
     _save_json(SETTINGS, local)
-    print(f"[setup] added missing settings keys to settings.json: {len(missing)}")
+    print(f"[setup] added missing settings keys to local_config/settings.json: {len(missing)}")
 
 
 def ensure_directories() -> None:
-    for rel in ("logs", ".sim"):
+    for rel in ("logs", ".sim", "local_config"):
         path = ROOT / rel
         path.mkdir(parents=True, exist_ok=True)
         print(f"[setup] ensured directory: {rel}")

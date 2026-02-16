@@ -17,7 +17,7 @@ from app.controllers.action_registry import ACTION_SPECS
 from app.ui.menu_registry import MENU_SCHEMA
 
 SETTINGS_EXAMPLE = ROOT / "settings.json.example"
-SETTINGS_LOCAL = ROOT / "settings.json"
+SETTINGS_LOCAL = ROOT / "local_config" / "settings.json"
 IMAGES_DIR = ROOT / "images" / "buttons"
 STATE_RESOLVER = ROOT / "app" / "ui" / "menu_state_resolver.py"
 

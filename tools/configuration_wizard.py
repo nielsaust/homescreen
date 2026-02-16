@@ -9,7 +9,7 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SETTINGS_PATH = ROOT / "settings.json"
+SETTINGS_PATH = ROOT / "local_config" / "settings.json"
 SETTINGS_EXAMPLE_PATH = ROOT / "settings.json.example"
 
 
@@ -20,6 +20,7 @@ def _load_settings() -> dict:
 
 
 def _save_settings(data: dict) -> None:
+    SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
     SETTINGS_PATH.write_text(json.dumps(data, indent=4) + "\n", encoding="utf-8")
 
 
@@ -252,7 +253,7 @@ def main() -> int:
                 configure_services()
             elif choice == "6":
                 _save_settings(settings)
-                print("[configuration] Saved to settings.json")
+                print("[configuration] Saved to local_config/settings.json")
                 return 0
             elif choice == "7":
                 if dirty and not _prompt_bool("Discard unsaved changes?", False):

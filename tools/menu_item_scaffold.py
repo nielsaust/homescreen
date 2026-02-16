@@ -24,7 +24,7 @@ MENU_REGISTRY = ROOT / "app" / "ui" / "menu_registry.py"
 ACTION_REGISTRY = ROOT / "app" / "controllers" / "action_registry.py"
 ACTION_DISPATCHER = ROOT / "app" / "controllers" / "action_dispatcher.py"
 SETTINGS_EXAMPLE = ROOT / "settings.json.example"
-SETTINGS_LOCAL = ROOT / "settings.json"
+SETTINGS_LOCAL = ROOT / "local_config" / "settings.json"
 BUTTON_IMAGES_DIR = ROOT / "images" / "buttons"
 
 
