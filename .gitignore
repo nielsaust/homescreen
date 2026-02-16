@@ -15,3 +15,4 @@ logs/rollover_logs.txt
 logs/security/
 settings.json
 .sim/
+images/custom/
