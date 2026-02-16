@@ -19,6 +19,8 @@ class TouchController:
         self.main_app = main_app
         from app.controllers.action_dispatcher import ActionDispatcher
         self.action_dispatcher = ActionDispatcher(main_app, self)
+        # Expose dispatcher on main_app for startup/background action flows.
+        self.main_app.action_dispatcher = self.action_dispatcher
         self.hold_time = self.main_app.settings.hold_time  # Store the hold time threshold
         self.click_time = None  # To store the time of the initial click
         self.ignore_next_click = False

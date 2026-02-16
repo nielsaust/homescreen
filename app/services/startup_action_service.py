@@ -73,6 +73,25 @@ class StartupActionService:
             self.main_app.root.after(500, lambda i=item: self._execute_with_readiness(i))
             return
 
+        dispatcher = getattr(self.main_app, "action_dispatcher", None)
+        if dispatcher is None:
+            touch = getattr(self.main_app, "touch_controller", None)
+            dispatcher = getattr(touch, "action_dispatcher", None)
+        if dispatcher is None:
+            if attempts >= 20:
+                log_event(
+                    logger,
+                    logging.WARNING,
+                    "app",
+                    "startup_action.skipped",
+                    action=action_id,
+                    reason="dispatcher_not_ready",
+                )
+                return
+            item["attempts"] = attempts + 1
+            self.main_app.root.after(250, lambda i=item: self._execute_with_readiness(i))
+            return
+
         log_event(
             logger,
             logging.INFO,
@@ -82,4 +101,4 @@ class StartupActionService:
             attempts=attempts,
             require_mqtt=require_mqtt,
         )
-        self.main_app.action_dispatcher.dispatch_spec(action_id, item.get("spec", {}))
+        dispatcher.dispatch_spec(action_id, item.get("spec", {}))
