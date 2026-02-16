@@ -19,6 +19,7 @@ from app.services.music_state_service import MusicStateService
 from app.services.music_update_service import MusicUpdateService
 from app.services.power_policy_service import PowerPolicyService
 from app.services.startup_sync_service import StartupSyncService
+from app.services.startup_action_service import StartupActionService
 from app.services.ui_intent_mapper_service import UiIntentMapperService
 
 
@@ -55,5 +56,6 @@ class AppCompositionService:
         self.main_app.music_playback_policy_service = MusicPlaybackPolicyService(self.main_app)
         self.main_app.power_policy_service = PowerPolicyService(self.main_app)
         self.main_app.startup_sync_service = StartupSyncService(self.main_app)
+        self.main_app.startup_action_service = StartupActionService(self.main_app)
         self.main_app.ui_intent_mapper_service = UiIntentMapperService()
         self.main_app.app_lifecycle_service = AppLifecycleService(self.main_app)

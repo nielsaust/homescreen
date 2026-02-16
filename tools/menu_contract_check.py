@@ -78,8 +78,6 @@ def main() -> int:
         conflicting = sorted(button_id for button_id in duplicates if len(id_to_actions.get(button_id, set())) > 1)
         if conflicting:
             issues.append(f"Duplicate menu ids with conflicting actions: {conflicting}")
-        else:
-            warnings.append(f"Duplicate menu ids reused safely: {duplicates}")
 
     # Images must exist
     missing_images = sorted(
@@ -158,6 +156,17 @@ def main() -> int:
     referenced_topic_keys = set()
     for action_id, spec in ACTION_SPECS.items():
         kind = str(spec.get("kind", "")).strip()
+        if "run_on_startup" in spec and not isinstance(spec.get("run_on_startup"), bool):
+            issues.append(f"Action '{action_id}' has non-bool run_on_startup")
+        if "startup_delay_ms" in spec:
+            try:
+                delay = int(spec.get("startup_delay_ms"))
+                if delay < 0:
+                    issues.append(f"Action '{action_id}' has negative startup_delay_ms")
+            except Exception:
+                issues.append(f"Action '{action_id}' has invalid startup_delay_ms")
+        if "startup_require_mqtt" in spec and not isinstance(spec.get("startup_require_mqtt"), bool):
+            issues.append(f"Action '{action_id}' has non-bool startup_require_mqtt")
         if kind == "show_qr":
             item_id = str(spec.get("item_id", "")).strip()
             if item_id:
@@ -182,6 +191,12 @@ def main() -> int:
         if orphan_qr:
             warnings.append(f"Orphan qr_items not referenced by menu actions: {orphan_qr}")
     if cameras:
+        camera_topic_keys = {
+            str(camera.get("command_topic_key", "")).strip()
+            for camera in cameras.values()
+            if isinstance(camera, dict)
+        }
+        referenced_topic_keys.update({key for key in camera_topic_keys if key})
         orphan_cameras = sorted(set(cameras.keys()) - referenced_camera_ids)
         if orphan_cameras:
             warnings.append(f"Orphan camera entries not referenced by menu actions: {orphan_cameras}")
@@ -195,7 +210,10 @@ def main() -> int:
                 route_topic_keys.add(key)
                 if mqtt_topics and key not in mqtt_topics:
                     issues.append(f"MQTT route references missing topic key: '{key}'")
-    unused_topic_keys = sorted(set(mqtt_topics.keys()) - (referenced_topic_keys | route_topic_keys))
+    internally_used_topic_keys = {"update_music"}
+    unused_topic_keys = sorted(
+        set(mqtt_topics.keys()) - (referenced_topic_keys | route_topic_keys | internally_used_topic_keys)
+    )
     if unused_topic_keys:
         warnings.append(f"MQTT topic keys defined but unused by menu actions/routes: {unused_topic_keys}")
 

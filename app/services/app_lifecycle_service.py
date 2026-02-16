@@ -22,3 +22,4 @@ class AppLifecycleService:
         self.main_app.network_bootstrap_service.start_network_status_poll()
         self.main_app.music_metrics_service.start_logging()
         self.main_app.network_bootstrap_service.maybe_init_mqtt_if_online()
+        self.main_app.startup_action_service.start()

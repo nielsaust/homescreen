@@ -128,6 +128,33 @@ def _apply_feature_menu_defaults(settings: dict) -> None:
     _save_menu_config(config)
 
 
+def _sync_music_startup_refresh_action(settings: dict, topics: dict) -> None:
+    config = _load_menu_config()
+    action_specs = config.setdefault("action_specs", {})
+    action_id = "startup_refresh_music_state"
+    enable = bool(settings.get("enable_music", False)) and bool(settings.get("enable_mqtt", False))
+    if enable:
+        startup_delay_ms = 1500
+        existing = action_specs.get(action_id, {})
+        try:
+            startup_delay_ms = int(existing.get("startup_delay_ms", startup_delay_ms) or startup_delay_ms)
+        except Exception:
+            startup_delay_ms = 1500
+        action_specs[action_id] = {
+            "kind": "mqtt_publish",
+            "topic_key": "update_music",
+            "payload": None,
+            "run_on_startup": True,
+            "startup_delay_ms": startup_delay_ms,
+            "startup_require_mqtt": True,
+        }
+        if not str(topics.get("update_music", "")).strip():
+            topics["update_music"] = "screen_commands/update_music"
+    else:
+        action_specs.pop(action_id, None)
+    _save_menu_config(config)
+
+
 def _prompt(text: str, default: str = "") -> str:
     suffix = f" [{default}]" if default else ""
     try:
@@ -201,6 +228,7 @@ def configure_music(settings: dict, topics: dict) -> None:
         bool(settings.get("media_sanitize_titles", True)),
     )
     _apply_feature_menu_defaults(settings)
+    _sync_music_startup_refresh_action(settings, topics)
     print("[configuration] Music integration updated.")
 
 
@@ -355,6 +383,7 @@ def main() -> int:
                 configure_services()
             elif choice == "6":
                 _apply_feature_menu_defaults(settings)
+                _sync_music_startup_refresh_action(settings, topics)
                 _save_settings(settings)
                 _save_topics(topics)
                 print("[configuration] Saved to local_config/settings.json")

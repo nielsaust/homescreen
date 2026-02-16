@@ -26,6 +26,9 @@ MQTT topics are stored separately in `local_config/mqtt_topics.json`.
 - Music topic (`music`, stored in `local_config/mqtt_topics.json`)
 - Home Assistant API base URL (`home_assistant_api_base_url`)
 - Music display toggles (`media_show_titles`, `media_sanitize_titles`)
+- Startup refresh action
+  - Wizard auto-manages action spec `startup_refresh_music_state` in `local_config/menu.json`.
+  - It publishes to topic key `update_music` on startup (after MQTT is ready), so app startup can recover current playing state.
 
 3. Weather integration
 - Enable/disable weather integration (`enable_weather`)

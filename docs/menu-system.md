@@ -100,6 +100,10 @@ Defined in `action_specs` in `/Users/niels/Documents/Workspace/Personal/homescre
   - `topic` (explicit topic string, overrides `topic_key`)
   - `value` (included as `{"value": ...}`)
   - `extra` (object merged into outgoing payload)
+  - Startup options:
+  - `run_on_startup: true`
+  - `startup_delay_ms: 1500` (optional delay before execution)
+  - `startup_require_mqtt: true|false` (optional override)
 - `mqtt_message`
   - Example:
   - `{"kind": "mqtt_message", "topic": "screen_commands/doorbell", "payload": {"active": true}}`
@@ -109,6 +113,10 @@ Defined in `action_specs` in `/Users/niels/Documents/Workspace/Personal/homescre
   - Alias of `mqtt_message` (same behavior) for clearer naming in new configs.
   - Example:
   - `{"kind": "mqtt_publish", "topic_key": "actions_outgoing", "payload": {"action": "scene_movie"}}`
+  - Startup options:
+  - `run_on_startup: true`
+  - `startup_delay_ms: 1500`
+  - `startup_require_mqtt: true|false`
 - `show_image`
   - Example:
   - `{"kind": "show_image", "image": "qr-wifi.png"}`
