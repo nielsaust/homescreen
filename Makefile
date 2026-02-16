@@ -1,6 +1,6 @@
 PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 
-.PHONY: install configuration mqtt-topics migrate-local-config service-setup baseline doctor smoke test-unit perf-check menu-contract-check menu-item-scaffold menu-item-new-toggle menu-item-verify-toggle check-local test-local test-device run net-down net-up net-status settings-check settings-update-example settings-update-local settings-prune-local-preview settings-prune-local deploy-dry-run precommit-install precommit-run security-scan
+.PHONY: install configuration mqtt-topics migrate-local-config menu-migrate-actions service-setup baseline doctor smoke test-unit perf-check menu-contract-check menu-item-scaffold menu-item-new-toggle menu-item-verify-toggle check-local test-local test-device run net-down net-up net-status settings-check settings-update-example settings-update-local settings-prune-local-preview settings-prune-local deploy-dry-run precommit-install precommit-run security-scan
 
 install:
 	bash tools/bootstrap.sh
@@ -13,6 +13,9 @@ mqtt-topics:
 
 migrate-local-config:
 	$(PYTHON) tools/migrate_local_config.py --apply
+
+menu-migrate-actions:
+	$(PYTHON) tools/migrate_menu_actions.py --apply
 
 service-setup:
 	$(PYTHON) tools/service_setup.py wizard

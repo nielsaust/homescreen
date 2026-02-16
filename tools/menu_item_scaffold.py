@@ -21,6 +21,11 @@ ACTION_DISPATCHER = ROOT / "app" / "controllers" / "action_dispatcher.py"
 SETTINGS_EXAMPLE = ROOT / "settings.json.example"
 SETTINGS_LOCAL = ROOT / "local_config" / "settings.json"
 BUTTON_IMAGES_DIR = ROOT / "images" / "buttons"
+QR_ITEMS_PATH = ROOT / "local_config" / "qr_items.json"
+CAMERAS_PATH = ROOT / "local_config" / "cameras.json"
+MQTT_TOPICS_LOCAL = ROOT / "local_config" / "mqtt_topics.json"
+MQTT_TOPICS_EXAMPLE = ROOT / "local_config" / "mqtt_topics.json.example"
+MQTT_ROUTES_LOCAL = ROOT / "local_config" / "mqtt_routes.json"
 
 
 class UserCanceled(Exception):
@@ -253,6 +258,146 @@ def _remove_setting_key(key: str) -> None:
             path.write_text(json.dumps(data, indent=4) + "\n", encoding="utf-8")
 
 
+def _load_json_object(path: Path) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _save_json_object(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def _load_cameras() -> dict[str, Any]:
+    payload = _load_json_object(CAMERAS_PATH) or {}
+    cameras = payload.get("cameras")
+    if isinstance(cameras, dict):
+        return cameras
+    return {}
+
+
+def _save_cameras(cameras: dict[str, Any]) -> None:
+    _save_json_object(CAMERAS_PATH, {"cameras": cameras})
+
+
+def _collect_referenced_values(action_specs: dict[str, dict[str, Any]], kind: str, field: str) -> set[str]:
+    out: set[str] = set()
+    for spec in action_specs.values():
+        if spec.get("kind") != kind:
+            continue
+        value = str(spec.get(field, "")).strip()
+        if value:
+            out.add(value)
+    return out
+
+
+def _topic_key_is_used_in_routes(topic_key: str) -> bool:
+    routes = _load_json_object(MQTT_ROUTES_LOCAL)
+    if not routes:
+        return False
+    entries = routes.get("routes")
+    if not isinstance(entries, list):
+        return False
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        if str(entry.get("topic_key", "")).strip() == topic_key:
+            return True
+    return False
+
+
+def _cleanup_unreferenced_action_spec(action_id: str, action_specs: dict[str, dict[str, Any]]) -> None:
+    spec = action_specs.get(action_id)
+    if not spec:
+        return
+
+    if _prompt_choice(f"Action '{action_id}' is now unreferenced. Remove action spec?", ["y", "n"], "y") != "y":
+        return
+
+    spec = action_specs.pop(action_id)
+    kind = str(spec.get("kind", "")).strip()
+
+    if kind == "setting_toggle":
+        setting_key = str(spec.get("attr", "")).strip()
+        if setting_key and _prompt_choice(
+            f"Remove setting key '{setting_key}' from settings files?",
+            ["y", "n"],
+            "n",
+        ) == "y":
+            _remove_setting_key(setting_key)
+        return
+
+    if kind == "show_qr":
+        item_id = str(spec.get("item_id", "")).strip()
+        if not item_id:
+            return
+        qr_items = _load_json_object(QR_ITEMS_PATH)
+        if not qr_items or item_id not in qr_items:
+            return
+        still_used = item_id in _collect_referenced_values(action_specs, "show_qr", "item_id")
+        if still_used:
+            return
+        if _prompt_choice(
+            f"QR item '{item_id}' exists in local_config/qr_items.json but is no longer referenced. Remove it?",
+            ["y", "n"],
+            "n",
+        ) == "y":
+            del qr_items[item_id]
+            _save_json_object(QR_ITEMS_PATH, qr_items)
+        return
+
+    if kind == "show_camera":
+        camera_id = str(spec.get("camera_id", "")).strip()
+        if not camera_id:
+            return
+        cameras = _load_cameras()
+        if not cameras or camera_id not in cameras:
+            return
+        still_used = camera_id in _collect_referenced_values(action_specs, "show_camera", "camera_id")
+        if still_used:
+            return
+        if _prompt_choice(
+            f"Camera '{camera_id}' exists in local_config/cameras.json but is no longer referenced. Remove it?",
+            ["y", "n"],
+            "n",
+        ) == "y":
+            del cameras[camera_id]
+            _save_cameras(cameras)
+        return
+
+    if kind in ("mqtt_action", "mqtt_publish", "mqtt_message"):
+        topic_key = str(spec.get("topic_key", "")).strip()
+        if not topic_key:
+            return
+        topics = _load_json_object(MQTT_TOPICS_LOCAL)
+        if not topics:
+            return
+        topics_block = topics.get("topics")
+        if not isinstance(topics_block, dict) or topic_key not in topics_block:
+            return
+        topic_key_refs = set()
+        for candidate in action_specs.values():
+            if not isinstance(candidate, dict):
+                continue
+            key = str(candidate.get("topic_key", "")).strip()
+            if key:
+                topic_key_refs.add(key)
+        if topic_key in topic_key_refs or _topic_key_is_used_in_routes(topic_key):
+            return
+        if _prompt_choice(
+            f"MQTT topic key '{topic_key}' in local_config/mqtt_topics.json is no longer referenced by actions/routes. Remove it?",
+            ["y", "n"],
+            "n",
+        ) == "y":
+            del topics_block[topic_key]
+            _save_json_object(MQTT_TOPICS_LOCAL, topics)
+
+
 def _build_submenu(action_id: str, label: str) -> list[dict[str, Any]]:
     base = _sanitize_identifier(action_id)
     return [
@@ -386,6 +531,32 @@ def _verify_item() -> int:
     if action_id not in ("back", "open_page") and action_id not in action_specs:
         print(f"[menu-item] missing action spec for '{action_id}'")
         return 1
+    if action_id in action_specs:
+        spec = action_specs[action_id]
+        kind = str(spec.get("kind", "")).strip()
+        if kind == "show_qr":
+            item_id = str(spec.get("item_id", "")).strip()
+            items = _load_json_object(QR_ITEMS_PATH) or {}
+            if item_id and item_id not in items:
+                print(f"[menu-item] warning: qr item '{item_id}' not found in local_config/qr_items.json")
+        elif kind == "show_camera":
+            camera_id = str(spec.get("camera_id", "")).strip()
+            cameras = _load_cameras()
+            if camera_id and camera_id not in cameras:
+                print(f"[menu-item] warning: camera '{camera_id}' not found in local_config/cameras.json")
+        elif kind == "setting_toggle":
+            setting_key = str(spec.get("attr", "")).strip()
+            local_settings = _load_json_object(SETTINGS_LOCAL) or {}
+            example_settings = _load_json_object(SETTINGS_EXAMPLE) or {}
+            if setting_key and setting_key not in local_settings and setting_key not in example_settings:
+                print(f"[menu-item] warning: setting key '{setting_key}' missing in settings files")
+        elif kind in ("mqtt_action", "mqtt_publish", "mqtt_message"):
+            topic_key = str(spec.get("topic_key", "")).strip()
+            if topic_key:
+                topics = _load_json_object(MQTT_TOPICS_LOCAL) or _load_json_object(MQTT_TOPICS_EXAMPLE) or {}
+                topic_block = topics.get("topics") if isinstance(topics.get("topics"), dict) else {}
+                if topic_key not in topic_block:
+                    print(f"[menu-item] warning: mqtt topic key '{topic_key}' missing in mqtt_topics.json")
     print(f"[menu-item] verify OK id='{entry.get('id')}' action='{action_id}'")
     return 0
 
@@ -426,6 +597,11 @@ def _edit_item() -> int:
             print("[menu-item] edit aborted: action spec missing")
             return 1
 
+    if new_action != old_action and old_action in action_specs:
+        remaining_actions = {r["entry"].get("action") for r in _collect_entries(schema)}
+        if old_action not in remaining_actions:
+            _cleanup_unreferenced_action_spec(old_action, action_specs)
+
     _save_menu_config_data(config, schema, action_specs)
     print(f"[menu-item] updated '{entry.get('id')}'")
     return 0
@@ -453,20 +629,10 @@ def _remove_item() -> int:
     container = _get_container(schema, path[:-1])
     del container[path[-1]]
 
-    # Optional cleanup for unreferenced action specs
-    remaining_actions = {
-        row["entry"].get("action")
-        for row in _collect_entries(schema)
-    }
+    # Optional cleanup for unreferenced action specs + linked config artifacts.
+    remaining_actions = {r["entry"].get("action") for r in _collect_entries(schema)}
     if action_id in action_specs and action_id not in remaining_actions:
-        if _prompt_choice(f"Action '{action_id}' is now unreferenced. Remove action spec?", ["y", "n"], "y") == "y":
-            spec = action_specs.pop(action_id)
-            if spec.get("kind") == "setting_toggle":
-                setting_key = spec.get("attr")
-                if setting_key and _prompt_choice(
-                    f"Remove setting key '{setting_key}' from settings files?", ["y", "n"], "n"
-                ) == "y":
-                    _remove_setting_key(setting_key)
+        _cleanup_unreferenced_action_spec(str(action_id), action_specs)
 
     _save_menu_config_data(config, schema, action_specs)
     print(f"[menu-item] removed '{item_id}'")

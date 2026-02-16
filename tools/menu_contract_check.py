@@ -18,6 +18,11 @@ from app.ui.menu_config_loader import get_state_specs
 
 SETTINGS_EXAMPLE = ROOT / "settings.json.example"
 SETTINGS_LOCAL = ROOT / "local_config" / "settings.json"
+QR_ITEMS_LOCAL = ROOT / "local_config" / "qr_items.json"
+CAMERAS_LOCAL = ROOT / "local_config" / "cameras.json"
+MQTT_TOPICS_LOCAL = ROOT / "local_config" / "mqtt_topics.json"
+MQTT_TOPICS_EXAMPLE = ROOT / "local_config" / "mqtt_topics.json.example"
+MQTT_ROUTES_LOCAL = ROOT / "local_config" / "mqtt_routes.json"
 IMAGES_DIR = ROOT / "images" / "buttons"
 
 
@@ -36,6 +41,22 @@ def extract_state_button_ids() -> set[str]:
         for spec in get_state_specs()
         if spec.get("button_id")
     }
+
+
+def _load_json(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _camera_items() -> dict:
+    payload = _load_json(CAMERAS_LOCAL)
+    cameras = payload.get("cameras")
+    return cameras if isinstance(cameras, dict) else {}
 
 
 def main() -> int:
@@ -89,10 +110,8 @@ def main() -> int:
         issues.append(f"MenuStateResolver references unknown button ids: {missing_state_buttons}")
 
     # setting_toggle checks
-    local_settings = {}
-    if SETTINGS_LOCAL.exists():
-        local_settings = json.loads(SETTINGS_LOCAL.read_text(encoding="utf-8"))
-    example_settings = json.loads(SETTINGS_EXAMPLE.read_text(encoding="utf-8"))
+    local_settings = _load_json(SETTINGS_LOCAL)
+    example_settings = _load_json(SETTINGS_EXAMPLE)
     setting_toggle_actions = {
         action: spec["attr"]
         for action, spec in ACTION_SPECS.items()
@@ -122,6 +141,63 @@ def main() -> int:
         )
         if missing_settings_local:
             issues.append(f"Missing keys in settings.json: {missing_settings_local}")
+
+    # linked config checks
+    qr_items = _load_json(QR_ITEMS_LOCAL)
+    cameras = _camera_items()
+    mqtt_topics_local = _load_json(MQTT_TOPICS_LOCAL)
+    mqtt_topics_example = _load_json(MQTT_TOPICS_EXAMPLE)
+    mqtt_topics: dict = {}
+    if isinstance(mqtt_topics_example.get("topics"), dict):
+        mqtt_topics.update(mqtt_topics_example.get("topics"))
+    if isinstance(mqtt_topics_local.get("topics"), dict):
+        mqtt_topics.update(mqtt_topics_local.get("topics"))
+
+    referenced_qr_ids = set()
+    referenced_camera_ids = set()
+    referenced_topic_keys = set()
+    for action_id, spec in ACTION_SPECS.items():
+        kind = str(spec.get("kind", "")).strip()
+        if kind == "show_qr":
+            item_id = str(spec.get("item_id", "")).strip()
+            if item_id:
+                referenced_qr_ids.add(item_id)
+                if qr_items and item_id not in qr_items:
+                    warnings.append(f"Action '{action_id}' references missing QR item: '{item_id}'")
+        elif kind == "show_camera":
+            camera_id = str(spec.get("camera_id", "")).strip()
+            if camera_id:
+                referenced_camera_ids.add(camera_id)
+                if cameras and camera_id not in cameras:
+                    warnings.append(f"Action '{action_id}' references missing camera: '{camera_id}'")
+        elif kind in ("mqtt_action", "mqtt_message", "mqtt_publish"):
+            topic_key = str(spec.get("topic_key", "")).strip()
+            if topic_key:
+                referenced_topic_keys.add(topic_key)
+                if mqtt_topics and topic_key not in mqtt_topics:
+                    issues.append(f"Action '{action_id}' references missing mqtt topic key: '{topic_key}'")
+
+    if qr_items:
+        orphan_qr = sorted(set(qr_items.keys()) - referenced_qr_ids)
+        if orphan_qr:
+            warnings.append(f"Orphan qr_items not referenced by menu actions: {orphan_qr}")
+    if cameras:
+        orphan_cameras = sorted(set(cameras.keys()) - referenced_camera_ids)
+        if orphan_cameras:
+            warnings.append(f"Orphan camera entries not referenced by menu actions: {orphan_cameras}")
+
+    routes = _load_json(MQTT_ROUTES_LOCAL)
+    route_topic_keys = set()
+    for entry in routes.get("routes", []) if isinstance(routes.get("routes"), list) else []:
+        if isinstance(entry, dict):
+            key = str(entry.get("topic_key", "")).strip()
+            if key:
+                route_topic_keys.add(key)
+                if mqtt_topics and key not in mqtt_topics:
+                    issues.append(f"MQTT route references missing topic key: '{key}'")
+    unused_topic_keys = sorted(set(mqtt_topics.keys()) - (referenced_topic_keys | route_topic_keys))
+    if unused_topic_keys:
+        warnings.append(f"MQTT topic keys defined but unused by menu actions/routes: {unused_topic_keys}")
 
     print("[menu-contract] check")
     print(f"- menu entries: {len(all_entries)}")

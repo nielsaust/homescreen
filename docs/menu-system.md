@@ -76,6 +76,7 @@ Validation:
 ```bash
 make menu-item-verify-toggle ITEM_ID=my_item
 make menu-contract-check
+make menu-migrate-actions
 make settings-check
 ```
 
