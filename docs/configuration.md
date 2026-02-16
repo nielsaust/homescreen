@@ -39,9 +39,9 @@ The wizard updates `local_config/settings.json` interactively.
 - Music refresh topic (`mqtt_topic_update_music`)
 - Optional integrations (doorbell, calendar, printer)
   - When disabled, related MQTT topics are set to empty strings.
-- Menu profile (`menu_profile`)
-  - `minimal`: clean install profile (music + system essentials)
-  - `full`: full feature menu
+- Feature menu wiring
+  - Music enabled: ensures `music` menu with media toggles exists.
+  - Weather enabled: ensures `weather_options` menu with `show_weather_on_idle` exists.
 
 5. Auto-start/update setup
 - Linux/systemd only.

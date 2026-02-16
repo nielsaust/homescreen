@@ -6,12 +6,10 @@ from app.ui.menu_button import MenuButton
 from app.ui.menu_config_loader import (
     get_button_setting_requirements,
     get_menu_schema,
-    get_minimal_menu_schema,
 )
 
 
 MENU_SCHEMA = get_menu_schema()
-MINIMAL_MENU_SCHEMA = get_minimal_menu_schema()
 _BUTTON_SETTING_REQUIREMENTS = get_button_setting_requirements()
 
 
@@ -70,7 +68,6 @@ def _filter_schema_by_settings(entries, settings):
 
 
 def build_menu_buttons(settings=None):
-    profile = str(getattr(settings, "menu_profile", "full")).strip().lower() if settings is not None else "full"
-    schema = MINIMAL_MENU_SCHEMA if profile == "minimal" else MENU_SCHEMA
+    schema = MENU_SCHEMA
     schema = _filter_schema_by_settings(schema, settings)
     return [_build_entry(entry) for entry in schema]

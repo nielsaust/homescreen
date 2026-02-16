@@ -11,6 +11,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SETTINGS_PATH = ROOT / "local_config" / "settings.json"
 SETTINGS_EXAMPLE_PATH = ROOT / "settings.json.example"
+MENU_PATH = ROOT / "local_config" / "menu.json"
+MENU_EXAMPLE_PATH = ROOT / "local_config" / "menu.json.example"
 
 
 def _load_settings() -> dict:
@@ -22,6 +24,93 @@ def _load_settings() -> dict:
 def _save_settings(data: dict) -> None:
     SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
     SETTINGS_PATH.write_text(json.dumps(data, indent=4) + "\n", encoding="utf-8")
+
+
+def _load_menu_config() -> dict:
+    if MENU_PATH.exists():
+        return json.loads(MENU_PATH.read_text(encoding="utf-8"))
+    if MENU_EXAMPLE_PATH.exists():
+        return json.loads(MENU_EXAMPLE_PATH.read_text(encoding="utf-8"))
+    return {
+        "menu_schema": [],
+        "button_setting_requirements": {},
+        "action_specs": {},
+        "state_specs": [],
+    }
+
+
+def _save_menu_config(data: dict) -> None:
+    MENU_PATH.parent.mkdir(parents=True, exist_ok=True)
+    MENU_PATH.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def _find_top_level_item(menu_schema: list[dict], item_id: str) -> dict | None:
+    for item in menu_schema:
+        if item.get("id") == item_id:
+            return item
+    return None
+
+
+def _ensure_top_level_item(menu_schema: list[dict], item: dict) -> None:
+    existing = _find_top_level_item(menu_schema, item.get("id", ""))
+    if existing is None:
+        menu_schema.append(item)
+    else:
+        existing.clear()
+        existing.update(item)
+
+
+def _remove_top_level_item(menu_schema: list[dict], item_id: str) -> None:
+    menu_schema[:] = [item for item in menu_schema if item.get("id") != item_id]
+
+
+def _music_menu_item() -> dict:
+    return {
+        "id": "music",
+        "text": "Muziek",
+        "image": "music.png",
+        "action": "music_menu",
+        "screen": [
+            {"id": "music_back", "text": "Terug", "image": "back.png", "action": "back"},
+            {"id": "music_volume_up", "text": "Harder", "image": "volume-up.png", "action": "music_volume_up"},
+            {"id": "music_play_pause", "text": "[music_action] muziek", "image": "play.png", "action": "music_play_pause"},
+            {"id": "music_volume_down", "text": "Zachter", "image": "volume-down.png", "action": "music_volume_down"},
+            {"id": "music_previous", "text": "Vorig nummer", "image": "backward.png", "action": "music_previous"},
+            {"id": "music_next", "text": "Volgend nummer", "image": "forward.png", "action": "music_next"},
+            {"id": "music_show_title", "text": "Toon muziek details", "image": "detail.png", "action": "music_show_title", "cancel_close": True},
+            {"id": "media_show_titles", "text": "Toon media titels", "image": "text.png", "action": "media_show_titles"},
+            {"id": "media_sanitize_titles", "text": "Schoon titels op", "image": "text.png", "action": "media_sanitize_titles"},
+        ],
+    }
+
+
+def _weather_menu_item() -> dict:
+    return {
+        "id": "weather_options",
+        "text": "Weer",
+        "image": "weather.png",
+        "action": "open_page",
+        "screen": [
+            {"id": "weather_back", "text": "Terug", "image": "back.png", "action": "back"},
+            {"id": "show_weather_on_idle", "text": "Toon weer als idle", "image": "weather.png", "action": "show_weather_on_idle"},
+        ],
+    }
+
+
+def _apply_feature_menu_defaults(settings: dict) -> None:
+    config = _load_menu_config()
+    menu_schema = config.setdefault("menu_schema", [])
+    if bool(settings.get("enable_music", False)):
+        _ensure_top_level_item(menu_schema, _music_menu_item())
+    else:
+        _remove_top_level_item(menu_schema, "music")
+
+    if bool(settings.get("enable_weather", False)):
+        _ensure_top_level_item(menu_schema, _weather_menu_item())
+    else:
+        _remove_top_level_item(menu_schema, "weather_options")
+
+    _save_menu_config(config)
 
 
 def _prompt(text: str, default: str = "") -> str:
@@ -96,6 +185,7 @@ def configure_music(settings: dict) -> None:
         "Sanitize long/noisy titles",
         bool(settings.get("media_sanitize_titles", True)),
     )
+    _apply_feature_menu_defaults(settings)
     print("[configuration] Music integration updated.")
 
 
@@ -114,6 +204,7 @@ def configure_weather(settings: dict) -> None:
     settings["weather_api_key"] = _prompt("OpenWeather API key", str(settings.get("weather_api_key", "")))
     settings["weather_city_id"] = _prompt("OpenWeather city id", str(settings.get("weather_city_id", "")))
     settings["weather_langage"] = _prompt("Weather language (e.g. nl/en)", str(settings.get("weather_langage", "nl")))
+    _apply_feature_menu_defaults(settings)
     print("[configuration] Weather integration updated.")
 
 
@@ -198,11 +289,6 @@ def configure_smart_home(settings: dict) -> None:
         settings["mqtt_topic_print_change_filament"] = ""
         settings["mqtt_topic_print_change_z"] = ""
 
-    settings["menu_profile"] = _prompt_choice(
-        "Menu profile",
-        ["minimal", "full"],
-        str(settings.get("menu_profile", "minimal")),
-    )
     print("[configuration] Smart-home integration updated.")
 
 
@@ -252,6 +338,7 @@ def main() -> int:
             elif choice == "5":
                 configure_services()
             elif choice == "6":
+                _apply_feature_menu_defaults(settings)
                 _save_settings(settings)
                 print("[configuration] Saved to local_config/settings.json")
                 return 0

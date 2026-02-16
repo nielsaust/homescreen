@@ -18,3 +18,4 @@ settings.json
 images/custom/
 local_config/qr_items.json
 local_config/menu.json
+local_config/*.backup.json

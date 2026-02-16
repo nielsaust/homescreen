@@ -5,38 +5,40 @@ This project now uses a schema-driven menu setup.
 ## Where Things Live
 
 - Menu layout and buttons:
-  - `/Users/niels/Documents/Workspace/Personal/homescreen/app/ui/menu_registry.py`
+  - `/Users/niels/Documents/Workspace/Personal/homescreen/local_config/menu.json` (local, gitignored)
+  - `/Users/niels/Documents/Workspace/Personal/homescreen/local_config/menu.json.example` (template)
 - Action behavior mapping:
-  - `/Users/niels/Documents/Workspace/Personal/homescreen/app/controllers/action_registry.py`
+  - `action_specs` section inside `/Users/niels/Documents/Workspace/Personal/homescreen/local_config/menu.json`
 - Dynamic button state/labels (active/inactive/available/text updates):
-  - `/Users/niels/Documents/Workspace/Personal/homescreen/app/ui/menu_state_resolver.py`
+  - `state_specs` section inside `/Users/niels/Documents/Workspace/Personal/homescreen/local_config/menu.json`
 - Action execution engine:
   - `/Users/niels/Documents/Workspace/Personal/homescreen/app/controllers/action_dispatcher.py`
 
 ## Add A New Button
 
-1. Add button in `MENU_SCHEMA` in `/Users/niels/Documents/Workspace/Personal/homescreen/app/ui/menu_registry.py`.
+1. Add button in `menu_schema` in `/Users/niels/Documents/Workspace/Personal/homescreen/local_config/menu.json`.
 
 ```python
 {"id": "my_feature", "text": "Mijn feature", "image": "tools.png", "action": "my_feature"}
 ```
 
-2. Add action spec in `/Users/niels/Documents/Workspace/Personal/homescreen/app/controllers/action_registry.py`.
+2. Add action spec in `action_specs` in `/Users/niels/Documents/Workspace/Personal/homescreen/local_config/menu.json`.
 
 ```python
 "my_feature": {"kind": "mqtt_action", "action": "my_feature_toggle"},
 ```
 
-3. Optional: add dynamic state/label in `/Users/niels/Documents/Workspace/Personal/homescreen/app/ui/menu_state_resolver.py`.
+3. Optional: add dynamic state/label in `state_specs` in `/Users/niels/Documents/Workspace/Personal/homescreen/local_config/menu.json`.
 
 ```python
-self._spec(
-    "my_feature",
-    active_flag,
-    action_text="[my_feature_action]",
-    on_text="uit",
-    off_text="aan",
-)
+{
+  "button_id": "my_feature",
+  "type": "setting_bool",
+  "source": "my_feature_enabled",
+  "action_text": "[my_feature_action]",
+  "on_text": "uit",
+  "off_text": "aan"
+}
 ```
 
 ## Step-By-Step Helper (Make)
@@ -63,11 +65,8 @@ Supported item types in `create`:
 - `submenu` (includes placeholder child action + custom stub)
 
 Files updated automatically (as needed):
-- `app/ui/menu_registry.py`
-- `app/controllers/action_registry.py`
-- `app/ui/menu_state_resolver.py` (for `setting_toggle`)
+- `local_config/menu.json`
 - `app/controllers/action_dispatcher.py` (for `custom` stubs)
-- `settings.json.example` and `settings.json` (for new setting keys)
 - `settings.json.example` and `local_config/settings.json` (for new setting keys)
 
 Validation:
@@ -85,7 +84,7 @@ Notes:
 
 ## Supported Action Kinds
 
-Defined in `/Users/niels/Documents/Workspace/Personal/homescreen/app/controllers/action_registry.py`.
+Defined in `action_specs` in `/Users/niels/Documents/Workspace/Personal/homescreen/local_config/menu.json`.
 
 - `menu_nav`
   - Example:
@@ -126,7 +125,7 @@ Defined in `/Users/niels/Documents/Workspace/Personal/homescreen/app/controllers
 
 ## Add A Submenu
 
-Add a `screen` list to a menu entry in `/Users/niels/Documents/Workspace/Personal/homescreen/app/ui/menu_registry.py`:
+Add a `screen` list to a menu entry in `/Users/niels/Documents/Workspace/Personal/homescreen/local_config/menu.json`:
 
 ```python
 {
@@ -144,9 +143,9 @@ Add a `screen` list to a menu entry in `/Users/niels/Documents/Workspace/Persona
 ## Common Issues
 
 - Button shows but does nothing:
-  - Check `action` exists in `/Users/niels/Documents/Workspace/Personal/homescreen/app/controllers/action_registry.py`.
+  - Check `action` exists in `action_specs` in `/Users/niels/Documents/Workspace/Personal/homescreen/local_config/menu.json`.
 - Label does not change (e.g., `[music_action]` still visible):
-  - Add/update resolver rule in `/Users/niels/Documents/Workspace/Personal/homescreen/app/ui/menu_state_resolver.py`.
+  - Add/update entry in `state_specs` in `/Users/niels/Documents/Workspace/Personal/homescreen/local_config/menu.json`.
 - Wrong light percentage or unavailable state:
   - Check incoming device payload parsing in `/Users/niels/Documents/Workspace/Personal/homescreen/app/models/device_states.py`.
 - Icon missing:
@@ -164,4 +163,5 @@ python3 -m py_compile \
   app/controllers/action_dispatcher.py
 
 python3 tools/smoke.py --compile-only
+python3 tools/menu_contract_check.py
 ```

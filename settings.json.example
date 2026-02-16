@@ -37,7 +37,6 @@
     "enable_network_simulation": true,
     "network_status_poll_interval_seconds": 5,
     "show_weather_on_idle": true,
-    "menu_profile": "minimal",
     "screen_width": 720,
     "screen_height": 720,
     "restart_program_style": "application",

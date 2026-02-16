@@ -28,7 +28,6 @@ Full deploy/systemd setup: `docs/deploy.md`
 - Provide menu-based control (schema-driven buttons/actions/states)
 - Handle network outages with degraded mode + reconnect behavior
 - Keep Tk updates on the UI thread via queue/intents
-- Uses `menu_profile=minimal` by default for clean installs
 - MQTT is optional (`enable_mqtt=false` by default for clean installs)
 - Music and Weather are optional (`enable_music=false`, `enable_weather=false` by default)
 

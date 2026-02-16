@@ -16,7 +16,6 @@ def _load_raw() -> dict:
         return json.loads(EXAMPLE_MENU_PATH.read_text(encoding="utf-8"))
     return {
         "menu_schema": [],
-        "minimal_menu_schema": [],
         "button_setting_requirements": {},
         "action_specs": {},
         "state_specs": [],
@@ -34,10 +33,6 @@ def save_local_menu_config(data: dict) -> None:
 
 def get_menu_schema() -> list[dict]:
     return copy.deepcopy(load_menu_config().get("menu_schema", []))
-
-
-def get_minimal_menu_schema() -> list[dict]:
-    return copy.deepcopy(load_menu_config().get("minimal_menu_schema", []))
 
 
 def get_button_setting_requirements() -> dict[str, list[str]]:
