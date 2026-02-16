@@ -10,6 +10,30 @@ from app.observability.domain_logger import log_event
 logger = logging.getLogger(__name__)
 
 
+LEGACY_HANDLER_TO_ACTION = {
+    "music_update": "music_update",
+    "device_states_update": "device_states_update",
+    "overlay_camera": "overlay_command",
+    "overlay_calendar": "overlay_command",
+    "overlay_alert": "overlay_command",
+    "printer_progress": "printer_progress_update",
+    "print_status_show": "overlay_command",
+    "print_attention": "overlay_command",
+    "print_close": "overlay_command",
+    "print_cancel_attention": "overlay_command",
+}
+
+LEGACY_HANDLER_TO_OVERLAY_COMMAND = {
+    "overlay_camera": OverlayCommand.SHOW_CAM,
+    "overlay_calendar": OverlayCommand.SHOW_CALENDAR,
+    "overlay_alert": OverlayCommand.SHOW_ALERT,
+    "print_status_show": OverlayCommand.SHOW_PRINT_STATUS,
+    "print_attention": OverlayCommand.PRINT_SCREEN_ATTENTION,
+    "print_close": OverlayCommand.CLOSE_PRINT_SCREEN,
+    "print_cancel_attention": OverlayCommand.CANCEL_ATTENTION,
+}
+
+
 class MqttMessageRouter:
     """Routes MQTT topics to app actions while preserving startup/degraded behavior."""
 
@@ -75,69 +99,84 @@ class MqttMessageRouter:
             log_event(logger, logging.ERROR, "mqtt", "router.device_state_update_failed", error=exc)
 
     def _dispatch_route(self, route, data):
-        handler = str(route.get("handler", "")).strip()
-        if handler == "music_update":
-            if not self._is_music_enabled():
-                log_event(logger, logging.DEBUG, "mqtt", "router.music_ignored", reason="enable_music_false")
-                return
-            self.main_app.music_update_service.queue_update(data)
+        action = self._route_action(route)
+        if action == "music_update":
+            self._dispatch_music_update(data)
             return
-        if handler == "device_states_update":
+        if action == "device_states_update":
             self._handle_device_states(data)
             return
-        if handler == "overlay_camera":
+        if action == "printer_progress_update":
+            self._check_print_status(data)
+            return
+        if action == "overlay_command":
+            self._dispatch_overlay_command(route, data)
+            return
+
+        log_event(
+            logger,
+            logging.WARNING,
+            "mqtt",
+            "router.unknown_action",
+            action=action,
+            handler=str(route.get("handler", "")).strip(),
+        )
+
+    def _route_action(self, route: dict) -> str:
+        action = str(route.get("action", "")).strip()
+        if action:
+            return action
+        handler = str(route.get("handler", "")).strip()
+        return LEGACY_HANDLER_TO_ACTION.get(handler, "")
+
+    def _resolve_overlay_command(self, route: dict) -> str:
+        explicit = str(route.get("overlay_command", "")).strip()
+        if explicit:
+            return explicit
+        handler = str(route.get("handler", "")).strip()
+        return LEGACY_HANDLER_TO_OVERLAY_COMMAND.get(handler, "")
+
+    def _dispatch_music_update(self, data):
+        if not self._is_music_enabled():
+            log_event(logger, logging.DEBUG, "mqtt", "router.music_ignored", reason="enable_music_false")
+            return
+        self.main_app.music_update_service.queue_update(data)
+
+    def _dispatch_overlay_command(self, route, data):
+        command = self._resolve_overlay_command(route)
+        if not command:
+            log_event(
+                logger,
+                logging.WARNING,
+                "mqtt",
+                "router.overlay_command_missing",
+                route=route,
+            )
+            return
+
+        payload = {}
+        if command == OverlayCommand.SHOW_CAM:
             camera = self._get_camera(str(route.get("camera_id", "")).strip())
             if camera is None:
                 return
-            self.main_app.request_overlay(
-                OverlayCommand.SHOW_CAM,
-                {
-                    "data": data,
-                    "url": camera.get("url"),
-                    "username": camera.get("username"),
-                    "password": camera.get("password"),
-                },
-                source="mqtt_router",
-            )
-            return
-        if handler == "overlay_calendar":
-            self.main_app.request_overlay(
-                OverlayCommand.SHOW_CALENDAR,
-                {"data": data},
-                source="mqtt_router",
-            )
-            return
-        if handler == "overlay_alert":
+            payload = {
+                "data": data,
+                "url": camera.get("url"),
+                "username": camera.get("username"),
+                "password": camera.get("password"),
+            }
+        elif command == OverlayCommand.SHOW_CALENDAR:
+            payload = {"data": data}
+        elif command == OverlayCommand.SHOW_ALERT:
             log_event(logger, logging.DEBUG, "mqtt", "router.alert_received")
-            self.main_app.request_overlay(
-                OverlayCommand.SHOW_ALERT,
-                {"data": data},
-                source="mqtt_router",
-            )
-            return
-        if handler == "printer_progress":
-            self._check_print_status(data)
-            return
-        if handler == "print_status_show":
-            self.main_app.request_overlay(
-                OverlayCommand.SHOW_PRINT_STATUS,
-                {
-                    "progress": self.main_app.device_states.printer_progress,
-                    "reset": bool(route.get("reset", False)),
-                },
-                source="mqtt_router",
-            )
-            return
-        if handler == "print_attention":
-            self.main_app.request_overlay(OverlayCommand.PRINT_SCREEN_ATTENTION, source="mqtt_router")
-            return
-        if handler == "print_close":
-            self.main_app.request_overlay(OverlayCommand.CLOSE_PRINT_SCREEN, source="mqtt_router")
-            return
-        if handler == "print_cancel_attention":
-            self.main_app.request_overlay(OverlayCommand.CANCEL_ATTENTION, source="mqtt_router")
-            return
-        log_event(logger, logging.WARNING, "mqtt", "router.unknown_handler", handler=handler)
+            payload = {"data": data}
+        elif command == OverlayCommand.SHOW_PRINT_STATUS:
+            payload = {
+                "progress": self.main_app.device_states.printer_progress,
+                "reset": bool(route.get("reset", False)),
+            }
+
+        self.main_app.request_overlay(command, payload, source="mqtt_router")
 
     def _check_print_status(self, data):
         progress = data.get("progress")

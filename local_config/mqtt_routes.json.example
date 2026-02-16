@@ -1,15 +1,15 @@
 {
   "routes": [
-    {"topic_key": "music", "handler": "music_update", "phase": "essential"},
-    {"topic_key": "devices", "handler": "device_states_update", "phase": "essential"},
-    {"topic_key": "doorbell", "handler": "overlay_camera", "camera_id": "doorbell", "phase": "nonessential"},
-    {"topic_key": "printer_progress", "handler": "printer_progress", "phase": "nonessential"},
-    {"topic_key": "calendar", "handler": "overlay_calendar", "phase": "nonessential"},
-    {"topic_key": "alert", "handler": "overlay_alert", "phase": "nonessential"},
-    {"topic_key": "print_start", "handler": "print_status_show", "reset": true, "phase": "nonessential"},
-    {"topic_key": "print_done", "handler": "print_attention", "phase": "nonessential"},
-    {"topic_key": "print_change_filament", "handler": "print_attention", "phase": "nonessential"},
-    {"topic_key": "print_cancelled", "handler": "print_close", "phase": "nonessential"},
-    {"topic_key": "print_change_z", "handler": "print_cancel_attention", "phase": "nonessential"}
+    {"topic_key": "music", "action": "music_update", "phase": "essential"},
+    {"topic_key": "devices", "action": "device_states_update", "phase": "essential"},
+    {"topic_key": "doorbell", "action": "overlay_command", "overlay_command": "show_cam", "camera_id": "doorbell", "phase": "nonessential"},
+    {"topic_key": "printer_progress", "action": "printer_progress_update", "phase": "nonessential"},
+    {"topic_key": "calendar", "action": "overlay_command", "overlay_command": "show_calendar", "phase": "nonessential"},
+    {"topic_key": "alert", "action": "overlay_command", "overlay_command": "show_alert", "phase": "nonessential"},
+    {"topic_key": "print_start", "action": "overlay_command", "overlay_command": "show_print_status", "reset": true, "phase": "nonessential"},
+    {"topic_key": "print_done", "action": "overlay_command", "overlay_command": "print_screen_attention", "phase": "nonessential"},
+    {"topic_key": "print_change_filament", "action": "overlay_command", "overlay_command": "print_screen_attention", "phase": "nonessential"},
+    {"topic_key": "print_cancelled", "action": "overlay_command", "overlay_command": "close_print_screen", "phase": "nonessential"},
+    {"topic_key": "print_change_z", "action": "overlay_command", "overlay_command": "cancel_attention", "phase": "nonessential"}
   ]
 }

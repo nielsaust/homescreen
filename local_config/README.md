@@ -38,6 +38,23 @@ Supported types:
 2. Define how incoming topics map to app behavior.
 3. Keep `topic_key` values aligned with keys in `mqtt_topics.json`.
 
+Route fields:
+- `topic_key`: key from `mqtt_topics.json`.
+- `phase`: `essential` or `nonessential` (startup defer applies to nonessential).
+- `action`: behavior to run. Supported:
+  - `music_update`
+  - `device_states_update`
+  - `printer_progress_update`
+  - `overlay_command`
+- `overlay_command` (for `action=overlay_command`):
+  - `show_cam` (requires `camera_id`)
+  - `show_calendar`
+  - `show_alert`
+  - `show_print_status` (optional `reset: true/false`)
+  - `print_screen_attention`
+  - `close_print_screen`
+  - `cancel_attention`
+
 ## Cameras
 
 1. Copy `cameras.json.example` to `cameras.json`.
