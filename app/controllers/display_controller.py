@@ -81,6 +81,11 @@ class DisplayController:
         if(menu_screen):
             menu_screen.show_fullscreen_image(image)
 
+    def show_fullscreen_qr(self, payload):
+        menu_screen = self.screen_objects.get("menu")
+        if menu_screen:
+            menu_screen.show_fullscreen_qr(payload)
+
     def open_slideshow(self):
         self.overlay_manager.open_slideshow()
 

@@ -17,6 +17,7 @@ import tkinter as tk
 import os
 
 from tkinter import font as tkFont
+from PIL import ImageTk
 
 from app.ui.menu_registry import build_menu_buttons
 from app.ui.menu_state_resolver import MenuStateResolver
@@ -202,8 +203,64 @@ class MenuScreen:
         fullscreen_image_bind = self.fullscreen_image_window.bind("<ButtonRelease-1>", self.destroy_fullscreen_image)
         self.fullscreen_image_window.after(self.main_app.settings.destroy_image_timeout, self.destroy_fullscreen_image)
 
+    def show_fullscreen_qr(self, payload: dict):
+        qr_text = self._qr_payload_to_text(payload)
+        if not qr_text:
+            return
+
+        self.fullscreen_image_window = tk.Toplevel(self.frame)
+        if not self.main_app.system_info["is_desktop"]:
+            self.fullscreen_image_window.attributes("-fullscreen", True)
+
+        try:
+            import qrcode
+            qr_image = qrcode.make(qr_text)
+            # Scale to fit current screen while preserving sharp edges.
+            target = min(max(self.main_app.settings.screen_width, 480), 720)
+            qr_image = qr_image.resize((target, target), resample=0)
+            qr_photo = ImageTk.PhotoImage(qr_image)
+            qr_label = tk.Label(self.fullscreen_image_window, image=qr_photo, bg="black")
+            qr_label.image = qr_photo
+            qr_label.pack(fill=tk.BOTH, expand=True)
+        except Exception:
+            log_event(logger, logging.ERROR, "menu", "qr.render_unavailable", reason="missing_qrcode_dependency")
+            fallback = tk.Label(
+                self.fullscreen_image_window,
+                text="QR rendering unavailable.\nInstall package: qrcode\n\n" + qr_text,
+                bg="black",
+                fg="white",
+                justify="center",
+                wraplength=int(self.main_app.settings.screen_width * 0.9),
+            )
+            fallback.pack(fill=tk.BOTH, expand=True)
+
+        self.fullscreen_image_window.bind("<ButtonRelease-1>", self.destroy_fullscreen_image)
+        self.fullscreen_image_window.after(self.main_app.settings.destroy_image_timeout, self.destroy_fullscreen_image)
+
+    def _qr_payload_to_text(self, payload: dict) -> str | None:
+        qr_type = str(payload.get("type", "")).strip().lower()
+        if qr_type == "url":
+            url = str(payload.get("url", "")).strip()
+            if not url:
+                log_event(logger, logging.WARNING, "menu", "qr.url_missing")
+                return None
+            return url
+        if qr_type == "wifi":
+            ssid = str(payload.get("ssid", "")).strip()
+            password = str(payload.get("password", "")).strip()
+            auth = str(payload.get("auth", "WPA")).strip() or "WPA"
+            hidden = bool(payload.get("hidden", False))
+            if not ssid:
+                log_event(logger, logging.WARNING, "menu", "qr.wifi_missing_ssid")
+                return None
+            return f"WIFI:T:{auth};S:{ssid};P:{password};H:{str(hidden).lower()};;"
+        log_event(logger, logging.WARNING, "menu", "qr.unsupported_type", qr_type=qr_type)
+        return None
+
     def destroy_fullscreen_image(self, event=None):
-        self.fullscreen_image_window.destroy()
+        if self.fullscreen_image_window is not None:
+            self.fullscreen_image_window.destroy()
+            self.fullscreen_image_window = None
 
     def remove_current_menu(self):
         if(self.frame is not None):

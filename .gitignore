@@ -16,3 +16,4 @@ logs/security/
 settings.json
 .sim/
 images/custom/
+local_config/qr_items.json

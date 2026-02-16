@@ -1,0 +1,13 @@
+{
+  "wifi_home": {
+    "type": "wifi",
+    "ssid": "CHANGE_ME",
+    "password": "CHANGE_ME",
+    "auth": "WPA",
+    "hidden": false
+  },
+  "project_site": {
+    "type": "url",
+    "url": "https://example.com"
+  }
+}

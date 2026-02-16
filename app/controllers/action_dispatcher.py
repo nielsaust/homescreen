@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from app.controllers.overlay_commands import OverlayCommand
@@ -11,6 +13,7 @@ if TYPE_CHECKING:
     from app.controllers.touch_controller import TouchController
 
 logger = logging.getLogger(__name__)
+QR_ITEMS_PATH = Path(__file__).resolve().parent.parent.parent / "local_config" / "qr_items.json"
 
 
 class ActionDispatcher:
@@ -51,6 +54,12 @@ class ActionDispatcher:
             return
         if kind == "show_image":
             self.main_app.display_controller.show_fullscreen_image(spec["image"])
+            return
+        if kind == "show_qr":
+            payload = self._load_qr_item(spec.get("item_id", ""))
+            if payload is None:
+                return
+            self.main_app.display_controller.show_fullscreen_qr(payload)
             return
         if kind == "setting_toggle":
             self._toggle_setting(spec["attr"])
@@ -165,3 +174,22 @@ class ActionDispatcher:
         return False
     def _test_mij_todo(self) -> None:
         logger.info("Custom action stub triggered: test_mij_todo")
+
+    def _load_qr_item(self, item_id: str) -> dict | None:
+        if not item_id:
+            logger.warning("QR action missing item_id")
+            return None
+        if not QR_ITEMS_PATH.exists():
+            logger.warning("QR config missing at %s", QR_ITEMS_PATH)
+            self.main_app.notify_setup_required("QR config")
+            return None
+        try:
+            data = json.loads(QR_ITEMS_PATH.read_text(encoding="utf-8"))
+        except Exception as exc:
+            logger.error("QR config parse failed: %s", exc)
+            return None
+        payload = data.get(item_id)
+        if not isinstance(payload, dict):
+            logger.warning("QR item '%s' not found in %s", item_id, QR_ITEMS_PATH)
+            return None
+        return payload
