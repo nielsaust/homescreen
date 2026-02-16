@@ -4,6 +4,7 @@ After cloning/pulling, run:
 
 ```bash
 make install
+make migrate-local-config  # one-time, only when migrating older local setup
 make configuration
 ```
 

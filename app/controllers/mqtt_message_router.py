@@ -4,6 +4,7 @@ import logging
 import time
 
 from app.controllers.overlay_commands import OverlayCommand
+from app.config.camera_config_loader import get_camera_specs
 from app.observability.domain_logger import log_event
 
 logger = logging.getLogger(__name__)
@@ -79,13 +80,16 @@ class MqttMessageRouter:
 
     def _handle_nonessential(self, topic, data):
         if topic == self.main_app.settings.mqtt_topic_doorbell:
+            camera = self._get_camera("doorbell")
+            if camera is None:
+                return
             self.main_app.request_overlay(
                 OverlayCommand.SHOW_CAM,
                 {
                     "data": data,
-                    "url": f"http://{self.main_app.settings.doorbell_url}{self.main_app.settings.doorbell_path}",
-                    "username": self.main_app.settings.doorbell_username,
-                    "password": self.main_app.settings.doorbell_password,
+                    "url": camera.get("url"),
+                    "username": camera.get("username"),
+                    "password": camera.get("password"),
                 },
                 source="mqtt_router",
             )
@@ -148,9 +152,17 @@ class MqttMessageRouter:
             and progress
             and progress >= self.main_app.settings.show_cam_on_print_percentage
         ):
+            camera = self._get_camera("printer")
+            if camera is None:
+                return
             self.main_app.request_overlay(
                 OverlayCommand.SHOW_CAM,
-                {"data": data, "url": self.main_app.settings.printer_url},
+                {
+                    "data": data,
+                    "url": camera.get("url"),
+                    "username": camera.get("username"),
+                    "password": camera.get("password"),
+                },
                 source="mqtt_router",
             )
             return
@@ -160,3 +172,17 @@ class MqttMessageRouter:
             {"progress": progress},
             source="mqtt_router",
         )
+
+    def _get_camera(self, camera_id: str) -> dict | None:
+        camera = get_camera_specs().get(camera_id)
+        if isinstance(camera, dict):
+            return camera
+        log_event(
+            logger,
+            logging.WARNING,
+            "mqtt",
+            "router.camera_missing",
+            camera_id=camera_id,
+            config="local_config/cameras.json",
+        )
+        return None

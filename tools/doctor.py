@@ -65,10 +65,9 @@ def _check_imports() -> list[str]:
 
 def _load_settings() -> tuple[dict, Path] | tuple[None, None]:
     primary = ROOT / "local_config" / "settings.json"
-    legacy = ROOT / "settings.json"
     fallback = ROOT / "settings.json.example"
 
-    settings_file = primary if primary.exists() else (legacy if legacy.exists() else fallback)
+    settings_file = primary if primary.exists() else fallback
     if not settings_file.exists():
         return None, None
 
@@ -100,7 +99,7 @@ def _check_settings() -> list[str]:
         except Exception as exc:  # pragma: no cover
             errors.append(f"Sentry enabled but sentry-sdk import failed: {exc}")
 
-    topics = load_mqtt_topics(data)
+    topics = load_mqtt_topics()
     if not str(topics.get("mqtt_topic_music", "")).strip():
         errors.append("Missing mqtt topic: mqtt_topic_music (set in local_config/mqtt_topics.json)")
     if not str(topics.get("mqtt_topic_devices", "")).strip():

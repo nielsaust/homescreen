@@ -22,8 +22,8 @@ def _load_settings() -> dict:
 
 
 def main() -> int:
-    settings = _load_settings()
-    topic = load_mqtt_topics(settings).get("mqtt_topic_music", "music")
+    _ = _load_settings()
+    topic = load_mqtt_topics().get("mqtt_topic_music", "music")
 
     yaml_text = f"""script:
   action: mqtt.publish

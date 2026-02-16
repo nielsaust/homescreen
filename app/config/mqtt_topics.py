@@ -3,7 +3,6 @@ from __future__ import annotations
 import copy
 import json
 from pathlib import Path
-from typing import Mapping
 
 ROOT = Path(__file__).resolve().parents[2]
 LOCAL_TOPICS_PATH = ROOT / "local_config" / "mqtt_topics.json"
@@ -27,12 +26,12 @@ TOPIC_DEFAULTS: dict[str, str] = {
 }
 
 
-def _normalize_raw(raw: Mapping[str, object] | None) -> dict[str, str]:
-    if not isinstance(raw, Mapping):
+def _normalize_raw(raw) -> dict[str, str]:
+    if not isinstance(raw, dict):
         return {}
-    # Accept either {"topics": {...}} or flat {"mqtt_topic_music": "..."} for resilience.
-    nested = raw.get("topics")
-    source = nested if isinstance(nested, Mapping) else raw
+    source = raw.get("topics")
+    if not isinstance(source, dict):
+        return {}
     out: dict[str, str] = {}
     for key in TOPIC_DEFAULTS:
         if key in source:
@@ -40,9 +39,8 @@ def _normalize_raw(raw: Mapping[str, object] | None) -> dict[str, str]:
     return out
 
 
-def load_mqtt_topics(settings_dict: Mapping[str, object] | None = None) -> dict[str, str]:
+def load_mqtt_topics() -> dict[str, str]:
     topics = copy.deepcopy(TOPIC_DEFAULTS)
-    topics.update(_normalize_raw(settings_dict))
 
     for path in (EXAMPLE_TOPICS_PATH, LOCAL_TOPICS_PATH):
         if path.exists():
@@ -63,10 +61,7 @@ def save_local_mqtt_topics(topics: Mapping[str, object]) -> None:
 
 
 def apply_mqtt_topics_to_settings(settings_obj) -> dict[str, str]:
-    settings_dict = {}
-    if hasattr(settings_obj, "__dict__"):
-        settings_dict = settings_obj.__dict__
-    topics = load_mqtt_topics(settings_dict)
+    topics = load_mqtt_topics()
     for key, value in topics.items():
         setattr(settings_obj, key, value)
     return topics

@@ -87,7 +87,17 @@ class ActionDispatcher:
             if command == OverlayCommand.SHOW_PRINT_STATUS:
                 payload = {"progress": self.main_app.device_states.printer_progress}
             elif command == OverlayCommand.SHOW_CAM:
-                payload = {"data": {}, "url": self.main_app.settings.printer_url}
+                camera_id = str(spec.get("camera_id", "printer"))
+                camera = self._load_camera_item(camera_id)
+                if camera is None:
+                    self.main_app.notify_setup_required("Camera")
+                    return
+                payload = {
+                    "data": camera.get("overlay_data") if isinstance(camera.get("overlay_data"), dict) else {},
+                    "url": camera.get("url"),
+                    "username": camera.get("username"),
+                    "password": camera.get("password"),
+                }
             self.main_app.request_overlay(command, payload, source="action_dispatcher")
             return
         if kind == "shell":
@@ -151,7 +161,7 @@ class ActionDispatcher:
             self.main_app.root.after(120, self.main_app.media_controller.show_music_overlays)
 
     def _doorbell_action(self) -> None:
-        # Backward compatibility with older menu actions.
+        # Alias custom action name to declarative camera flow.
         self._show_camera("doorbell")
 
     def _ensure_mqtt_enabled(self) -> bool:
@@ -241,21 +251,5 @@ class ActionDispatcher:
         payload = specs.get(camera_id)
         if isinstance(payload, dict):
             return payload
-        # Legacy fallback so existing setups continue to work until migrated.
-        if camera_id == "doorbell":
-            return {
-                "url": f"http://{self.main_app.settings.doorbell_url}{self.main_app.settings.doorbell_path}",
-                "username": self.main_app.settings.doorbell_username,
-                "password": self.main_app.settings.doorbell_password,
-                "command_topic": str(
-                    getattr(self.main_app.settings, "mqtt_topic_doorbell_command", "")
-                ).strip(),
-                "overlay_data": {"active": True},
-            }
-        if camera_id == "printer":
-            return {
-                "url": self.main_app.settings.printer_url,
-                "overlay_data": {},
-            }
         logger.warning("Camera '%s' not found in local_config/cameras.json", camera_id)
         return None

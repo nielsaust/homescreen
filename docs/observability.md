@@ -19,7 +19,7 @@ Preferred format:
 
 Sentry is optional and off by default.
 
-Add these settings in `settings.json`:
+Add these settings in `local_config/settings.json`:
 
 ```json
 {

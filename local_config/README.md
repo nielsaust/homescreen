@@ -2,6 +2,13 @@
 
 This directory contains machine-local config that should not be committed.
 
+Primary files:
+- `settings.json`: app runtime settings
+- `mqtt_topics.json`: MQTT topic mapping
+- `cameras.json`: camera URLs/credentials
+- `menu.json`: personal menu schema/actions/state
+- `qr_items.json`: personal QR payloads
+
 ## Menu config
 
 1. Copy `menu.json.example` to `menu.json`.

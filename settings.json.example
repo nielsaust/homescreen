@@ -108,11 +108,6 @@
     },
     "destroy_slider_timeout": 60000,
     "destroy_cam_timeout": 60000,
-    "doorbell_url": "doorbell.url",
-    "doorbell_path": "/cgi-bin/snapshot.cgi?channel=1",
-    "doorbell_username": "CHANGE_ME",
-    "doorbell_password": "CHANGE_ME",
-    "printer_url": "http://octopi.local/webcam/?action=snapshot",
     "show_cam_on_print_percentage": 0,
     "printer_screen_blink_on_complete": false,
     "calendar_party_colors": [

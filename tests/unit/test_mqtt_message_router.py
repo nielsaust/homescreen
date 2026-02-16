@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from app.controllers.mqtt_message_router import MqttMessageRouter
 from app.controllers.overlay_commands import OverlayCommand
@@ -39,11 +40,6 @@ class _MainApp:
             mqtt_topic_print_change_z="screen_commands/print_change_z",
             mqtt_accept_nonessential_messages_after=0,
             show_cam_on_print_percentage=80,
-            printer_url="http://printer",
-            doorbell_url="doorbell.local",
-            doorbell_path="/stream",
-            doorbell_username="u",
-            doorbell_password="p",
         )
         self.device_states = _DeviceStates()
         self.startup_sync_service = SimpleNamespace(check_queue=self.check_mqtt_message_queue)
@@ -89,10 +85,14 @@ class TestMqttMessageRouter(unittest.TestCase):
         app = _MainApp()
         router = MqttMessageRouter(app)
 
-        router.handle(app.settings.mqtt_topic_printer_progress, {"progress": 95})
+        with patch(
+            "app.controllers.mqtt_message_router.get_camera_specs",
+            return_value={"printer": {"url": "http://printer-test"}},
+        ):
+            router.handle(app.settings.mqtt_topic_printer_progress, {"progress": 95})
 
         self.assertEqual(app.overlay_calls[-1][0], OverlayCommand.SHOW_CAM)
-        self.assertEqual(app.overlay_calls[-1][1]["url"], app.settings.printer_url)
+        self.assertEqual(app.overlay_calls[-1][1]["url"], "http://printer-test")
 
     def test_device_topic_updates_state_and_emits_events(self):
         app = _MainApp()

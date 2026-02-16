@@ -14,6 +14,7 @@ logs/*.log
 logs/rollover_logs.txt
 logs/security/
 settings.json
+local_config/settings.json
 .sim/
 images/custom/
 local_config/qr_items.json

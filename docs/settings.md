@@ -2,6 +2,10 @@
 
 Use this workflow to keep `local_config/settings.json` and `settings.json.example` aligned without leaking secrets.
 
+Note: MQTT topics and camera credentials/URLs are stored in:
+- `local_config/mqtt_topics.json`
+- `local_config/cameras.json`
+
 ## Commands
 
 Check differences (keys and type mismatches):
@@ -37,10 +41,11 @@ make settings-prune-local
 ## Recommended routine
 
 1. Add/change settings in `local_config/settings.json` while developing.
-2. Run `make settings-update-example`.
-3. Review `settings.json.example` and commit.
-4. Run `make settings-check` to confirm both files are aligned.
-5. Optionally run `make settings-prune-local-preview` and `make settings-prune-local` to remove stale local-only keys.
+2. If migrating from older setup, run `make migrate-local-config` once.
+3. Run `make settings-update-example`.
+4. Review `settings.json.example` and commit.
+5. Run `make settings-check` to confirm both files are aligned.
+6. Optionally run `make settings-prune-local-preview` and `make settings-prune-local` to remove stale local-only keys.
 
 The sync tool preserves key ordering based on `settings.json.example`, so new keys remain predictable across environments.
 
@@ -53,8 +58,6 @@ Useful runtime keys:
 - `log_noisy_third_party_debug`: enable noisy third-party debug logs
 - `log_noisy_loggers`: list of logger names to treat as noisy
 - `log_domain_levels`: per-logger explicit levels map (e.g. `"app.controllers.mqtt_controller": "WARNING"`)
-
-Legacy keys (`console_log_level`, `file_log_level`, `logger_levels`, `log_level`) are still accepted for backward compatibility.
 
 ## Secret safety
 

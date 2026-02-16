@@ -33,7 +33,8 @@ def _save_settings(data: dict) -> None:
 
 
 def _load_topics(settings: dict) -> dict:
-    return load_mqtt_topics(settings)
+    _ = settings
+    return load_mqtt_topics()
 
 
 def _save_topics(topics: dict) -> None:

@@ -27,7 +27,8 @@ sudo apt install -y libjpeg-dev zlib1g-dev libfreetype6-dev libopenjp2-7-dev lib
 ## 2) Required runtime files
 
 `make install` now creates/updates:
-- `settings.json` (from example when missing)
+- `local_config/settings.json` (from example when missing)
+- `local_config/mqtt_topics.json` (from example when missing)
 - `logs/`
 - `.sim/`
 
@@ -110,7 +111,7 @@ journalctl -u homescreen-deploy.service -n 100 --no-pager
 
 Common startup failures:
 - `no $DISPLAY` -> add `DISPLAY=:0` and `XAUTHORITY`.
-- `settings.json not found` -> copy from example.
+- `local_config/settings.json not found` -> copy from example.
 - `logs/<date>.log not found` -> create `logs/`.
 - `RPi.GPIO import` error -> install/update GPIO deps on Pi.
 

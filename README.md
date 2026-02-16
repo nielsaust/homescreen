@@ -47,6 +47,7 @@ Full deploy/systemd setup: `docs/deploy.md`
 ## Daily Commands
 
 - Install/update env: `make install`
+- Migrate older local settings: `make migrate-local-config`
 - Configure integrations: `make configuration`
 - Configure MQTT topics: `make mqtt-topics`
 - Local checks: `make test-local`

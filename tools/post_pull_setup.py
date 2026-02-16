@@ -9,8 +9,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SETTINGS = ROOT / "local_config" / "settings.json"
-LEGACY_SETTINGS = ROOT / "settings.json"
 SETTINGS_EXAMPLE = ROOT / "settings.json.example"
+MQTT_TOPICS = ROOT / "local_config" / "mqtt_topics.json"
+MQTT_TOPICS_EXAMPLE = ROOT / "local_config" / "mqtt_topics.json.example"
 
 
 def _load_json(path: Path) -> dict:
@@ -27,12 +28,17 @@ def ensure_settings_file() -> None:
     if SETTINGS.exists():
         return
     SETTINGS.parent.mkdir(parents=True, exist_ok=True)
-    if LEGACY_SETTINGS.exists():
-        shutil.copy2(LEGACY_SETTINGS, SETTINGS)
-        print("[setup] migrated settings.json to local_config/settings.json")
-        return
     shutil.copy2(SETTINGS_EXAMPLE, SETTINGS)
     print("[setup] created local_config/settings.json from settings.json.example")
+
+
+def ensure_mqtt_topics_file() -> None:
+    if MQTT_TOPICS.exists():
+        return
+    MQTT_TOPICS.parent.mkdir(parents=True, exist_ok=True)
+    if MQTT_TOPICS_EXAMPLE.exists():
+        shutil.copy2(MQTT_TOPICS_EXAMPLE, MQTT_TOPICS)
+        print("[setup] created local_config/mqtt_topics.json from local_config/mqtt_topics.json.example")
 
 
 def ensure_settings_keys() -> None:
@@ -56,6 +62,7 @@ def ensure_directories() -> None:
 
 def main() -> int:
     ensure_settings_file()
+    ensure_mqtt_topics_file()
     ensure_settings_keys()
     ensure_directories()
     print("[setup] post-pull setup complete")
