@@ -62,3 +62,7 @@ Use this as the release gate before making the repository public.
 - [ ] Ensure docs match current config model (`local_config/*.json`, routes/topics/menu sources).
 - [ ] Add/update Home Assistant automation examples (music refresh/state push).
 - [ ] Final terminology consistency pass (NL/EN usage, command naming, menu wording).
+
+## 8. Temporary Internal Notes Cleanup
+
+- [ ] Remove `docs/pre-public-checklist.md` itself before making the repository public.
