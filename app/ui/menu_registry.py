@@ -45,11 +45,20 @@ def _is_enabled_by_settings(button_id, settings):
     return True
 
 
+def _is_allowed_by_environment(schema_entry, settings):
+    if not bool(schema_entry.get("dev_only", False)):
+        return True
+    env = str(getattr(settings, "app_environment", "production") or "production").strip().lower()
+    return env not in {"production", "prod"}
+
+
 def _filter_schema_by_settings(entries, settings):
     filtered = []
     for entry in entries:
         button_id = entry.get("id")
         if not _is_enabled_by_settings(button_id, settings):
+            continue
+        if not _is_allowed_by_environment(entry, settings):
             continue
 
         cloned = copy.deepcopy(entry)
@@ -67,7 +76,6 @@ def _filter_schema_by_settings(entries, settings):
 
 
 def build_menu_buttons(settings=None):
-    profile = str(getattr(settings, "menu_profile", "prod") or "prod")
-    schema = get_menu_schema(profile=profile)
+    schema = get_menu_schema()
     schema = _filter_schema_by_settings(schema, settings)
     return [_build_entry(entry) for entry in schema]

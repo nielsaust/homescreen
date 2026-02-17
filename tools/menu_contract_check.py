@@ -36,14 +36,12 @@ def flatten_menu_entries(entries):
     return out
 
 
-def _collect_all_menu_schemas() -> list[dict]:
+def _collect_menu_schema() -> list[dict]:
     config = load_menu_config()
-    out: list[dict] = []
-    for key in ("menu_schema", "minimal_menu_schema", "dev_menu_schema"):
-        value = config.get(key, [])
-        if isinstance(value, list):
-            out.extend(flatten_menu_entries(value))
-    return out
+    value = config.get("menu_schema", [])
+    if not isinstance(value, list):
+        return []
+    return flatten_menu_entries(value)
 
 
 def extract_state_button_ids() -> set[str]:
@@ -76,7 +74,7 @@ def main() -> int:
 
     issues: list[str] = []
     warnings: list[str] = []
-    all_entries = _collect_all_menu_schemas()
+    all_entries = _collect_menu_schema()
 
     # Duplicate ids are allowed when action is identical across submenus.
     # Hard-fail only when the same id maps to different actions.

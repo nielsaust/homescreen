@@ -15,14 +15,24 @@ Startup-triggered actions are configured separately in `local_config/startup_act
 - Action execution engine:
   - `app/controllers/action_dispatcher.py`
 
-## Menu Profiles
+## Dev-Only Menu Items
 
-- Runtime menu selection is controlled by `menu_profile` in `local_config/settings.json`.
-- Supported values:
-  - `prod` (or `minimal`): use `minimal_menu_schema` when present, otherwise `menu_schema`.
-  - `dev` (or `full`): use `dev_menu_schema` when present, otherwise `menu_schema`.
-  - Any other value: falls back to `menu_schema`.
-- This makes it possible to keep a lean public/default menu while exposing extra tooling in development.
+- Runtime environment is controlled by `app_environment` in `local_config/settings.json`.
+  - `production` (default): hides items marked with `"dev_only": true`.
+  - any non-production value (for example `development`): shows dev-only items.
+- Mark individual buttons (top-level or submenu) as dev-only:
+
+```json
+{
+  "id": "debug_item",
+  "text": "Debug action",
+  "image": "tools.png",
+  "action": "my_debug_action",
+  "dev_only": true
+}
+```
+
+- No menu schema override is applied; `menu_schema` always remains the base.
 
 ## Add A New Button
 

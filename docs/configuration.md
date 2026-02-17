@@ -11,10 +11,9 @@ make configuration
 The wizard updates `local_config/settings.json` interactively.
 MQTT topics are stored separately in `local_config/mqtt_topics.json`.
 
-`menu_profile` in `local_config/settings.json` controls which schema variant is used:
-- `prod`/`minimal`: uses `minimal_menu_schema` when available.
-- `dev`/`full`: uses `dev_menu_schema` when available.
-- fallback: `menu_schema`.
+`app_environment` in `local_config/settings.json` controls visibility of dev-only menu items:
+- `production` (default): hide items marked with `"dev_only": true`.
+- non-production values (for example `development`): show dev-only items.
 
 ## Sections
 
