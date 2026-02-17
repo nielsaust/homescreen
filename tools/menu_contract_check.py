@@ -13,8 +13,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from app.controllers.action_registry import ACTION_SPECS
-from app.ui.menu_registry import MENU_SCHEMA
-from app.ui.menu_config_loader import get_state_specs
+from app.ui.menu_config_loader import get_state_specs, load_menu_config
 
 SETTINGS_EXAMPLE = ROOT / "settings.json.example"
 SETTINGS_LOCAL = ROOT / "local_config" / "settings.json"
@@ -34,6 +33,16 @@ def flatten_menu_entries(entries):
         out.append(entry)
         children = entry.get("screen") or []
         out.extend(flatten_menu_entries(children))
+    return out
+
+
+def _collect_all_menu_schemas() -> list[dict]:
+    config = load_menu_config()
+    out: list[dict] = []
+    for key in ("menu_schema", "minimal_menu_schema", "dev_menu_schema"):
+        value = config.get(key, [])
+        if isinstance(value, list):
+            out.extend(flatten_menu_entries(value))
     return out
 
 
@@ -67,7 +76,7 @@ def main() -> int:
 
     issues: list[str] = []
     warnings: list[str] = []
-    all_entries = flatten_menu_entries(MENU_SCHEMA)
+    all_entries = _collect_all_menu_schemas()
 
     # Duplicate ids are allowed when action is identical across submenus.
     # Hard-fail only when the same id maps to different actions.

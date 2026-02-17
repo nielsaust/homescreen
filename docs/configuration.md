@@ -11,6 +11,11 @@ make configuration
 The wizard updates `local_config/settings.json` interactively.
 MQTT topics are stored separately in `local_config/mqtt_topics.json`.
 
+`menu_profile` in `local_config/settings.json` controls which schema variant is used:
+- `prod`/`minimal`: uses `minimal_menu_schema` when available.
+- `dev`/`full`: uses `dev_menu_schema` when available.
+- fallback: `menu_schema`.
+
 ## Sections
 
 1. MQTT base

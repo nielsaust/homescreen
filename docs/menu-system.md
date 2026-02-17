@@ -15,6 +15,15 @@ Startup-triggered actions are configured separately in `local_config/startup_act
 - Action execution engine:
   - `app/controllers/action_dispatcher.py`
 
+## Menu Profiles
+
+- Runtime menu selection is controlled by `menu_profile` in `local_config/settings.json`.
+- Supported values:
+  - `prod` (or `minimal`): use `minimal_menu_schema` when present, otherwise `menu_schema`.
+  - `dev` (or `full`): use `dev_menu_schema` when present, otherwise `menu_schema`.
+  - Any other value: falls back to `menu_schema`.
+- This makes it possible to keep a lean public/default menu while exposing extra tooling in development.
+
 ## Add A New Button
 
 1. Add button in `menu_schema` in `local_config/menu.json`.

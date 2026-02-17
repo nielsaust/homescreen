@@ -31,8 +31,22 @@ def save_local_menu_config(data: dict) -> None:
     LOCAL_MENU_PATH.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
-def get_menu_schema() -> list[dict]:
-    return copy.deepcopy(load_menu_config().get("menu_schema", []))
+def get_menu_schema(profile: str | None = None) -> list[dict]:
+    config = load_menu_config()
+    selected_profile = str(profile or "").strip().lower()
+
+    if selected_profile in {"prod", "minimal"}:
+        schema = config.get("minimal_menu_schema")
+        if isinstance(schema, list):
+            return copy.deepcopy(schema)
+
+    if selected_profile in {"dev", "full"}:
+        schema = config.get("dev_menu_schema")
+        if isinstance(schema, list):
+            return copy.deepcopy(schema)
+
+    # Default profile or missing profile-specific schemas fall back to main schema.
+    return copy.deepcopy(config.get("menu_schema", []))
 
 
 def get_button_setting_requirements() -> dict[str, list[str]]:

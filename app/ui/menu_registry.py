@@ -9,7 +9,6 @@ from app.ui.menu_config_loader import (
 )
 
 
-MENU_SCHEMA = get_menu_schema()
 _BUTTON_SETTING_REQUIREMENTS = get_button_setting_requirements()
 
 
@@ -68,6 +67,7 @@ def _filter_schema_by_settings(entries, settings):
 
 
 def build_menu_buttons(settings=None):
-    schema = MENU_SCHEMA
+    profile = str(getattr(settings, "menu_profile", "prod") or "prod")
+    schema = get_menu_schema(profile=profile)
     schema = _filter_schema_by_settings(schema, settings)
     return [_build_entry(entry) for entry in schema]

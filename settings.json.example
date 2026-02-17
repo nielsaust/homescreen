@@ -34,6 +34,7 @@
     "enable_mqtt": false,
     "enable_music": false,
     "enable_weather": false,
+    "menu_profile": "prod",
     "enable_network_simulation": true,
     "network_status_poll_interval_seconds": 5,
     "show_weather_on_idle": true,
