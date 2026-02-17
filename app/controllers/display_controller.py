@@ -60,6 +60,9 @@ class DisplayController:
         except Exception as exc:
             log_event(logger, logging.WARNING, "display", "window.kiosk_apply_failed", error=exc)
 
+    def force_kiosk_window_mode(self):
+        self._apply_kiosk_window_mode()
+
     def _create_base_screens(self):
         for screen_name in ("off", "setup", "weather", "music", "menu"):
             self.create_screen(screen_name)

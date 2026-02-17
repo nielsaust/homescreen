@@ -102,6 +102,12 @@
           "action": "store_settings"
         },
         {
+          "id": "force_fullscreen",
+          "text": "Force fullscreen",
+          "image": "system.png",
+          "action": "force_fullscreen"
+        },
+        {
           "id": "quit",
           "text": "Sluit deze app",
           "image": "exit.png",
@@ -208,6 +214,10 @@
     "store_settings": {
       "kind": "setting_toggle",
       "attr": "store_settings"
+    },
+    "force_fullscreen": {
+      "kind": "custom",
+      "name": "force_fullscreen"
     },
     "shell_reboot": {
       "kind": "shell",

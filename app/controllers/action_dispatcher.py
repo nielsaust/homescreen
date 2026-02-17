@@ -27,6 +27,7 @@ class ActionDispatcher:
         self._custom_handlers = {
             "turn_screen_off": self._turn_screen_off,
             "music_show_title": self._music_show_title,
+            "force_fullscreen": self._force_fullscreen,
         }
 
     def dispatch(self, action: str) -> None:
@@ -227,6 +228,12 @@ class ActionDispatcher:
         self.main_app.request_menu_navigation("exit", source="action_dispatcher")
         if not self.main_app.settings.media_show_titles:
             self.main_app.root.after(120, self.main_app.media_controller.show_music_overlays)
+
+    def _force_fullscreen(self) -> None:
+        if self.main_app.system_info.get("is_desktop", False):
+            logger.info("Force fullscreen skipped on desktop platform")
+            return
+        self.main_app.display_controller.force_kiosk_window_mode()
 
     def _ensure_mqtt_enabled(self) -> bool:
         if self.main_app.is_mqtt_enabled():
