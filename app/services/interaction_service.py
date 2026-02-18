@@ -94,11 +94,9 @@ class InteractionService:
             self.main_app.display_controller.check_idle(True)
             return True
         if sleep_mode_active:
-            # In sleep mode, the first single tap should both wake the panel and
-            # continue into normal click routing (off/weather -> menu).
+            # In sleep mode, first tap only wakes the display.
+            # A second tap is required to open the menu.
             self.main_app.display_controller.check_idle(True)
-            if interaction_type == "single_click":
-                return False
             return True
 
         # Keep interaction responsive when display state is temporarily out-of-sync.
