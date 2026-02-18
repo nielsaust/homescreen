@@ -32,7 +32,7 @@ class DisplayController:
         # display options for Pi Screen
         self.backlight = None
         self.is_showing = False
-        self._in_bed_user_wake_active = False
+        self._sleep_mode_user_wake_active = False
         if(not self.main_app.system_info["is_desktop"]):
             self.backlight = Backlight()
             self._apply_kiosk_window_mode()
@@ -394,21 +394,21 @@ class DisplayController:
 
     def check_idle(self,turn_on=False):
         screen = self.get_screen_state()
-        in_bed_active = bool(getattr(self.main_app.device_states, "in_bed", False))
+        sleep_mode_active = bool(getattr(self.main_app.device_states, "sleep_mode", False))
 
         # Explicit wake (tap / user action) starts a temporary wake session while in-bed.
         if turn_on:
-            if in_bed_active:
-                self._in_bed_user_wake_active = True
+            if sleep_mode_active:
+                self._sleep_mode_user_wake_active = True
             self.turn_on(user_override=True)
             return
 
         # While in-bed, allow interaction screens during user wake session only.
-        if in_bed_active:
-            if self._in_bed_user_wake_active and screen in ("menu", "music"):
+        if sleep_mode_active:
+            if self._sleep_mode_user_wake_active and screen in ("menu", "music"):
                 self.turn_on(user_override=True)
                 return
-            self._in_bed_user_wake_active = False
+            self._sleep_mode_user_wake_active = False
             self.turn_off()
             return
 
@@ -423,15 +423,15 @@ class DisplayController:
             self.turn_on()
 
     def turn_on(self, user_override=False):
-        in_bed_active = bool(getattr(self.main_app.device_states, "in_bed", False))
-        if in_bed_active and not user_override:
-            log_event(logger, logging.INFO, "display", "power.on_skipped", reason="in_bed_active")
+        sleep_mode_active = bool(getattr(self.main_app.device_states, "sleep_mode", False))
+        if sleep_mode_active and not user_override:
+            log_event(logger, logging.INFO, "display", "power.on_skipped", reason="sleep_mode_active")
             self.is_showing = False
             if not self.main_app.system_info["is_desktop"] and self.backlight is not None:
                 self.backlight.set_power(False)
             return
-        if in_bed_active and user_override:
-            log_event(logger, logging.INFO, "display", "power.on_user_override", reason="in_bed_active")
+        if sleep_mode_active and user_override:
+            log_event(logger, logging.INFO, "display", "power.on_user_override", reason="sleep_mode_active")
         log_event(logger, logging.INFO, "display", "power.on")
         self.is_showing = True
         if(not self.main_app.system_info["is_desktop"]):

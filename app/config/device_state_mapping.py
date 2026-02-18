@@ -19,8 +19,8 @@ DEFAULT_DEVICE_STATE_MAPPING: dict = {
         "light_keuken": {"source": "light_keuken", "type": "light"},
         "light_kleur": {"source": "light_kleur", "type": "light"},
         "light_woonkamer": {"source": "light_woonkamer", "type": "light"},
-        "in_bed": {
-            "source": "in_bed",
+        "sleep_mode": {
+            "source": "sleep_mode",
             "type": "on_off_bool",
             "default": False,
             "track_original": True,

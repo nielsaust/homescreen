@@ -91,4 +91,4 @@ Field spec:
 - `source`: key in incoming payload.
 - `type`: one of `string`, `float`, `on_off_bool`, `light`, `availability`.
 - `default`: optional fallback.
-- `track_original`: optional (useful for edge-trigger behavior like `in_bed`).
+- `track_original`: optional (useful for edge-trigger behavior like `sleep_mode`).

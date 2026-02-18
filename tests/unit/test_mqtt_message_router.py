@@ -12,11 +12,11 @@ from app.controllers.overlay_commands import OverlayCommand
 class _DeviceStates:
     def __init__(self):
         self.printer_progress = 0
-        self.in_bed = "off"
+        self.sleep_mode = "off"
 
     def update_states(self, data, mapping=None):
-        value = data.get("in_bed", self.in_bed)
-        self.in_bed = str(value).strip().lower() in ("on", "true", "1", "yes")
+        value = data.get("sleep_mode", self.sleep_mode)
+        self.sleep_mode = str(value).strip().lower() in ("on", "true", "1", "yes")
 
 
 class _MainApp:
@@ -95,13 +95,21 @@ class TestMqttMessageRouter(unittest.TestCase):
         app = _MainApp()
         router = MqttMessageRouter(app)
 
-        router.handle("screen_commands/incoming", {"in_bed": "on"})
+        router.handle("screen_commands/incoming", {"sleep_mode": "on"})
 
-        self.assertTrue(app.device_states.in_bed)
+        self.assertTrue(app.device_states.sleep_mode)
         self.assertEqual(app.bed_time_checks, 1)
         event_names = [entry[0] for entry in app.events]
         self.assertIn("device.state.updated", event_names)
         self.assertIn("menu.refresh.requested", event_names)
+
+    def test_device_topic_accepts_sleep_mode_payload(self):
+        app = _MainApp()
+        router = MqttMessageRouter(app)
+
+        router.handle("screen_commands/incoming", {"sleep_mode": "on"})
+
+        self.assertTrue(app.device_states.sleep_mode)
 
 
 if __name__ == "__main__":

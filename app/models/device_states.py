@@ -13,9 +13,9 @@ class DeviceStates:
         self.light_keuken = None
         self.light_kleur = None
         self.light_woonkamer = None
-        self.in_bed_changed = None
-        self.in_bed_original = None
-        self.in_bed = None
+        self.sleep_mode_changed = None
+        self.sleep_mode_original = None
+        self.sleep_mode = None
         self.trash_warning = None
         self.bed_heating_on = None
         self.playstation_power = None
@@ -36,7 +36,7 @@ class DeviceStates:
                 "light_keuken": {"source": "light_keuken", "type": "light"},
                 "light_kleur": {"source": "light_kleur", "type": "light"},
                 "light_woonkamer": {"source": "light_woonkamer", "type": "light"},
-                "in_bed": {"source": "in_bed", "type": "on_off_bool", "default": False, "track_original": True},
+                "sleep_mode": {"source": "sleep_mode", "type": "on_off_bool", "default": False, "track_original": True},
                 "trash_warning": {"source": "trash_warning", "type": "on_off_bool", "default": False},
                 "bed_heating_on": {"source": "bed_heating_on", "type": "on_off_bool", "default": False},
                 "playstation_power": {"source": "playstation_power", "type": "on_off_bool", "default": False},

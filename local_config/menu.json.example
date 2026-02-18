@@ -157,7 +157,7 @@
     {
       "button_id": "sleep_mode",
       "type": "device_bool",
-      "source": "in_bed",
+      "source": "sleep_mode",
       "default": false,
       "action_text": "[sleep_mode_action]",
       "on_text": "Aan",

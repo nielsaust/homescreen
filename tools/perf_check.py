@@ -103,12 +103,12 @@ class _FakeMusicScreen:
 
 class _FakeDeviceStates:
     def __init__(self):
-        self.in_bed = "off"
+        self.sleep_mode = "off"
         self.printer_progress = 0
 
     def update_states(self, data, mapping=None):
-        if "in_bed" in data:
-            self.in_bed = data["in_bed"]
+        if "sleep_mode" in data:
+            self.sleep_mode = data["sleep_mode"]
 
 
 class _FakeMainApp:
@@ -194,7 +194,7 @@ def _check_router_cost(iterations):
 
     app = _FakeMainApp()
     router = MqttMessageRouter(app)
-    payload = {"progress": 73, "in_bed": "off"}
+    payload = {"progress": 73, "sleep_mode": "off"}
 
     def _run_once():
         router.handle("screen_commands/incoming", payload)

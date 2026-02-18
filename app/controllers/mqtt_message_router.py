@@ -109,7 +109,7 @@ class MqttMessageRouter:
             self.main_app.publish_event(
                 "device.state.updated",
                 {
-                    "in_bed": self.main_app.device_states.in_bed,
+                    "sleep_mode": self.main_app.device_states.sleep_mode,
                     "printer_progress": self.main_app.device_states.printer_progress,
                 },
                 source="mqtt_router",

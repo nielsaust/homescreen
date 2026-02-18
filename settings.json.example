@@ -36,7 +36,7 @@
   "screen_height": 720,
   "restart_program_style": "application",
   "min_time_between_actions": 0.0,
-  "in_bed_turn_off_timeout": 15000,
+  "sleep_mode_turn_off_timeout": 15000,
   "verify_ssl_on_trusted_sources": true,
   "store_settings": true,
   "show_feedback_label_timeout": 2000,

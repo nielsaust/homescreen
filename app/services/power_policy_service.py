@@ -19,24 +19,24 @@ class PowerPolicyService:
         self._bed_time_timeout_future = None
 
     def check_bed_time(self, force: bool = False) -> None:
-        in_bed_before = bool(getattr(self.main_app.device_states, "in_bed", False))
+        sleep_mode_before = bool(getattr(self.main_app.device_states, "sleep_mode", False))
         display_before = self.main_app.display_controller.get_screen_state()
         showing_before = bool(getattr(self.main_app.display_controller, "is_showing", False))
-        if self.main_app.device_states.in_bed_changed or force:
-            if self.main_app.device_states.in_bed:
+        if self.main_app.device_states.sleep_mode_changed or force:
+            if self.main_app.device_states.sleep_mode:
                 self.main_app.display_controller.turn_off()
             else:
                 self.main_app.display_controller.turn_on()
-            self.main_app.device_states.in_bed_changed = False
+            self.main_app.device_states.sleep_mode_changed = False
 
         self.main_app.display_controller.check_idle()
         log_event(
             logger,
             logging.INFO,
             "display",
-            "power.sync_with_in_bed",
+            "power.sync_with_sleep_mode",
             force=bool(force),
-            in_bed=in_bed_before,
+            sleep_mode=sleep_mode_before,
             screen_before=display_before,
             showing_before=showing_before,
             showing_after=bool(getattr(self.main_app.display_controller, "is_showing", False)),
@@ -48,7 +48,8 @@ class PowerPolicyService:
             self.main_app.root.after_cancel(self._bed_time_timeout_future)
 
         if startnew:
+            timeout_ms = int(getattr(self.main_app.settings, "sleep_mode_turn_off_timeout", 15000))
             self._bed_time_timeout_future = self.main_app.root.after(
-                self.main_app.settings.in_bed_turn_off_timeout,
+                timeout_ms,
                 lambda: self.check_bed_time(True),
             )

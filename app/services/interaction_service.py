@@ -80,9 +80,9 @@ class InteractionService:
         if self.main_app.display_controller.is_showing:
             return False
 
-        in_bed_active = bool(getattr(self.main_app.device_states, "in_bed", False))
+        sleep_mode_active = bool(getattr(self.main_app.device_states, "sleep_mode", False))
         # Keep first tap responsive from idle/off/setup: go straight to menu flow.
-        if not in_bed_active and interaction_type == "single_click" and screen_state in ("off", "setup", "weather"):
+        if not sleep_mode_active and interaction_type == "single_click" and screen_state in ("off", "setup", "weather"):
             return False
 
         if (
@@ -93,8 +93,12 @@ class InteractionService:
         ):
             self.main_app.display_controller.check_idle(True)
             return True
-        if in_bed_active:
+        if sleep_mode_active:
+            # In sleep mode, the first single tap should both wake the panel and
+            # continue into normal click routing (off/weather -> menu).
             self.main_app.display_controller.check_idle(True)
+            if interaction_type == "single_click":
+                return False
             return True
 
         # Keep interaction responsive when display state is temporarily out-of-sync.
