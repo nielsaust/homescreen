@@ -1,6 +1,6 @@
 PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 
-.PHONY: install configuration mqtt-topics locale-setup migrate-local-config menu-migrate-actions service-setup baseline doctor smoke test-unit perf-check menu-contract-check menu-item-scaffold menu-item-new-toggle menu-item-verify-toggle check-local test-local test-device run net-down net-up net-status settings-check settings-update-example settings-update-local settings-prune-local-preview settings-prune-local deploy-dry-run precommit-install precommit-run security-scan
+.PHONY: install configuration mqtt-topics locale-setup migrate-local-config menu-migrate-actions service-setup baseline doctor smoke test-unit perf-check menu-contract-check menu-item-scaffold menu-item-new-toggle menu-item-verify-toggle check-local test-local test-device run net-down net-up net-status net-recover settings-check settings-update-example settings-update-local settings-prune-local-preview settings-prune-local deploy-dry-run precommit-install precommit-run security-scan
 
 install:
 	bash tools/bootstrap.sh
@@ -69,6 +69,9 @@ net-up:
 
 net-status:
 	$(PYTHON) tools/network_sim.py status
+
+net-recover:
+	bash tools/network_recover.sh
 
 settings-check:
 	$(PYTHON) tools/settings_sync.py check

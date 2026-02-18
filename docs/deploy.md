@@ -134,6 +134,19 @@ Common startup failures:
   - verify `systemctl get-default` is `graphical.target`
   - verify unit install target is `WantedBy=graphical.target`
 
+Network outage recovery (without reboot):
+
+```bash
+cd /home/<USER>/homescreen
+make net-recover
+```
+
+Optional interface override:
+
+```bash
+bash tools/network_recover.sh eth0
+```
+
 If service file drifted during older setup attempts, reset it to the example:
 
 ```bash
