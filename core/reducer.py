@@ -54,7 +54,7 @@ def reduce_state(state: AppState, event: AppEvent) -> AppState:
     if event_type == "device.state.updated":
         return replace(
             base,
-            in_bed=payload.get("in_bed", base.in_bed),
+            sleep_mode=payload.get("sleep_mode", base.sleep_mode),
             printer_progress=payload.get("printer_progress", base.printer_progress),
         )
 

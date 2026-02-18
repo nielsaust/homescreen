@@ -25,7 +25,7 @@ class AppState:
     music_album: str | None = None
     music_album_art_api_url: str | None = None
 
-    in_bed: bool | None = None
+    sleep_mode: bool | None = None
     printer_progress: float | int | None = None
     network_online: bool | None = None
     weather_source: str | None = None
