@@ -1,129 +1,55 @@
 {
   "menu_schema": [
     {
-      "id": "music",
-      "text": "Muziek",
-      "image": "music.png",
-      "action": "music_menu",
-      "screen": [
-        {
-          "id": "music_back",
-          "text": "Terug",
-          "image": "back.png",
-          "action": "back"
-        },
-        {
-          "id": "music_volume_up",
-          "text": "Harder",
-          "image": "volume-up.png",
-          "action": "music_volume_up"
-        },
-        {
-          "id": "music_play_pause",
-          "text": "[music_action] muziek",
-          "image": "play.png",
-          "action": "music_play_pause"
-        },
-        {
-          "id": "music_volume_down",
-          "text": "Zachter",
-          "image": "volume-down.png",
-          "action": "music_volume_down"
-        },
-        {
-          "id": "music_previous",
-          "text": "Vorig nummer",
-          "image": "backward.png",
-          "action": "music_previous"
-        },
-        {
-          "id": "music_next",
-          "text": "Volgend nummer",
-          "image": "forward.png",
-          "action": "music_next"
-        },
-        {
-          "id": "music_show_title",
-          "text": "Toon muziek details",
-          "image": "detail.png",
-          "action": "music_show_title",
-          "cancel_close": true
-        },
-        {
-          "id": "media_show_titles",
-          "text": "Toon media titels",
-          "image": "text.png",
-          "action": "media_show_titles"
-        },
-        {
-          "id": "media_sanitize_titles",
-          "text": "Schoon titels op",
-          "image": "text.png",
-          "action": "media_sanitize_titles"
-        }
-      ]
-    },
-    {
-      "id": "weather_options",
-      "text": "Weer",
-      "image": "weather.png",
-      "action": "open_page",
-      "screen": [
-        {
-          "id": "weather_back",
-          "text": "Terug",
-          "image": "back.png",
-          "action": "back"
-        },
-        {
-          "id": "show_weather_on_idle",
-          "text": "Toon weer als idle",
-          "image": "weather.png",
-          "action": "show_weather_on_idle"
-        }
-      ]
-    },
-    {
       "id": "system_options",
       "text": "Opties",
       "image": "system.png",
       "action": "open_page",
+      "order": 100,
       "screen": [
         {
           "id": "options_back",
           "text": "Terug",
           "image": "back.png",
-          "action": "back"
+          "action": "back",
+          "order": 10
         },
         {
           "id": "store_settings",
           "text": "Store settings",
           "image": "system.png",
-          "action": "store_settings"
+          "action": "store_settings",
+          "order": 20
         },
         {
           "id": "force_fullscreen",
           "text": "Force fullscreen",
           "image": "system.png",
-          "action": "force_fullscreen"
+          "action": "force_fullscreen",
+          "order": 30
         },
         {
           "id": "quit",
           "text": "Sluit deze app",
           "image": "exit.png",
-          "action": "exit"
+          "action": "exit",
+          "order": 40
         },
         {
           "id": "shell_reboot",
           "text": "Reboot machine",
           "image": "shell.png",
-          "action": "shell_reboot"
+          "action": "shell_reboot",
+          "dev_only": true,
+          "order": 50
         },
         {
           "id": "shell_shutdown",
           "text": "Shutdown machine",
           "image": "shell.png",
-          "action": "shell_shutdown"
+          "action": "shell_shutdown",
+          "dev_only": true,
+          "order": 60
         }
       ]
     },
@@ -131,32 +57,19 @@
       "id": "screen_off",
       "text": "Zet scherm uit",
       "image": "screen-off.png",
-      "action": "turn_screen_off"
+      "action": "turn_screen_off",
+      "order": 200
+    },
+    {
+      "id": "sleep_mode",
+      "text": "[sleep_mode_action] Sleep mode",
+      "image": "in-bed.png",
+      "action": "sleep_mode_toggle",
+      "order": 300
     }
   ],
   "button_setting_requirements": {
-    "music": [
-      "enable_mqtt",
-      "enable_music"
-    ],
-    "music_play_pause": [
-      "enable_mqtt",
-      "enable_music"
-    ],
-    "media_show_titles": [
-      "enable_mqtt",
-      "enable_music"
-    ],
-    "media_sanitize_titles": [
-      "enable_mqtt",
-      "enable_music"
-    ],
-    "weather_options": [
-      "enable_weather"
-    ],
-    "show_weather_on_idle": [
-      "enable_weather"
-    ]
+    "store_settings": []
   },
   "action_specs": {
     "back": {
@@ -170,6 +83,11 @@
     "turn_screen_off": {
       "kind": "custom",
       "name": "turn_screen_off"
+    },
+    "sleep_mode_toggle": {
+      "kind": "mqtt_action",
+      "topic_key": "actions_outgoing",
+      "action": "sleep_mode_toggle"
     },
     "music_play_pause": {
       "kind": "media",
@@ -211,6 +129,10 @@
       "kind": "setting_toggle",
       "attr": "media_sanitize_titles"
     },
+    "media_show_album": {
+      "kind": "setting_toggle",
+      "attr": "media_show_album"
+    },
     "store_settings": {
       "kind": "setting_toggle",
       "attr": "store_settings"
@@ -233,30 +155,13 @@
   },
   "state_specs": [
     {
-      "button_id": "music_play_pause",
-      "type": "music_state",
-      "state": "playing",
-      "action_text": "[music_action]",
-      "on_text": "Pauzeer",
-      "off_text": "Speel"
-    },
-    {
-      "button_id": "show_weather_on_idle",
-      "type": "setting_bool",
-      "source": "show_weather_on_idle",
-      "default": false
-    },
-    {
-      "button_id": "media_show_titles",
-      "type": "setting_bool",
-      "source": "media_show_titles",
-      "default": true
-    },
-    {
-      "button_id": "media_sanitize_titles",
-      "type": "setting_bool",
-      "source": "media_sanitize_titles",
-      "default": true
+      "button_id": "sleep_mode",
+      "type": "device_bool",
+      "source": "in_bed",
+      "default": false,
+      "action_text": "[sleep_mode_action]",
+      "on_text": "Aan",
+      "off_text": "Uit"
     },
     {
       "button_id": "store_settings",

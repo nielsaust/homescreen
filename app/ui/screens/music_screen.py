@@ -113,6 +113,8 @@ class MusicScreen:
         channel = getattr(obj, "channel", None)
         album = getattr(obj, "album", None)
         album_art_api_url = getattr(obj, "album_art_api_url", None)
+        show_album = bool(getattr(self.main_app.settings, "media_show_album", True))
+        album_for_overlay = album if show_album else None
 
         if artist is None:
             log_event(logger, logging.WARNING, "music", "screen.partial_metadata", reason="missing_artist", state=state)
@@ -130,9 +132,9 @@ class MusicScreen:
 
         self._maybe_load_album_art(album_art_api_url)
 
-        has_any_text = any([artist, title, album, channel])
+        has_any_text = any([artist, title, album_for_overlay, channel])
         if self.main_app.settings.media_show_titles and has_any_text:
-            self.show_overlays(artist, title, album, channel)
+            self.show_overlays(artist, title, album_for_overlay, channel)
         else:
             self.remove_overlays()
 
@@ -146,9 +148,11 @@ class MusicScreen:
         if artist is None and channel is None and title is None:
             return
 
+        show_album = bool(getattr(self.main_app.settings, "media_show_album", True))
+        album_for_overlay = album if show_album else None
         self._maybe_load_album_art(album_art_api_url)
         if self.main_app.settings.media_show_titles:
-            self.show_overlays(artist, title, album, channel)
+            self.show_overlays(artist, title, album_for_overlay, channel)
 
     def _maybe_load_album_art(self, album_art_api_url):
         log_event(

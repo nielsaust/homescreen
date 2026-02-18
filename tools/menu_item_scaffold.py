@@ -506,6 +506,8 @@ def _create_item() -> int:
     action_specs, _ = _ensure_action_spec(action_specs, action_id, item_type)
 
     new_entry = {"id": item_id, "text": label, "image": icon, "action": action_id}
+    if _prompt_choice("Mark as dev-only item?", ["y", "n"], "n") == "y":
+        new_entry["dev_only"] = True
     if item_type == "submenu":
         new_entry["action"] = "open_page"
         new_entry["screen"] = _build_submenu(action_id, label)
@@ -572,6 +574,7 @@ def _edit_item() -> int:
 
     entry = _get_entry(schema, row["path"])
     old_action = entry.get("action")
+    old_dev_only = bool(entry.get("dev_only", False))
     print("Press Enter to keep current value.")
     new_text = _prompt("Label", entry.get("text", ""))
     keep_icon = _prompt_choice("Keep current icon?", ["y", "n"], "y")
@@ -580,9 +583,18 @@ def _edit_item() -> int:
     else:
         new_image = _choose_icon(entry.get("image", "tools.png"))
     new_action = _prompt("Action id", old_action)
+    new_dev_only = _prompt_choice(
+        "Mark as dev-only item?",
+        ["y", "n"],
+        "y" if old_dev_only else "n",
+    ) == "y"
     entry["text"] = new_text
     entry["image"] = new_image
     entry["action"] = new_action
+    if new_dev_only:
+        entry["dev_only"] = True
+    else:
+        entry.pop("dev_only", None)
 
     if new_action != old_action and new_action not in ("back", "open_page") and new_action not in action_specs:
         create_spec = _prompt_choice("New action spec not found. Create now?", ["y", "n"], "y")

@@ -12,6 +12,31 @@ from app.ui.menu_config_loader import (
 _BUTTON_SETTING_REQUIREMENTS = get_button_setting_requirements()
 
 
+def _order_value(entry, fallback_idx):
+    raw = entry.get("order")
+    if isinstance(raw, int):
+        return raw
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return 10_000 + fallback_idx
+
+
+def _sort_entries_by_order(entries):
+    ordered = sorted(
+        entries,
+        key=lambda item_with_idx: _order_value(item_with_idx[1], item_with_idx[0]),
+    )
+    out = []
+    for _, entry in ordered:
+        cloned = copy.deepcopy(entry)
+        children = cloned.get("screen") or []
+        if children:
+            cloned["screen"] = _sort_entries_by_order(list(enumerate(children)))
+        out.append(cloned)
+    return out
+
+
 def _build_entry(schema_entry):
     button = MenuButton(
         schema_entry["id"],
@@ -76,6 +101,6 @@ def _filter_schema_by_settings(entries, settings):
 
 
 def build_menu_buttons(settings=None):
-    schema = get_menu_schema()
+    schema = _sort_entries_by_order(list(enumerate(get_menu_schema())))
     schema = _filter_schema_by_settings(schema, settings)
     return [_build_entry(entry) for entry in schema]

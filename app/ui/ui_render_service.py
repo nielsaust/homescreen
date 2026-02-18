@@ -21,6 +21,7 @@ class UiRenderService:
         self.current_overlay_label = None
         self.current_overlay_label_timeout = None
         self._buttons_image_dir = pathlib.Path(__file__).resolve().parents[2] / "images" / "buttons"
+        self._label_timeouts: dict[tk.Label, int] = {}
 
     def force_screen_update(self):
         if self.main_app.settings.force_update:
@@ -62,15 +63,54 @@ class UiRenderService:
         delay_ms = max(1, int(getattr(self.main_app, "ui_trace_followup_ms", 80)))
         self.main_app.root.after(delay_ms, lambda: self.trace_widget_state(event_name, widget))
 
-    def place_action_label(self, text=None, anchor="center", image=None, bg="black", fg="white", bordercolor="black"):
-        if self.main_app.settings.show_feedback_label_timeout == 0:
-            log_event(logger, logging.INFO, "ui", "feedback_label.skipped", reason="disabled_in_settings")
+    def _cancel_label_timeout(self, label: tk.Label) -> None:
+        timeout_id = self._label_timeouts.pop(label, None)
+        if timeout_id is not None:
+            try:
+                self.main_app.root.after_cancel(timeout_id)
+            except Exception:
+                pass
+
+    def _schedule_label_timeout(self, label: tk.Label, timeout_ms: int) -> None:
+        self._cancel_label_timeout(label)
+        if timeout_ms <= 0:
             return
 
-        def remove(label):
+        def remove():
+            self._cancel_label_timeout(label)
             if label in self.action_labels:
                 self.action_labels.remove(label)
-            label.destroy()
+            try:
+                label.destroy()
+            except Exception:
+                pass
+
+        self._label_timeouts[label] = self.main_app.root.after(timeout_ms, remove)
+
+    def hold_action_label(self, label: tk.Label | None) -> None:
+        if label is None:
+            return
+        self._cancel_label_timeout(label)
+
+    def release_action_label(self, label: tk.Label | None, timeout_ms: int | None = None) -> None:
+        if label is None:
+            return
+        timeout = self.main_app.settings.show_feedback_label_timeout if timeout_ms is None else max(0, int(timeout_ms))
+        self._schedule_label_timeout(label, timeout)
+
+    def place_action_label(
+        self,
+        text=None,
+        anchor="center",
+        image=None,
+        bg="black",
+        fg="white",
+        bordercolor="black",
+        timeout_ms: int | None = None,
+    ):
+        if self.main_app.settings.show_feedback_label_timeout == 0:
+            log_event(logger, logging.INFO, "ui", "feedback_label.skipped", reason="disabled_in_settings")
+            return None
 
         label_options = {
             "fg": fg,
@@ -118,7 +158,6 @@ class UiRenderService:
             label.place(x=label_x, y=label_y)
 
         self.action_labels.append(label)
-        self.current_overlay_label_timeout = self.main_app.root.after(
-            self.main_app.settings.show_feedback_label_timeout,
-            lambda: remove(label),
-        )
+        timeout = self.main_app.settings.show_feedback_label_timeout if timeout_ms is None else max(0, int(timeout_ms))
+        self._schedule_label_timeout(label, timeout)
+        return label

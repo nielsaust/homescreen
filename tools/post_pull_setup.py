@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import shutil
 from pathlib import Path
@@ -18,6 +19,8 @@ DEVICE_STATE_MAPPING = ROOT / "local_config" / "device_state_mapping.json"
 DEVICE_STATE_MAPPING_EXAMPLE = ROOT / "local_config" / "device_state_mapping.json.example"
 STARTUP_ACTIONS = ROOT / "local_config" / "startup_actions.json"
 STARTUP_ACTIONS_EXAMPLE = ROOT / "local_config" / "startup_actions.json.example"
+MENU = ROOT / "local_config" / "menu.json"
+MENU_EXAMPLE = ROOT / "local_config" / "menu.json.example"
 
 
 def _load_json(path: Path) -> dict:
@@ -80,6 +83,19 @@ def ensure_startup_actions_file() -> None:
         )
 
 
+def ensure_menu_file(force_overwrite: bool = False) -> None:
+    if not MENU_EXAMPLE.exists():
+        return
+    MENU.parent.mkdir(parents=True, exist_ok=True)
+    if MENU.exists() and not force_overwrite:
+        return
+    shutil.copy2(MENU_EXAMPLE, MENU)
+    if force_overwrite:
+        print("[setup] replaced local_config/menu.json from local_config/menu.json.example")
+    else:
+        print("[setup] created local_config/menu.json from local_config/menu.json.example")
+
+
 def ensure_settings_keys() -> None:
     local = _load_json(SETTINGS)
     example = _load_json(SETTINGS_EXAMPLE)
@@ -100,11 +116,20 @@ def ensure_directories() -> None:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Run idempotent local bootstrap setup.")
+    parser.add_argument(
+        "--force-menu-overwrite",
+        action="store_true",
+        help="Replace local_config/menu.json with local_config/menu.json.example",
+    )
+    args = parser.parse_args()
+
     ensure_settings_file()
     ensure_mqtt_topics_file()
     ensure_mqtt_routes_file()
     ensure_device_state_mapping_file()
     ensure_startup_actions_file()
+    ensure_menu_file(force_overwrite=bool(args.force_menu_overwrite))
     ensure_settings_keys()
     ensure_directories()
     print("[setup] post-pull setup complete")

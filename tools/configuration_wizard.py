@@ -20,6 +20,58 @@ if str(ROOT) not in sys.path:
 
 from app.config.mqtt_topics import load_mqtt_topics, save_local_mqtt_topics
 
+MUSIC_BUTTON_REQUIREMENTS: dict[str, list[str]] = {
+    "music": ["enable_mqtt", "enable_music"],
+    "music_play_pause": ["enable_mqtt", "enable_music"],
+    "media_show_titles": ["enable_mqtt", "enable_music"],
+    "media_show_album": ["enable_mqtt", "enable_music"],
+    "media_sanitize_titles": ["enable_mqtt", "enable_music"],
+}
+
+WEATHER_BUTTON_REQUIREMENTS: dict[str, list[str]] = {
+    "weather_options": ["enable_weather"],
+    "show_weather_on_idle": ["enable_weather"],
+}
+
+MUSIC_ACTION_SPECS: dict[str, dict] = {
+    "music_play_pause": {"kind": "media", "op": "play_pause"},
+    "music_volume_up": {"kind": "media", "op": "volume", "arg": "up"},
+    "music_volume_down": {"kind": "media", "op": "volume", "arg": "down"},
+    "music_next": {"kind": "media", "op": "skip", "arg": "next"},
+    "music_previous": {"kind": "media", "op": "skip", "arg": "previous"},
+    "music_show_title": {"kind": "custom", "name": "music_show_title"},
+    "media_show_titles": {"kind": "setting_toggle", "attr": "media_show_titles"},
+    "media_show_album": {"kind": "setting_toggle", "attr": "media_show_album"},
+    "media_sanitize_titles": {"kind": "setting_toggle", "attr": "media_sanitize_titles"},
+}
+
+WEATHER_ACTION_SPECS: dict[str, dict] = {
+    "show_weather_on_idle": {"kind": "setting_toggle", "attr": "show_weather_on_idle"},
+}
+
+MUSIC_STATE_SPECS: list[dict] = [
+    {
+        "button_id": "music_play_pause",
+        "type": "music_state",
+        "state": "playing",
+        "action_text": "[music_action]",
+        "on_text": "Pauzeer",
+        "off_text": "Speel",
+    },
+    {"button_id": "media_show_titles", "type": "setting_bool", "source": "media_show_titles", "default": True},
+    {"button_id": "media_show_album", "type": "setting_bool", "source": "media_show_album", "default": True},
+    {
+        "button_id": "media_sanitize_titles",
+        "type": "setting_bool",
+        "source": "media_sanitize_titles",
+        "default": True,
+    },
+]
+
+WEATHER_STATE_SPECS: list[dict] = [
+    {"button_id": "show_weather_on_idle", "type": "setting_bool", "source": "show_weather_on_idle", "default": False},
+]
+
 
 def _load_settings() -> dict:
     if SETTINGS_PATH.exists():
@@ -66,17 +118,61 @@ def _find_top_level_item(menu_schema: list[dict], item_id: str) -> dict | None:
     return None
 
 
-def _ensure_top_level_item(menu_schema: list[dict], item: dict) -> None:
-    existing = _find_top_level_item(menu_schema, item.get("id", ""))
-    if existing is None:
-        menu_schema.append(item)
-    else:
-        existing.clear()
-        existing.update(item)
-
-
 def _remove_top_level_item(menu_schema: list[dict], item_id: str) -> None:
     menu_schema[:] = [item for item in menu_schema if item.get("id") != item_id]
+
+
+def _upsert_state_spec(state_specs: list[dict], spec: dict) -> None:
+    button_id = str(spec.get("button_id", "")).strip()
+    if not button_id:
+        return
+    for idx, current in enumerate(state_specs):
+        if str(current.get("button_id", "")).strip() == button_id:
+            state_specs[idx] = spec
+            return
+    state_specs.append(spec)
+
+
+def _remove_state_spec(state_specs: list[dict], button_id: str) -> None:
+    state_specs[:] = [spec for spec in state_specs if str(spec.get("button_id", "")).strip() != button_id]
+
+
+def _ensure_music_menu_contracts(config: dict) -> None:
+    button_reqs = config.setdefault("button_setting_requirements", {})
+    button_reqs.update(MUSIC_BUTTON_REQUIREMENTS)
+    action_specs = config.setdefault("action_specs", {})
+    action_specs.update(MUSIC_ACTION_SPECS)
+    state_specs = config.setdefault("state_specs", [])
+    for spec in MUSIC_STATE_SPECS:
+        _upsert_state_spec(state_specs, spec)
+
+
+def _ensure_weather_menu_contracts(config: dict) -> None:
+    button_reqs = config.setdefault("button_setting_requirements", {})
+    button_reqs.update(WEATHER_BUTTON_REQUIREMENTS)
+    action_specs = config.setdefault("action_specs", {})
+    action_specs.update(WEATHER_ACTION_SPECS)
+    state_specs = config.setdefault("state_specs", [])
+    for spec in WEATHER_STATE_SPECS:
+        _upsert_state_spec(state_specs, spec)
+
+
+def _remove_music_menu_contracts(config: dict) -> None:
+    button_reqs = config.setdefault("button_setting_requirements", {})
+    for button_id in MUSIC_BUTTON_REQUIREMENTS:
+        button_reqs.pop(button_id, None)
+    state_specs = config.setdefault("state_specs", [])
+    for spec in MUSIC_STATE_SPECS:
+        _remove_state_spec(state_specs, str(spec.get("button_id", "")))
+
+
+def _remove_weather_menu_contracts(config: dict) -> None:
+    button_reqs = config.setdefault("button_setting_requirements", {})
+    for button_id in WEATHER_BUTTON_REQUIREMENTS:
+        button_reqs.pop(button_id, None)
+    state_specs = config.setdefault("state_specs", [])
+    for spec in WEATHER_STATE_SPECS:
+        _remove_state_spec(state_specs, str(spec.get("button_id", "")))
 
 
 def _music_menu_item() -> dict:
@@ -85,16 +181,18 @@ def _music_menu_item() -> dict:
         "text": "Muziek",
         "image": "music.png",
         "action": "music_menu",
+        "order": 400,
         "screen": [
-            {"id": "music_back", "text": "Terug", "image": "back.png", "action": "back"},
-            {"id": "music_volume_up", "text": "Harder", "image": "volume-up.png", "action": "music_volume_up"},
-            {"id": "music_play_pause", "text": "[music_action] muziek", "image": "play.png", "action": "music_play_pause"},
-            {"id": "music_volume_down", "text": "Zachter", "image": "volume-down.png", "action": "music_volume_down"},
-            {"id": "music_previous", "text": "Vorig nummer", "image": "backward.png", "action": "music_previous"},
-            {"id": "music_next", "text": "Volgend nummer", "image": "forward.png", "action": "music_next"},
-            {"id": "music_show_title", "text": "Toon muziek details", "image": "detail.png", "action": "music_show_title", "cancel_close": True},
-            {"id": "media_show_titles", "text": "Toon media titels", "image": "text.png", "action": "media_show_titles"},
-            {"id": "media_sanitize_titles", "text": "Schoon titels op", "image": "text.png", "action": "media_sanitize_titles"},
+            {"id": "music_back", "text": "Terug", "image": "back.png", "action": "back", "order": 10},
+            {"id": "music_volume_up", "text": "Harder", "image": "volume-up.png", "action": "music_volume_up", "order": 20},
+            {"id": "music_play_pause", "text": "[music_action] muziek", "image": "play.png", "action": "music_play_pause", "order": 30},
+            {"id": "music_volume_down", "text": "Zachter", "image": "volume-down.png", "action": "music_volume_down", "order": 40},
+            {"id": "music_previous", "text": "Vorig nummer", "image": "backward.png", "action": "music_previous", "order": 50},
+            {"id": "music_next", "text": "Volgend nummer", "image": "forward.png", "action": "music_next", "order": 60},
+            {"id": "music_show_title", "text": "Toon muziek details", "image": "detail.png", "action": "music_show_title", "cancel_close": True, "order": 70},
+            {"id": "media_show_titles", "text": "Toon media titels", "image": "text.png", "action": "media_show_titles", "order": 80},
+            {"id": "media_show_album", "text": "Toon album titel", "image": "text.png", "action": "media_show_album", "order": 90},
+            {"id": "media_sanitize_titles", "text": "Schoon titels op", "image": "text.png", "action": "media_sanitize_titles", "order": 100},
         ],
     }
 
@@ -105,27 +203,58 @@ def _weather_menu_item() -> dict:
         "text": "Weer",
         "image": "weather.png",
         "action": "open_page",
+        "order": 500,
         "screen": [
-            {"id": "weather_back", "text": "Terug", "image": "back.png", "action": "back"},
-            {"id": "show_weather_on_idle", "text": "Toon weer als idle", "image": "weather.png", "action": "show_weather_on_idle"},
+            {"id": "weather_back", "text": "Terug", "image": "back.png", "action": "back", "order": 10},
+            {"id": "show_weather_on_idle", "text": "Toon weer als idle", "image": "weather.png", "action": "show_weather_on_idle", "order": 20},
         ],
     }
 
 
-def _apply_feature_menu_defaults(settings: dict) -> None:
+def _upsert_menu_item(menu_schema: list[dict], item: dict, ask_overwrite: bool) -> bool:
+    existing = _find_top_level_item(menu_schema, item.get("id", ""))
+    if existing is None:
+        menu_schema.append(item)
+        return True
+    if existing == item:
+        return False
+    if ask_overwrite and not _prompt_bool(
+        f"Menu item '{item.get('id')}' already exists. Overwrite with default item?",
+        False,
+    ):
+        return False
+    existing.clear()
+    existing.update(item)
+    return True
+
+
+def _apply_feature_menu_defaults(settings: dict, ask_overwrite: bool) -> None:
     config = _load_menu_config()
+    before_config = json.dumps(config, sort_keys=True, ensure_ascii=False)
     menu_schema = config.setdefault("menu_schema", [])
+    changed = False
     if bool(settings.get("enable_music", False)):
-        _ensure_top_level_item(menu_schema, _music_menu_item())
+        _ensure_music_menu_contracts(config)
+        changed = _upsert_menu_item(menu_schema, _music_menu_item(), ask_overwrite) or changed
     else:
+        before = len(menu_schema)
         _remove_top_level_item(menu_schema, "music")
+        _remove_music_menu_contracts(config)
+        changed = len(menu_schema) != before or changed
 
     if bool(settings.get("enable_weather", False)):
-        _ensure_top_level_item(menu_schema, _weather_menu_item())
+        _ensure_weather_menu_contracts(config)
+        changed = _upsert_menu_item(menu_schema, _weather_menu_item(), ask_overwrite) or changed
     else:
+        before = len(menu_schema)
         _remove_top_level_item(menu_schema, "weather_options")
+        _remove_weather_menu_contracts(config)
+        changed = len(menu_schema) != before or changed
 
-    _save_menu_config(config)
+    after_config = json.dumps(config, sort_keys=True, ensure_ascii=False)
+    if changed or before_config != after_config:
+        _save_menu_config(config)
+        print("[configuration] Menu defaults updated for selected features.")
 
 
 def _prompt(text: str, default: str = "") -> str:
@@ -200,7 +329,11 @@ def configure_music(settings: dict, topics: dict) -> None:
         "Sanitize long/noisy titles",
         bool(settings.get("media_sanitize_titles", True)),
     )
-    _apply_feature_menu_defaults(settings)
+    settings["media_show_album"] = _prompt_bool(
+        "Show album title in music overlays",
+        bool(settings.get("media_show_album", True)),
+    )
+    _apply_feature_menu_defaults(settings, ask_overwrite=True)
     print("[configuration] Music integration updated.")
 
 
@@ -219,7 +352,7 @@ def configure_weather(settings: dict) -> None:
     settings["weather_api_key"] = _prompt("OpenWeather API key", str(settings.get("weather_api_key", "")))
     settings["weather_city_id"] = _prompt("OpenWeather city id", str(settings.get("weather_city_id", "")))
     settings["weather_langage"] = _prompt("Weather language (e.g. nl/en)", str(settings.get("weather_langage", "nl")))
-    _apply_feature_menu_defaults(settings)
+    _apply_feature_menu_defaults(settings, ask_overwrite=True)
     print("[configuration] Weather integration updated.")
 
 
@@ -354,7 +487,6 @@ def main() -> int:
             elif choice == "5":
                 configure_services()
             elif choice == "6":
-                _apply_feature_menu_defaults(settings)
                 _save_settings(settings)
                 _save_topics(topics)
                 print("[configuration] Saved to local_config/settings.json")

@@ -15,6 +15,22 @@ Startup-triggered actions are configured separately in `local_config/startup_act
 - Action execution engine:
   - `app/controllers/action_dispatcher.py`
 
+## Default Menu (After `make install`)
+
+- Main menu defaults:
+  - `Opties`
+  - `Zet scherm uit`
+  - `Sleep mode`
+- Feature menus are added by `make configuration`:
+  - Music enabled: adds `Muziek` submenu including media toggles.
+  - Weather enabled: adds `Weer` submenu with `Toon weer als idle`.
+
+## Ordering
+
+- Menu items support optional integer `order`.
+- Runtime rendering sorts by `order` (lower first).
+- Items without `order` keep stable fallback ordering after ordered entries.
+
 ## Dev-Only Menu Items
 
 - Runtime environment is controlled by `app_environment` in `local_config/settings.json`.
@@ -189,6 +205,18 @@ Add a `screen` list to a menu entry in `local_config/menu.json`:
   - Check incoming device payload parsing in `app/models/device_states.py`.
 - Icon missing:
   - Ensure image exists in `images/buttons/`.
+
+## Runtime Edit Mode (Dev)
+
+- Edit mode is available when `app_environment != "production"`.
+- Open edit mode by long-pressing the page indicator (for example `1/2`) in the menu.
+- Hold duration is configurable via `menu_edit_hold_ms` in `local_config/settings.json`.
+- In edit mode:
+  - tap an item to select it (selected item uses active color),
+  - use `Up`/`Down` in the top bar to move it within the current level,
+  - `Save` writes `order` values to `local_config/menu.json`,
+  - `Cancel` discards unsaved reordering.
+- The `back` button inside submenus is not movable.
 
 ## Quick Validation
 

@@ -383,8 +383,14 @@ class DisplayController:
     def _schedule_trace_widget_state(self, event_name, widget):
         self.ui_render.schedule_trace_widget_state(event_name, widget)
 
-    def place_action_label(self, text=None, anchor="center", image=None, bg='black', fg='white', bordercolor='black'): 
-        self.ui_render.place_action_label(text, anchor, image, bg, fg, bordercolor)
+    def place_action_label(self, text=None, anchor="center", image=None, bg='black', fg='white', bordercolor='black', timeout_ms=None): 
+        return self.ui_render.place_action_label(text, anchor, image, bg, fg, bordercolor, timeout_ms=timeout_ms)
+
+    def hold_action_label(self, label):
+        self.ui_render.hold_action_label(label)
+
+    def release_action_label(self, label, timeout_ms=None):
+        self.ui_render.release_action_label(label, timeout_ms=timeout_ms)
 
     def check_idle(self,turn_on=False):
         screen = self.get_screen_state()

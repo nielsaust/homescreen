@@ -20,6 +20,7 @@ from tkinter import font as tkFont
 from PIL import ImageTk
 
 from app.ui.menu_registry import build_menu_buttons
+from app.ui.menu_config_loader import load_menu_config, save_local_menu_config
 from app.ui.menu_state_resolver import MenuStateResolver
 from app.observability.domain_logger import log_event
 
@@ -52,11 +53,20 @@ class MenuScreen:
 
         self.fullscreen_image_window = None
 
-        self.create_buttons(self.buttons)
-        for i, button in enumerate(self.buttons):
-            sub_buttons = self.buttons[i].get("screen")
-            if(len(sub_buttons)>0):
-                self.create_buttons(sub_buttons)
+        self.edit_mode = False
+        self.edit_mode_hold_seconds = 1.2
+        self.edit_indicator_press_at = None
+        self.edit_indicator_hold_after_id = None
+        self.edit_selected_button_id = None
+        self.edit_dirty_paths = set()
+        self.edit_topbar = None
+        self.edit_up_btn = None
+        self.edit_down_btn = None
+        self.page_indicator_label = None
+        self.current_button_path = []
+        self.current_buttons_ref = self.buttons
+
+        self._create_buttons_recursive(self.buttons)
         self._build_button_index()
             
 
@@ -94,6 +104,13 @@ class MenuScreen:
             label.image = button_image
             button.label = label
 
+    def _create_buttons_recursive(self, entries):
+        self.create_buttons(entries)
+        for entry in entries:
+            children = entry.get("screen") or []
+            if children:
+                self._create_buttons_recursive(children)
+
     def _build_button_index(self):
         self.button_index = {}
         self._index_buttons_recursive(self.buttons)
@@ -109,6 +126,8 @@ class MenuScreen:
 
     def show(self):
         self.in_subpage = False
+        self.current_button_path = []
+        self.current_buttons_ref = self.buttons
         self.remove_current_menu()
         self.make_menu_buttons()
         self.update_buttons()
@@ -116,6 +135,8 @@ class MenuScreen:
 
     def back(self):
         self.in_subpage = False
+        self.current_button_path = []
+        self.current_buttons_ref = self.buttons
         self.remove_current_menu()
         self.make_menu_buttons(self.main_page_nr)
         self.update_buttons()
@@ -123,8 +144,10 @@ class MenuScreen:
     def make_menu_buttons(self,page_nr=1,buttons=None):
         self.close_timeout()
         self.current_menu_page = page_nr
-        if(not buttons):
-            buttons = self.buttons
+        if buttons is None:
+            buttons = self.current_buttons_ref
+        else:
+            self.current_buttons_ref = buttons
 
         self.max_page = math.ceil(len(buttons) / self.num_active_buttons)
         self.active_buttons = buttons[(self.current_menu_page-1)*self.num_active_buttons:self.current_menu_page*self.num_active_buttons]
@@ -144,7 +167,7 @@ class MenuScreen:
                 label = button.label
             else:
                 log_event(logger, logging.CRITICAL, "menu", "button.label_missing", button_id=button.id)
-            
+            label.configure(highlightthickness=0)
             #label.configure(bg = "white")
             row = i // 2  # Calculate the row (0 or 1)
             col = i % 2   # Calculate the column (0 or 1)
@@ -158,17 +181,40 @@ class MenuScreen:
             label.bind("<Button-1>", button.bind_down_event)
             label.bind("<ButtonRelease-1>", button.bind_up_event)
 
+        if self.page_indicator_label is not None:
+            try:
+                self.page_indicator_label.destroy()
+            except Exception:
+                pass
+            self.page_indicator_label = None
+
         if(self.main_app.display_controller):
-            self.main_app.display_controller.place_action_label(f"{page_nr}/{self.max_page}",anchor="se")
+            indicator_timeout_ms = 0 if self.edit_mode else None
+            indicator_label = self.main_app.display_controller.place_action_label(
+                f"{page_nr}/{self.max_page}",
+                anchor="se",
+                timeout_ms=indicator_timeout_ms,
+            )
+            if indicator_label is not None:
+                self.page_indicator_label = indicator_label
+                indicator_label.bind("<Button-1>", self._handle_indicator_down)
+                indicator_label.bind("<ButtonRelease-1>", self._handle_indicator_up)
             log_event(logger, logging.DEBUG, "menu", "page.indicator", page=page_nr, max_page=self.max_page)
 
+        self._render_edit_topbar()
         self._trace_menu_render("menu.render.complete")
 
-    def enter_submenu(self):
+    def enter_submenu(self, button_entry=None):
         self.remove_current_menu()
         self.in_subpage = True
         self.main_page_nr = self.current_menu_page
-        self.make_menu_buttons(buttons=self.sub_buttons)
+        if button_entry is not None:
+            button = button_entry.get("button")
+            button_id = getattr(button, "id", None)
+            if button_id:
+                self.current_button_path = self.current_button_path + [button_id]
+            self.current_buttons_ref = button_entry.get("screen") or []
+        self.make_menu_buttons(buttons=self.current_buttons_ref)
         self.update_buttons()
 
     def switch_page(self,page_direction=1):
@@ -181,7 +227,7 @@ class MenuScreen:
 
         buttons = None
         if self.in_subpage:
-            buttons = self.sub_buttons
+            buttons = self.current_buttons_ref
 
         self.make_menu_buttons(new_page_nr,buttons)
         self.update_buttons()
@@ -301,6 +347,8 @@ class MenuScreen:
 
     # Define a method to handle button clicks
     def handle_button_click(self, event, button):
+        if self.edit_mode:
+            return "break"
         self.click_x = event.x_root
         self.click_y = event.y_root
         # Record the time of the initial click
@@ -312,6 +360,10 @@ class MenuScreen:
     # Define a method to handle button clicks
     def handle_button_release(self, event, button, button_entry):
         try:
+            if self.edit_mode:
+                self._select_button_for_edit(button)
+                return "break"
+
             if(button.cancel_close):
                 self.close_timeout(False)
             else:
@@ -345,8 +397,8 @@ class MenuScreen:
             sub_button_amount = 0
 
             if(not self.in_subpage):
-                self.sub_buttons = button_entry.get("screen") or []
-                sub_button_amount = len(self.sub_buttons)
+                sub_buttons = button_entry.get("screen") or []
+                sub_button_amount = len(sub_buttons)
 
             if self.button_click_time is not None:
                 release_time = time.time()
@@ -355,7 +407,7 @@ class MenuScreen:
                 if time_elapsed >= self.main_app.settings.hold_time:
                     self.handle_button_hold(button,time_elapsed)
                 elif(sub_button_amount>0):
-                    self.enter_submenu()
+                    self.enter_submenu(button_entry=button_entry)
                 else:
                     self.change_button_background(button=button, new_color=self.button_color.get("down"), duration_ms=self.main_app.settings.button_down_color_change_time)
                     self.main_app.touch_controller.handle_menu_button(button.action)
@@ -379,6 +431,9 @@ class MenuScreen:
         self.main_app.touch_controller.handle_alt_menu_button(button.action)
 
     def update_buttons(self):
+        if self.edit_mode:
+            self._apply_edit_selection_highlight()
+            return
         for config in self.state_resolver.resolve():
             button_id = config["button_id"]
             state_condition = config["active"]
@@ -412,6 +467,291 @@ class MenuScreen:
         if(ignore_screen_update==False):
             self.main_app.display_controller.force_screen_update()
 
+    def _can_use_edit_mode(self):
+        env = str(getattr(self.main_app.settings, "app_environment", "production") or "production").strip().lower()
+        return env not in {"production", "prod"}
+
+    def _menu_edit_hold_ms(self):
+        raw = getattr(self.main_app.settings, "menu_edit_hold_ms", 1200)
+        try:
+            return max(200, int(raw))
+        except (TypeError, ValueError):
+            return 1200
+
+    def _handle_indicator_down(self, _event):
+        self.edit_indicator_press_at = time.time()
+        if self.main_app.display_controller and self.page_indicator_label is not None:
+            self.main_app.display_controller.hold_action_label(self.page_indicator_label)
+        if self.edit_indicator_hold_after_id is not None:
+            try:
+                self.frame.after_cancel(self.edit_indicator_hold_after_id)
+            except Exception:
+                pass
+            self.edit_indicator_hold_after_id = None
+
+        hold_ms = self._menu_edit_hold_ms()
+        self.edit_indicator_hold_after_id = self.frame.after(hold_ms, self._activate_edit_mode_from_hold)
+        return "break"
+
+    def _handle_indicator_up(self, _event):
+        try:
+            if not self._can_use_edit_mode():
+                return "break"
+            if self.edit_mode:
+                return "break"
+        finally:
+            if self.edit_indicator_hold_after_id is not None:
+                try:
+                    self.frame.after_cancel(self.edit_indicator_hold_after_id)
+                except Exception:
+                    pass
+                self.edit_indicator_hold_after_id = None
+            if (not self.edit_mode) and self.main_app.display_controller and self.page_indicator_label is not None:
+                self.main_app.display_controller.release_action_label(self.page_indicator_label)
+            self.edit_indicator_press_at = None
+        return "break"
+
+    def _activate_edit_mode_from_hold(self):
+        self.edit_indicator_hold_after_id = None
+        if not self._can_use_edit_mode():
+            return
+        if self.edit_indicator_press_at is None:
+            return
+        if self.edit_mode:
+            return
+        self._enter_edit_mode()
+
+    def _enter_edit_mode(self):
+        self.edit_mode = True
+        self.edit_selected_button_id = None
+        self.edit_dirty_paths = set()
+        self.close_timeout(False)
+        self.make_menu_buttons(self.current_menu_page, self.current_buttons_ref)
+        self.update_buttons()
+        log_event(logger, logging.INFO, "menu", "edit_mode.enter")
+
+    def _exit_edit_mode(self, save=False):
+        if save:
+            self._persist_menu_order_changes()
+        else:
+            self._reload_buttons_from_config()
+        self.edit_mode = False
+        self.edit_selected_button_id = None
+        self.edit_dirty_paths = set()
+        self._clear_all_button_selection_highlights()
+        if self.main_app.display_controller and self.page_indicator_label is not None:
+            self.main_app.display_controller.release_action_label(self.page_indicator_label)
+        self.remove_current_menu()
+        self.make_menu_buttons(self.current_menu_page, self.current_buttons_ref)
+        self.update_buttons()
+        self.close_timeout()
+        log_event(logger, logging.INFO, "menu", "edit_mode.exit", saved=bool(save))
+
+    def _reload_buttons_from_config(self):
+        self.buttons = build_menu_buttons(self.main_app.settings)
+        self._create_buttons_recursive(self.buttons)
+        self._build_button_index()
+        restored = self._get_entries_by_path(self.current_button_path)
+        if restored is None:
+            self.current_button_path = []
+            self.current_buttons_ref = self.buttons
+            self.in_subpage = False
+        else:
+            self.current_buttons_ref = restored
+            self.in_subpage = bool(self.current_button_path)
+
+    def _select_button_for_edit(self, button):
+        if button.action == "back":
+            self.edit_selected_button_id = None
+            self._render_edit_topbar()
+            self._apply_edit_selection_highlight()
+            return
+        self.edit_selected_button_id = button.id
+        self._render_edit_topbar()
+        self._apply_edit_selection_highlight()
+
+    def _apply_edit_selection_highlight(self):
+        self.update_buttons_nonselected_inactive()
+        if not self.edit_selected_button_id:
+            return
+        for entry in self.current_buttons_ref:
+            candidate = entry.get("button")
+            if candidate and candidate.id == self.edit_selected_button_id and candidate.label:
+                candidate.label.configure(
+                    bg=self.button_color.get("inactive"),
+                    highlightbackground=self.button_color.get("down"),
+                    highlightthickness=max(4, int(self.main_app.settings.menu_border_thickness)),
+                )
+                break
+
+    def update_buttons_nonselected_inactive(self):
+        for entry in self.active_buttons:
+            button = entry.get("button")
+            if button and button.label:
+                button.label.configure(
+                    bg=self.button_color.get("inactive"),
+                    highlightthickness=0,
+                )
+
+    def _clear_all_button_selection_highlights(self):
+        for buttons in self.button_index.values():
+            for button in buttons:
+                if button and button.label:
+                    button.label.configure(highlightthickness=0)
+
+    def _selected_entry_in_current_level(self):
+        if not self.edit_selected_button_id:
+            return None, -1
+        for idx, entry in enumerate(self.current_buttons_ref):
+            button = entry.get("button")
+            if button and button.id == self.edit_selected_button_id:
+                return entry, idx
+        return None, -1
+
+    def _move_selected(self, delta):
+        entry, idx = self._selected_entry_in_current_level()
+        if entry is None:
+            return
+        button = entry.get("button")
+        if button and button.action == "back":
+            return
+        target_idx = idx + delta
+        if target_idx < 0 or target_idx >= len(self.current_buttons_ref):
+            return
+        if target_idx != 0:
+            target_entry = self.current_buttons_ref[target_idx]
+            target_button = target_entry.get("button")
+            if target_button and target_button.action == "back":
+                return
+        # Back button stays pinned at the first slot for submenu levels.
+        if idx == 0 and button and button.action == "back":
+            return
+
+        moving_entry = self.current_buttons_ref.pop(idx)
+        self.current_buttons_ref.insert(target_idx, moving_entry)
+        self.edit_dirty_paths.add(tuple(self.current_button_path))
+
+        selected_index = target_idx
+        self.current_menu_page = max(1, math.floor(selected_index / self.num_active_buttons) + 1)
+        self.remove_current_menu()
+        self.make_menu_buttons(self.current_menu_page, self.current_buttons_ref)
+        self._render_edit_topbar()
+        self._apply_edit_selection_highlight()
+
+    def _render_edit_topbar(self):
+        if self.edit_topbar is not None:
+            self.edit_topbar.destroy()
+            self.edit_topbar = None
+            self.edit_up_btn = None
+            self.edit_down_btn = None
+
+        if not self.edit_mode:
+            return
+
+        bar = tk.Frame(self.frame, bg=self.frame.cget("bg"))
+        bar.place(relx=0.5, rely=0.02, anchor=tk.N)
+        self.edit_topbar = bar
+
+        has_selection = self._selected_entry_in_current_level()[0] is not None
+
+        self.edit_up_btn = self._make_edit_topbar_button(
+            bar,
+            text="◀",
+            command=lambda: self._move_selected(-1),
+            enabled=has_selection,
+        )
+        self.edit_up_btn.pack(side=tk.LEFT, padx=0)
+
+        cancel_btn = self._make_edit_topbar_button(
+            bar,
+            text="Cancel",
+            command=lambda: self._exit_edit_mode(save=False),
+            enabled=True,
+        )
+        cancel_btn.pack(side=tk.LEFT, padx=0)
+
+        save_btn = self._make_edit_topbar_button(
+            bar,
+            text="Save",
+            command=lambda: self._exit_edit_mode(save=True),
+            enabled=True,
+        )
+        save_btn.pack(side=tk.LEFT, padx=0)
+
+        self.edit_down_btn = self._make_edit_topbar_button(
+            bar,
+            text="▶",
+            command=lambda: self._move_selected(1),
+            enabled=has_selection,
+        )
+        self.edit_down_btn.pack(side=tk.LEFT, padx=0)
+
+    def _make_edit_topbar_button(self, parent, text, command, enabled=True):
+        label = tk.Label(
+            parent,
+            text=text,
+            bg="black",
+            fg="white" if enabled else "#888888",
+            font=("Helvetica", 18, "bold"),
+            padx=16,
+            pady=16,
+            width=5,
+            bd=0,
+            highlightthickness=0,
+        )
+        if enabled:
+            label.bind("<ButtonRelease-1>", lambda _evt: command())
+        return label
+
+    def _get_entries_by_path(self, path_ids):
+        entries = self.buttons
+        for node_id in path_ids:
+            next_entry = None
+            for entry in entries:
+                button = entry.get("button")
+                if button and button.id == node_id:
+                    next_entry = entry
+                    break
+            if next_entry is None:
+                return None
+            entries = next_entry.get("screen") or []
+        return entries
+
+    def _get_schema_container(self, menu_schema, path_ids):
+        container = menu_schema
+        for node_id in path_ids:
+            next_entry = None
+            for entry in container:
+                if str(entry.get("id", "")) == str(node_id):
+                    next_entry = entry
+                    break
+            if next_entry is None:
+                return None
+            container = next_entry.get("screen") or []
+        return container
+
+    def _persist_menu_order_changes(self):
+        if not self.edit_dirty_paths:
+            return
+        config = load_menu_config()
+        menu_schema = config.get("menu_schema", [])
+        if not isinstance(menu_schema, list):
+            return
+        for path in self.edit_dirty_paths:
+            runtime_container = self._get_entries_by_path(list(path))
+            local_container = self._get_schema_container(menu_schema, list(path))
+            if runtime_container is None or local_container is None:
+                continue
+            runtime_ids = [entry.get("button").id for entry in runtime_container if entry.get("button") is not None]
+            by_id = {str(item.get("id", "")): item for item in local_container}
+            for idx, item_id in enumerate(runtime_ids):
+                match = by_id.get(str(item_id))
+                if match is None:
+                    continue
+                match["order"] = (idx + 1) * 10
+        config["menu_schema"] = menu_schema
+        save_local_menu_config(config)
+
     def _trace_menu_render(self, event_name):
         if not getattr(self.main_app, "ui_trace_logging", False):
             return
@@ -440,11 +780,23 @@ class MenuScreen:
         if self.exit_timeout_future:
             self.frame.after_cancel(self.exit_timeout_future)
 
-        if new_timeout:
+        if new_timeout and not self.edit_mode:
             self.exit_timeout_future = self.frame.after(self.exit_timeout_ms, self.exit_menu)
 
     def exit_menu(self):
+        if self.edit_mode:
+            self.edit_mode = False
+            self.edit_selected_button_id = None
+            self.edit_dirty_paths = set()
         self.in_subpage = False
+        self.current_button_path = []
+        self.current_buttons_ref = self.buttons
         self.remove_current_menu()
+        if self.page_indicator_label is not None:
+            try:
+                self.page_indicator_label.destroy()
+            except Exception:
+                pass
+            self.page_indicator_label = None
         self.close_timeout(False)
         self.main_app.screen_state_controller.exit_menu()
