@@ -8,10 +8,12 @@ Startup-triggered actions are configured separately in `local_config/startup_act
 - Menu layout and buttons:
   - `local_config/menu.json` (local, gitignored)
   - `local_config/menu.json.example` (template)
-- Action behavior mapping:
-  - `action_specs` section inside `local_config/menu.json`
-- Dynamic button state/labels (active/inactive/available/text updates):
-  - `state_specs` section inside `local_config/menu.json`
+- Per-button behavior/state metadata (preferred):
+  - `action_spec` on each menu item
+  - `state_spec` on each menu item
+  - `setting_requirements` on each menu item
+- Legacy fallback (still supported while migrating older files):
+  - top-level `action_specs`, `state_specs`, `button_setting_requirements`
 - Action execution engine:
   - `app/controllers/action_dispatcher.py`
 
@@ -58,22 +60,24 @@ Startup-triggered actions are configured separately in `local_config/startup_act
 {"id": "my_feature", "text": "Mijn feature", "image": "tools.png", "action": "my_feature"}
 ```
 
-2. Add action spec in `action_specs` in `local_config/menu.json`.
+2. Add `action_spec` on that same button.
 
 ```python
-"my_feature": {"kind": "mqtt_action", "action": "my_feature_toggle"},
+"action_spec": {"kind": "mqtt_action", "action": "my_feature_toggle"},
 ```
 
-3. Optional: add dynamic state/label in `state_specs` in `local_config/menu.json`.
+3. Optional: add dynamic state/label via `state_spec` on that same button.
 
 ```python
 {
-  "button_id": "my_feature",
-  "type": "setting_bool",
-  "source": "my_feature_enabled",
-  "action_text": "[my_feature_action]",
-  "on_text": "uit",
-  "off_text": "aan"
+  "id": "my_feature",
+  "state_spec": {
+    "type": "setting_bool",
+    "source": "my_feature_enabled",
+    "action_text": "[my_feature_action]",
+    "on_text": "uit",
+    "off_text": "aan"
+  }
 }
 ```
 
@@ -87,7 +91,7 @@ make menu-item-scaffold
 
 Wizard modes:
 - `create`: creates a menu item and updates required files automatically.
-- `edit`: edits an existing item (label/icon/action) and can scaffold missing action specs.
+- `edit`: edits an existing item (label/icon/action) and can scaffold missing inline action specs.
 - `remove`: removes an existing item and optionally removes unreferenced action/settings keys.
 - `verify`: checks one item wiring.
 
@@ -120,10 +124,11 @@ Notes:
 - Selection is done via numbered options in the terminal (not arrow-key navigation).
 - You can add items to top-level or any existing submenu container listed by the wizard.
 - Icon guidelines live in `images/buttons/README.md`.
+- `edit` now supports `hidden` so you can re-show items hidden in the app editor.
 
 ## Supported Action Kinds
 
-Defined in `action_specs` in `local_config/menu.json`.
+Defined in item `action_spec` (or legacy top-level `action_specs`).
 
 - `menu_nav`
   - Example:
@@ -198,9 +203,9 @@ Add a `screen` list to a menu entry in `local_config/menu.json`:
 ## Common Issues
 
 - Button shows but does nothing:
-  - Check `action` exists in `action_specs` in `local_config/menu.json`.
+  - Check button has a valid `action_spec` (or legacy entry in top-level `action_specs`).
 - Label does not change (e.g., `[music_action]` still visible):
-  - Add/update entry in `state_specs` in `local_config/menu.json`.
+  - Add/update `state_spec` on that button (or legacy top-level `state_specs`).
 - Wrong light percentage or unavailable state:
   - Check incoming device payload parsing in `app/models/device_states.py`.
 - Icon missing:
@@ -214,10 +219,12 @@ Add a `screen` list to a menu entry in `local_config/menu.json`:
 - In edit mode:
   - tap an item to select it (selected item gets a blue border),
   - use `<` and `>` in the top bar to move it within the current level,
-  - top bar order is `<`, `Cancel`, `Save`, `>`,
+  - use `Hide` to mark selected item as hidden from runtime menus,
+  - top bar order is `<`, `Cancel`, `Hide`, `Save`, `>`,
   - `Save` writes `order` values to `local_config/menu.json`,
   - `Cancel` discards unsaved reordering.
 - The `back` button inside submenus is not selectable/movable.
+- Hidden items are filtered at runtime and are only manageable via `make menu-item-scaffold` (`edit` mode).
 
 ## Quick Validation
 

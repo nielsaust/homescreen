@@ -59,9 +59,11 @@ class MenuScreen:
         self.edit_indicator_hold_after_id = None
         self.edit_selected_button_id = None
         self.edit_dirty_paths = set()
+        self.edit_hidden_ids_by_path = {}
         self.edit_topbar = None
         self.edit_up_btn = None
         self.edit_down_btn = None
+        self.edit_hide_btn = None
         self.page_indicator_label = None
         self.current_button_path = []
         self.current_buttons_ref = self.buttons
@@ -525,6 +527,7 @@ class MenuScreen:
         self.edit_mode = True
         self.edit_selected_button_id = None
         self.edit_dirty_paths = set()
+        self.edit_hidden_ids_by_path = {}
         self.close_timeout(False)
         self.make_menu_buttons(self.current_menu_page, self.current_buttons_ref)
         self.update_buttons()
@@ -538,6 +541,7 @@ class MenuScreen:
         self.edit_mode = False
         self.edit_selected_button_id = None
         self.edit_dirty_paths = set()
+        self.edit_hidden_ids_by_path = {}
         self._clear_all_button_selection_highlights()
         if self.main_app.display_controller and self.page_indicator_label is not None:
             self.main_app.display_controller.release_action_label(self.page_indicator_label)
@@ -638,12 +642,47 @@ class MenuScreen:
         self._render_edit_topbar()
         self._apply_edit_selection_highlight()
 
+    def _can_hide_selected(self):
+        entry, _ = self._selected_entry_in_current_level()
+        if entry is None:
+            return False
+        button = entry.get("button")
+        if button is None:
+            return False
+        if button.action == "back":
+            return False
+        return True
+
+    def _hide_selected(self):
+        if not self._can_hide_selected():
+            return
+        entry, idx = self._selected_entry_in_current_level()
+        if entry is None or idx < 0:
+            return
+        button = entry.get("button")
+        if button is None:
+            return
+        path_key = tuple(self.current_button_path)
+        hidden_ids = self.edit_hidden_ids_by_path.setdefault(path_key, set())
+        hidden_ids.add(str(button.id))
+        self.current_buttons_ref.pop(idx)
+        self.edit_dirty_paths.add(path_key)
+        self.edit_selected_button_id = None
+        self.max_page = max(1, math.ceil(max(0, len(self.current_buttons_ref)) / self.num_active_buttons))
+        if self.current_menu_page > self.max_page:
+            self.current_menu_page = self.max_page
+        self.remove_current_menu()
+        self.make_menu_buttons(self.current_menu_page, self.current_buttons_ref)
+        self._render_edit_topbar()
+        self._apply_edit_selection_highlight()
+
     def _render_edit_topbar(self):
         if self.edit_topbar is not None:
             self.edit_topbar.destroy()
             self.edit_topbar = None
             self.edit_up_btn = None
             self.edit_down_btn = None
+            self.edit_hide_btn = None
 
         if not self.edit_mode:
             return
@@ -653,6 +692,7 @@ class MenuScreen:
         self.edit_topbar = bar
 
         has_selection = self._selected_entry_in_current_level()[0] is not None
+        can_hide = self._can_hide_selected()
 
         self.edit_up_btn = self._make_edit_topbar_button(
             bar,
@@ -669,6 +709,14 @@ class MenuScreen:
             enabled=True,
         )
         cancel_btn.pack(side=tk.LEFT, padx=0)
+
+        self.edit_hide_btn = self._make_edit_topbar_button(
+            bar,
+            text="Hide",
+            command=self._hide_selected,
+            enabled=can_hide,
+        )
+        self.edit_hide_btn.pack(side=tk.LEFT, padx=0)
 
         save_btn = self._make_edit_topbar_button(
             bar,
@@ -731,7 +779,7 @@ class MenuScreen:
         return container
 
     def _persist_menu_order_changes(self):
-        if not self.edit_dirty_paths:
+        if not self.edit_dirty_paths and not self.edit_hidden_ids_by_path:
             return
         config = load_menu_config()
         menu_schema = config.get("menu_schema", [])
@@ -749,6 +797,14 @@ class MenuScreen:
                 if match is None:
                     continue
                 match["order"] = (idx + 1) * 10
+        for path, hidden_ids in self.edit_hidden_ids_by_path.items():
+            local_container = self._get_schema_container(menu_schema, list(path))
+            if local_container is None:
+                continue
+            for item in local_container:
+                item_id = str(item.get("id", ""))
+                if item_id in hidden_ids:
+                    item["hidden"] = True
         config["menu_schema"] = menu_schema
         save_local_menu_config(config)
 

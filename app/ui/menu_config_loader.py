@@ -35,13 +35,61 @@ def get_menu_schema() -> list[dict]:
     return copy.deepcopy(load_menu_config().get("menu_schema", []))
 
 
+def _flatten_entries(entries: list[dict]) -> list[dict]:
+    out: list[dict] = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        out.append(entry)
+        children = entry.get("screen") or []
+        if isinstance(children, list):
+            out.extend(_flatten_entries(children))
+    return out
+
+
 def get_button_setting_requirements() -> dict[str, list[str]]:
-    return copy.deepcopy(load_menu_config().get("button_setting_requirements", {}))
+    config = load_menu_config()
+    merged: dict[str, list[str]] = copy.deepcopy(config.get("button_setting_requirements", {}))
+    entries = _flatten_entries(config.get("menu_schema", []))
+    for entry in entries:
+        button_id = str(entry.get("id", "")).strip()
+        if not button_id:
+            continue
+        requirements = entry.get("setting_requirements")
+        if isinstance(requirements, list):
+            normalized = [str(item).strip() for item in requirements if str(item).strip()]
+            if normalized:
+                merged[button_id] = normalized
+    return merged
 
 
 def get_action_specs() -> dict[str, dict]:
-    return copy.deepcopy(load_menu_config().get("action_specs", {}))
+    config = load_menu_config()
+    merged: dict[str, dict] = copy.deepcopy(config.get("action_specs", {}))
+    entries = _flatten_entries(config.get("menu_schema", []))
+    for entry in entries:
+        action_id = str(entry.get("action", "")).strip()
+        if not action_id or action_id in ("back", "open_page"):
+            continue
+        spec = entry.get("action_spec")
+        if isinstance(spec, dict) and spec:
+            merged[action_id] = copy.deepcopy(spec)
+    return merged
 
 
 def get_state_specs() -> list[dict]:
-    return copy.deepcopy(load_menu_config().get("state_specs", []))
+    config = load_menu_config()
+    merged: list[dict] = copy.deepcopy(config.get("state_specs", []))
+    entries = _flatten_entries(config.get("menu_schema", []))
+    for entry in entries:
+        spec = entry.get("state_spec")
+        if not isinstance(spec, dict):
+            continue
+        normalized = copy.deepcopy(spec)
+        if not normalized.get("button_id"):
+            button_id = str(entry.get("id", "")).strip()
+            if button_id:
+                normalized["button_id"] = button_id
+        if normalized.get("button_id"):
+            merged.append(normalized)
+    return merged

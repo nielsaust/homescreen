@@ -139,22 +139,26 @@ def _remove_state_spec(state_specs: list[dict], button_id: str) -> None:
 
 def _ensure_music_menu_contracts(config: dict) -> None:
     button_reqs = config.setdefault("button_setting_requirements", {})
-    button_reqs.update(MUSIC_BUTTON_REQUIREMENTS)
     action_specs = config.setdefault("action_specs", {})
-    action_specs.update(MUSIC_ACTION_SPECS)
     state_specs = config.setdefault("state_specs", [])
+    for button_id in MUSIC_BUTTON_REQUIREMENTS:
+        button_reqs.pop(button_id, None)
+    for action_id in MUSIC_ACTION_SPECS:
+        action_specs.pop(action_id, None)
     for spec in MUSIC_STATE_SPECS:
-        _upsert_state_spec(state_specs, spec)
+        _remove_state_spec(state_specs, str(spec.get("button_id", "")))
 
 
 def _ensure_weather_menu_contracts(config: dict) -> None:
     button_reqs = config.setdefault("button_setting_requirements", {})
-    button_reqs.update(WEATHER_BUTTON_REQUIREMENTS)
     action_specs = config.setdefault("action_specs", {})
-    action_specs.update(WEATHER_ACTION_SPECS)
     state_specs = config.setdefault("state_specs", [])
+    for button_id in WEATHER_BUTTON_REQUIREMENTS:
+        button_reqs.pop(button_id, None)
+    for action_id in WEATHER_ACTION_SPECS:
+        action_specs.pop(action_id, None)
     for spec in WEATHER_STATE_SPECS:
-        _upsert_state_spec(state_specs, spec)
+        _remove_state_spec(state_specs, str(spec.get("button_id", "")))
 
 
 def _remove_music_menu_contracts(config: dict) -> None:
@@ -182,17 +186,18 @@ def _music_menu_item() -> dict:
         "image": "music.png",
         "action": "music_menu",
         "order": 400,
+        "setting_requirements": ["enable_mqtt", "enable_music"],
         "screen": [
             {"id": "music_back", "text": "Terug", "image": "back.png", "action": "back", "order": 10},
-            {"id": "music_volume_up", "text": "Harder", "image": "volume-up.png", "action": "music_volume_up", "order": 20},
-            {"id": "music_play_pause", "text": "[music_action] muziek", "image": "play.png", "action": "music_play_pause", "order": 30},
-            {"id": "music_volume_down", "text": "Zachter", "image": "volume-down.png", "action": "music_volume_down", "order": 40},
-            {"id": "music_previous", "text": "Vorig nummer", "image": "backward.png", "action": "music_previous", "order": 50},
-            {"id": "music_next", "text": "Volgend nummer", "image": "forward.png", "action": "music_next", "order": 60},
-            {"id": "music_show_title", "text": "Toon muziek details", "image": "detail.png", "action": "music_show_title", "cancel_close": True, "order": 70},
-            {"id": "media_show_titles", "text": "Toon media titels", "image": "text.png", "action": "media_show_titles", "order": 80},
-            {"id": "media_show_album", "text": "Toon album titel", "image": "text.png", "action": "media_show_album", "order": 90},
-            {"id": "media_sanitize_titles", "text": "Schoon titels op", "image": "text.png", "action": "media_sanitize_titles", "order": 100},
+            {"id": "music_volume_up", "text": "Harder", "image": "volume-up.png", "action": "music_volume_up", "action_spec": {"kind": "media", "op": "volume", "arg": "up"}, "order": 20},
+            {"id": "music_play_pause", "text": "[music_action] muziek", "image": "play.png", "action": "music_play_pause", "action_spec": {"kind": "media", "op": "play_pause"}, "state_spec": {"type": "music_state", "state": "playing", "action_text": "[music_action]", "on_text": "Pauzeer", "off_text": "Speel"}, "order": 30},
+            {"id": "music_volume_down", "text": "Zachter", "image": "volume-down.png", "action": "music_volume_down", "action_spec": {"kind": "media", "op": "volume", "arg": "down"}, "order": 40},
+            {"id": "music_previous", "text": "Vorig nummer", "image": "backward.png", "action": "music_previous", "action_spec": {"kind": "media", "op": "skip", "arg": "previous"}, "order": 50},
+            {"id": "music_next", "text": "Volgend nummer", "image": "forward.png", "action": "music_next", "action_spec": {"kind": "media", "op": "skip", "arg": "next"}, "order": 60},
+            {"id": "music_show_title", "text": "Toon muziek details", "image": "detail.png", "action": "music_show_title", "action_spec": {"kind": "custom", "name": "music_show_title"}, "cancel_close": True, "order": 70},
+            {"id": "media_show_titles", "text": "Toon media titels", "image": "text.png", "action": "media_show_titles", "action_spec": {"kind": "setting_toggle", "attr": "media_show_titles"}, "state_spec": {"type": "setting_bool", "source": "media_show_titles", "default": True}, "setting_requirements": ["enable_mqtt", "enable_music"], "order": 80},
+            {"id": "media_show_album", "text": "Toon album titel", "image": "text.png", "action": "media_show_album", "action_spec": {"kind": "setting_toggle", "attr": "media_show_album"}, "state_spec": {"type": "setting_bool", "source": "media_show_album", "default": True}, "setting_requirements": ["enable_mqtt", "enable_music"], "order": 90},
+            {"id": "media_sanitize_titles", "text": "Schoon titels op", "image": "text.png", "action": "media_sanitize_titles", "action_spec": {"kind": "setting_toggle", "attr": "media_sanitize_titles"}, "state_spec": {"type": "setting_bool", "source": "media_sanitize_titles", "default": True}, "setting_requirements": ["enable_mqtt", "enable_music"], "order": 100},
         ],
     }
 
@@ -204,9 +209,10 @@ def _weather_menu_item() -> dict:
         "image": "weather.png",
         "action": "open_page",
         "order": 500,
+        "setting_requirements": ["enable_weather"],
         "screen": [
             {"id": "weather_back", "text": "Terug", "image": "back.png", "action": "back", "order": 10},
-            {"id": "show_weather_on_idle", "text": "Toon weer als idle", "image": "weather.png", "action": "show_weather_on_idle", "order": 20},
+            {"id": "show_weather_on_idle", "text": "Toon weer als idle", "image": "weather.png", "action": "show_weather_on_idle", "action_spec": {"kind": "setting_toggle", "attr": "show_weather_on_idle"}, "state_spec": {"type": "setting_bool", "source": "show_weather_on_idle", "default": False}, "setting_requirements": ["enable_weather"], "order": 20},
         ],
     }
 

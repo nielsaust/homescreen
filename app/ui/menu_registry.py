@@ -80,6 +80,8 @@ def _is_allowed_by_environment(schema_entry, settings):
 def _filter_schema_by_settings(entries, settings):
     filtered = []
     for entry in entries:
+        if bool(entry.get("hidden", False)):
+            continue
         button_id = entry.get("id")
         if not _is_enabled_by_settings(button_id, settings):
             continue

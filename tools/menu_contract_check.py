@@ -104,7 +104,9 @@ def main() -> int:
         {
             entry["action"]
             for entry in all_entries
-            if not (entry.get("screen") or []) and entry["action"] not in ACTION_SPECS
+            if not (entry.get("screen") or [])
+            and entry["action"] not in ("back", "open_page")
+            and entry["action"] not in ACTION_SPECS
         }
     )
     if missing_action_specs:

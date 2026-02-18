@@ -131,14 +131,57 @@ def _load_menu_schema(config: dict[str, Any]) -> list[dict[str, Any]]:
     return copy.deepcopy(config.get("menu_schema", []))
 
 
-def _load_action_specs(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
+def _load_legacy_action_specs(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return copy.deepcopy(config.get("action_specs", {}))
 
 
 def _save_menu_config_data(config: dict[str, Any], schema: list[dict[str, Any]], action_specs: dict[str, dict[str, Any]]) -> None:
     config["menu_schema"] = schema
-    config["action_specs"] = action_specs
+    inline_specs = _collect_inline_action_specs(schema)
+    compact_legacy = {
+        key: value for key, value in action_specs.items() if key not in inline_specs
+    }
+    # Keep legacy top-level store only for actions that are not yet migrated inline.
+    config["action_specs"] = compact_legacy
     save_local_menu_config(config)
+
+
+def _iter_entries(schema: list[dict[str, Any]]):
+    for entry in schema:
+        if not isinstance(entry, dict):
+            continue
+        yield entry
+        children = entry.get("screen")
+        if isinstance(children, list):
+            yield from _iter_entries(children)
+
+
+def _collect_inline_action_specs(schema: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    for entry in _iter_entries(schema):
+        action_id = str(entry.get("action", "")).strip()
+        if not action_id or action_id in ("back", "open_page"):
+            continue
+        spec = entry.get("action_spec")
+        if isinstance(spec, dict) and spec:
+            out[action_id] = copy.deepcopy(spec)
+    return out
+
+
+def _all_action_specs(schema: list[dict[str, Any]], action_specs: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    merged = copy.deepcopy(action_specs)
+    merged.update(_collect_inline_action_specs(schema))
+    return merged
+
+
+def _entry_action_spec(entry: dict[str, Any], action_specs: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
+    inline = entry.get("action_spec")
+    if isinstance(inline, dict):
+        return inline
+    action_id = str(entry.get("action", "")).strip()
+    if action_id and action_id in action_specs:
+        return action_specs[action_id]
+    return None
 
 
 def _get_container(schema: list[dict[str, Any]], container_path: list[int]) -> list[dict[str, Any]]:
@@ -285,9 +328,14 @@ def _save_cameras(cameras: dict[str, Any]) -> None:
     _save_json_object(CAMERAS_PATH, {"cameras": cameras})
 
 
-def _collect_referenced_values(action_specs: dict[str, dict[str, Any]], kind: str, field: str) -> set[str]:
+def _collect_referenced_values(
+    schema: list[dict[str, Any]],
+    action_specs: dict[str, dict[str, Any]],
+    kind: str,
+    field: str,
+) -> set[str]:
     out: set[str] = set()
-    for spec in action_specs.values():
+    for spec in _all_action_specs(schema, action_specs).values():
         if spec.get("kind") != kind:
             continue
         value = str(spec.get(field, "")).strip()
@@ -311,15 +359,21 @@ def _topic_key_is_used_in_routes(topic_key: str) -> bool:
     return False
 
 
-def _cleanup_unreferenced_action_spec(action_id: str, action_specs: dict[str, dict[str, Any]]) -> None:
-    spec = action_specs.get(action_id)
+def _cleanup_unreferenced_action_spec(
+    action_id: str,
+    schema: list[dict[str, Any]],
+    action_specs: dict[str, dict[str, Any]],
+) -> None:
+    all_specs = _all_action_specs(schema, action_specs)
+    spec = all_specs.get(action_id)
     if not spec:
         return
 
     if _prompt_choice(f"Action '{action_id}' is now unreferenced. Remove action spec?", ["y", "n"], "y") != "y":
         return
 
-    spec = action_specs.pop(action_id)
+    if action_id in action_specs:
+        spec = action_specs.pop(action_id)
     kind = str(spec.get("kind", "")).strip()
 
     if kind == "setting_toggle":
@@ -339,7 +393,7 @@ def _cleanup_unreferenced_action_spec(action_id: str, action_specs: dict[str, di
         qr_items = _load_json_object(QR_ITEMS_PATH)
         if not qr_items or item_id not in qr_items:
             return
-        still_used = item_id in _collect_referenced_values(action_specs, "show_qr", "item_id")
+        still_used = item_id in _collect_referenced_values(schema, action_specs, "show_qr", "item_id")
         if still_used:
             return
         if _prompt_choice(
@@ -358,7 +412,7 @@ def _cleanup_unreferenced_action_spec(action_id: str, action_specs: dict[str, di
         cameras = _load_cameras()
         if not cameras or camera_id not in cameras:
             return
-        still_used = camera_id in _collect_referenced_values(action_specs, "show_camera", "camera_id")
+        still_used = camera_id in _collect_referenced_values(schema, action_specs, "show_camera", "camera_id")
         if still_used:
             return
         if _prompt_choice(
@@ -381,7 +435,7 @@ def _cleanup_unreferenced_action_spec(action_id: str, action_specs: dict[str, di
         if not isinstance(topics_block, dict) or topic_key not in topics_block:
             return
         topic_key_refs = set()
-        for candidate in action_specs.values():
+        for candidate in _all_action_specs(schema, action_specs).values():
             if not isinstance(candidate, dict):
                 continue
             key = str(candidate.get("topic_key", "")).strip()
@@ -401,7 +455,13 @@ def _cleanup_unreferenced_action_spec(action_id: str, action_specs: dict[str, di
 def _build_submenu(action_id: str, label: str) -> list[dict[str, Any]]:
     base = _sanitize_identifier(action_id)
     return [
-        {"id": f"{base}_back", "text": "Back", "image": "back.png", "action": "back"},
+        {
+            "id": f"{base}_back",
+            "text": "Back",
+            "image": "back.png",
+            "action": "back",
+            "action_spec": {"kind": "menu_nav", "command": "back"},
+        },
         {"id": f"{base}_todo", "text": f"TODO: {label}", "image": "tools.png", "action": f"{base}_todo"},
     ]
 
@@ -481,7 +541,7 @@ def _ensure_action_spec(action_specs: dict[str, dict[str, Any]], action_id: str,
 def _create_item() -> int:
     config = _load_menu_config_data()
     schema = _load_menu_schema(config)
-    action_specs = _load_action_specs(config)
+    action_specs = _load_legacy_action_specs(config)
 
     container = _select_from_list("Select target container", _collect_containers(schema))
     if container is None:
@@ -503,7 +563,10 @@ def _create_item() -> int:
         "show_qr",
     )
 
-    action_specs, _ = _ensure_action_spec(action_specs, action_id, item_type)
+    action_specs_all = _all_action_specs(schema, action_specs)
+    if action_id not in action_specs_all:
+        action_specs, _ = _ensure_action_spec(action_specs, action_id, item_type)
+        action_specs_all = _all_action_specs(schema, action_specs)
 
     new_entry = {"id": item_id, "text": label, "image": icon, "action": action_id}
     if _prompt_choice("Mark as dev-only item?", ["y", "n"], "n") == "y":
@@ -511,6 +574,10 @@ def _create_item() -> int:
     if item_type == "submenu":
         new_entry["action"] = "open_page"
         new_entry["screen"] = _build_submenu(action_id, label)
+    else:
+        spec = action_specs_all.get(action_id)
+        if isinstance(spec, dict):
+            new_entry["action_spec"] = copy.deepcopy(spec)
 
     target = _get_container(schema, container["path"])
     target.append(new_entry)
@@ -523,18 +590,18 @@ def _create_item() -> int:
 def _verify_item() -> int:
     config = _load_menu_config_data()
     schema = _load_menu_schema(config)
-    action_specs = _load_action_specs(config)
+    action_specs = _load_legacy_action_specs(config)
     row = _select_container_then_entry(schema, "verify")
     if row is None:
         print("[menu-item] verify canceled")
         return 0
     entry = row["entry"]
     action_id = entry.get("action")
-    if action_id not in ("back", "open_page") and action_id not in action_specs:
+    spec = _entry_action_spec(entry, action_specs)
+    if action_id not in ("back", "open_page") and not isinstance(spec, dict):
         print(f"[menu-item] missing action spec for '{action_id}'")
         return 1
-    if action_id in action_specs:
-        spec = action_specs[action_id]
+    if isinstance(spec, dict):
         kind = str(spec.get("kind", "")).strip()
         if kind == "show_qr":
             item_id = str(spec.get("item_id", "")).strip()
@@ -566,7 +633,7 @@ def _verify_item() -> int:
 def _edit_item() -> int:
     config = _load_menu_config_data()
     schema = _load_menu_schema(config)
-    action_specs = _load_action_specs(config)
+    action_specs = _load_legacy_action_specs(config)
     row = _select_container_then_entry(schema, "edit")
     if row is None:
         print("[menu-item] edit canceled")
@@ -575,6 +642,7 @@ def _edit_item() -> int:
     entry = _get_entry(schema, row["path"])
     old_action = entry.get("action")
     old_dev_only = bool(entry.get("dev_only", False))
+    old_hidden = bool(entry.get("hidden", False))
     print("Press Enter to keep current value.")
     new_text = _prompt("Label", entry.get("text", ""))
     keep_icon = _prompt_choice("Keep current icon?", ["y", "n"], "y")
@@ -588,6 +656,11 @@ def _edit_item() -> int:
         ["y", "n"],
         "y" if old_dev_only else "n",
     ) == "y"
+    new_hidden = _prompt_choice(
+        "Hide this item from runtime menu?",
+        ["y", "n"],
+        "y" if old_hidden else "n",
+    ) == "y"
     entry["text"] = new_text
     entry["image"] = new_image
     entry["action"] = new_action
@@ -595,8 +668,13 @@ def _edit_item() -> int:
         entry["dev_only"] = True
     else:
         entry.pop("dev_only", None)
+    if new_hidden:
+        entry["hidden"] = True
+    else:
+        entry.pop("hidden", None)
 
-    if new_action != old_action and new_action not in ("back", "open_page") and new_action not in action_specs:
+    action_specs_all = _all_action_specs(schema, action_specs)
+    if new_action != old_action and new_action not in ("back", "open_page") and new_action not in action_specs_all:
         create_spec = _prompt_choice("New action spec not found. Create now?", ["y", "n"], "y")
         if create_spec == "y":
             action_type = _prompt_choice(
@@ -609,10 +687,22 @@ def _edit_item() -> int:
             print("[menu-item] edit aborted: action spec missing")
             return 1
 
-    if new_action != old_action and old_action in action_specs:
+    action_specs_all = _all_action_specs(schema, action_specs)
+    if new_action not in ("back", "open_page"):
+        spec = action_specs_all.get(new_action)
+        if isinstance(spec, dict):
+            entry["action_spec"] = copy.deepcopy(spec)
+    elif new_action == "back":
+        entry["action_spec"] = {"kind": "menu_nav", "command": "back"}
+    elif new_action == "open_page":
+        entry.pop("action_spec", None)
+    else:
+        entry.pop("action_spec", None)
+
+    if new_action != old_action:
         remaining_actions = {r["entry"].get("action") for r in _collect_entries(schema)}
         if old_action not in remaining_actions:
-            _cleanup_unreferenced_action_spec(old_action, action_specs)
+            _cleanup_unreferenced_action_spec(old_action, schema, action_specs)
 
     _save_menu_config_data(config, schema, action_specs)
     print(f"[menu-item] updated '{entry.get('id')}'")
@@ -622,7 +712,7 @@ def _edit_item() -> int:
 def _remove_item() -> int:
     config = _load_menu_config_data()
     schema = _load_menu_schema(config)
-    action_specs = _load_action_specs(config)
+    action_specs = _load_legacy_action_specs(config)
     row = _select_container_then_entry(schema, "remove")
     if row is None:
         print("[menu-item] remove canceled")
@@ -643,8 +733,8 @@ def _remove_item() -> int:
 
     # Optional cleanup for unreferenced action specs + linked config artifacts.
     remaining_actions = {r["entry"].get("action") for r in _collect_entries(schema)}
-    if action_id in action_specs and action_id not in remaining_actions:
-        _cleanup_unreferenced_action_spec(str(action_id), action_specs)
+    if action_id not in remaining_actions:
+        _cleanup_unreferenced_action_spec(str(action_id), schema, action_specs)
 
     _save_menu_config_data(config, schema, action_specs)
     print(f"[menu-item] removed '{item_id}'")

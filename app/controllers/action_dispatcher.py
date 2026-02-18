@@ -34,8 +34,14 @@ class ActionDispatcher:
         self.main_app.publish_event("action.triggered", {"action": action}, source="action_dispatcher")
         spec = ACTION_SPECS.get(action)
         if spec is None:
-            logger.warning("No action handler found for '%s'", action)
-            return
+            # Built-in navigation fallback for configs that omit explicit action_spec.
+            if action == "back":
+                spec = {"kind": "menu_nav", "command": "back"}
+            elif action == "close":
+                spec = {"kind": "menu_nav", "command": "exit"}
+            else:
+                logger.warning("No action handler found for '%s'", action)
+                return
         self.dispatch_spec(action, spec)
 
     def dispatch_spec(self, action: str, spec: dict) -> None:
