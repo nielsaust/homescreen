@@ -113,6 +113,8 @@ class ActionDispatcher:
                 self.touch_controller.reboot()
             elif op == "shutdown":
                 self.touch_controller.shell_command("shutdown", use_sudo=True)
+            elif op == "restart_homescreen_service":
+                self.touch_controller.shell_command("systemctl restart homescreen.service", use_sudo=True)
             elif op == "disable_networking":
                 self.touch_controller.disable_networking()
             elif op == "enable_networking":
