@@ -50,6 +50,7 @@ Full deploy/systemd setup: `docs/deploy.md`
 - Migrate older local settings: `make migrate-local-config`
 - Configure integrations: `make configuration`
 - Configure MQTT topics: `make mqtt-topics`
+- Configure OS locales (Linux/Pi): `make locale-setup`
 - Local checks: `make test-local`
 - Run app: `make run`
 - Pi checks: `make test-device`

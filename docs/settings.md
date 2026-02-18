@@ -58,6 +58,33 @@ Useful runtime keys:
 - `log_noisy_third_party_debug`: enable noisy third-party debug logs
 - `log_noisy_loggers`: list of logger names to treat as noisy
 - `log_domain_levels`: per-logger explicit levels map (e.g. `"app.controllers.mqtt_controller": "WARNING"`)
+- `app_environment`: controls dev-only menu visibility (`production` hides `dev_only` items)
+- `menu_edit_hold_ms`: long-press duration (ms) to open runtime menu edit mode
+- `media_show_album`: show/hide album title in music overlay text
+- `weather_time_locale`: locale used for weather date rendering (LC_TIME)
+- `weather_date_format`: strftime format string for weather date label
+
+## Weather date/locale options
+
+- `weather_time_locale` examples:
+  - `nl_NL.UTF-8`
+  - `en_US.UTF-8`
+  - `de_DE.UTF-8`
+  - empty string (`""`) to use system default locale
+- `weather_date_format` examples:
+  - `%-d %b` -> `14 feb`
+  - `%a %-d %b` -> `vr 14 feb`
+  - `%d-%m` -> `14-02`
+  - `%A %-d %B` -> `vrijdag 14 februari`
+
+Space guidance for the idle weather top-right label:
+- Prefer short formats for 720x720 screens.
+- `%A` (full weekday) and `%B` (full month) can be long in some locales.
+- If text clips/overlaps, use shorter format (`%-d %b` or `%a %-d %b`).
+
+Locale setup:
+- On Linux/Pi, run `make locale-setup` to enable/generate missing locales.
+- On macOS/Windows, install locales via OS settings/package manager.
 
 ## Secret safety
 

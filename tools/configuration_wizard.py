@@ -352,6 +352,17 @@ def configure_weather(settings: dict) -> None:
     settings["weather_api_key"] = _prompt("OpenWeather API key", str(settings.get("weather_api_key", "")))
     settings["weather_city_id"] = _prompt("OpenWeather city id", str(settings.get("weather_city_id", "")))
     settings["weather_langage"] = _prompt("Weather language (e.g. nl/en)", str(settings.get("weather_langage", "nl")))
+    locale_input = _prompt(
+        "Date locale for weather clock (e.g. nl_NL.UTF-8, en_US.UTF-8; use 'system' for OS default)",
+        str(settings.get("weather_time_locale", "nl_NL.UTF-8")),
+    )
+    if locale_input.strip().lower() == "system":
+        locale_input = ""
+    settings["weather_time_locale"] = locale_input
+    settings["weather_date_format"] = _prompt(
+        "Date format for weather clock (strftime, e.g. %-d %b or %a %-d %b)",
+        str(settings.get("weather_date_format", "%-d %b")),
+    )
     _apply_feature_menu_defaults(settings, ask_overwrite=True)
     print("[configuration] Weather integration updated.")
 

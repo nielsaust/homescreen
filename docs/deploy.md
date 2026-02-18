@@ -14,6 +14,7 @@ cd homescreen
 
 make install
 make configuration
+make locale-setup
 ```
 
 If Pillow build fails on Pi:
@@ -29,6 +30,10 @@ sudo apt install -y libjpeg-dev zlib1g-dev libfreetype6-dev libopenjp2-7-dev lib
 `make install` now creates/updates:
 - `local_config/settings.json` (from example when missing)
 - `local_config/mqtt_topics.json` (from example when missing)
+- `local_config/mqtt_routes.json` (from example when missing)
+- `local_config/device_state_mapping.json` (from example when missing)
+- `local_config/startup_actions.json` (from example when missing)
+- `local_config/menu.json` (from example when missing; can prompt to overwrite when it exists)
 - `logs/`
 - `.sim/`
 
@@ -109,6 +114,8 @@ systemctl list-timers --all | grep homescreen-deploy || true
 Notes:
 - `homescreen-deploy.service` is oneshot, so `inactive (dead)` after success is normal.
 - `list-timers` can show `n/a`; use `status` + journal output as source of truth.
+- Deploy timer only restarts app when remote `main` actually changed.
+  - If commit SHA is unchanged, logs show: `already up to date ... no changes; skipping ...`.
 
 ## 8) Logs and troubleshooting
 

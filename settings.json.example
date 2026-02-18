@@ -57,6 +57,8 @@
   "weather_api_key": "CHANGE_ME",
   "weather_city_id": "CHANGE_ME",
   "weather_langage": "nl",
+  "weather_time_locale": "nl_NL.UTF-8",
+  "weather_date_format": "%-d %b",
   "weather_update_interval": 300,
   "weather_api_call_direct_retries": 1,
   "weather_api_call_reboot_after_retries": 5,

@@ -36,6 +36,10 @@ class WeatherScreen:
         self.lang = language
         self.city_id = city_id
         self.units = units
+        self.date_format = str(getattr(self.main_app.settings, "weather_date_format", "%-d %b") or "%-d %b")
+        self.time_locale = str(getattr(self.main_app.settings, "weather_time_locale", "") or "").strip()
+        self._locale_initialized = False
+        self._locale_ok = False
         self.icon_size_large = 300
         self.last_updated = 0
         self.previous_condition_image_url = ""
@@ -278,21 +282,65 @@ class WeatherScreen:
         self.label_description.configure(text=vm.description_text)
 
     def update_time(self):
-        if not self.main_app.system_info["is_desktop"]:
-            locale.setlocale(locale.LC_TIME, "nl_NL.UTF8")
+        self._ensure_time_locale()
 
         current_time = datetime.datetime.now()
         time_string = current_time.strftime("%H:%M")
-        if self.main_app.system_info["system_platform"] == "Windows":
-            date_string = current_time.strftime("%#d %b")
-        else:
-            date_string = current_time.strftime("%-d %b")
+        date_string = self._format_date(current_time)
 
         try:
             self.label_time.configure(text=time_string)
             self.label_date.configure(text=date_string)
         except Exception as e:
             log_event(logger, logging.ERROR, "weather", "time.render_failed", error=e)
+
+    def _ensure_time_locale(self):
+        if self._locale_initialized:
+            return
+        self._locale_initialized = True
+        if not self.time_locale:
+            self._locale_ok = True
+            return
+        try:
+            locale.setlocale(locale.LC_TIME, self.time_locale)
+            self._locale_ok = True
+            log_event(logger, logging.INFO, "weather", "time.locale_applied", locale=self.time_locale)
+        except Exception as exc:
+            self._locale_ok = False
+            log_event(
+                logger,
+                logging.WARNING,
+                "weather",
+                "time.locale_apply_failed",
+                locale=self.time_locale,
+                error=exc,
+            )
+
+    def _format_date(self, dt: datetime.datetime) -> str:
+        fmt = self.date_format
+        if not fmt:
+            fmt = "%-d %b"
+        candidates = [fmt]
+        if "%-d" in fmt:
+            candidates.append(fmt.replace("%-d", "%#d"))
+        if "%#d" in fmt:
+            candidates.append(fmt.replace("%#d", "%-d"))
+        if "%e" in fmt:
+            candidates.append(fmt.replace("%e", "%d"))
+
+        seen = set()
+        for candidate in candidates:
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            try:
+                return dt.strftime(candidate)
+            except Exception:
+                continue
+        try:
+            return dt.strftime("%-d %b")
+        except Exception:
+            return dt.strftime("%d %b")
 
     def set_idle(self, idle=True):
         if idle:

@@ -42,6 +42,8 @@ If a local menu already exists, install asks whether it should be overwritten.
 - OpenWeather API key (`weather_api_key`)
 - City ID (`weather_city_id`)
 - Language (`weather_langage`)
+- Date locale for idle weather clock (`weather_time_locale`, e.g. `nl_NL.UTF-8`; enter `system` to use OS default)
+- Date format for idle weather clock (`weather_date_format`, strftime format)
 
 4. Smart-home integration
 - Device state topic (`devices`)
@@ -68,5 +70,6 @@ If a local menu already exists, install asks whether it should be overwritten.
 
 - `make service-setup`: Linux systemd setup wizard (optional)
 - `make mqtt-topics`: interactive MQTT topic overview/edit wizard
+- `make locale-setup`: Linux locale generator helper (`locale-gen`)
 - `make menu-item-scaffold`: interactive menu item create/edit/remove/verify
 - `make menu-contract-check`: validates menu/action/settings wiring

@@ -212,11 +212,12 @@ Add a `screen` list to a menu entry in `local_config/menu.json`:
 - Open edit mode by long-pressing the page indicator (for example `1/2`) in the menu.
 - Hold duration is configurable via `menu_edit_hold_ms` in `local_config/settings.json`.
 - In edit mode:
-  - tap an item to select it (selected item uses active color),
-  - use `Up`/`Down` in the top bar to move it within the current level,
+  - tap an item to select it (selected item gets a blue border),
+  - use `<` and `>` in the top bar to move it within the current level,
+  - top bar order is `<`, `Cancel`, `Save`, `>`,
   - `Save` writes `order` values to `local_config/menu.json`,
   - `Cancel` discards unsaved reordering.
-- The `back` button inside submenus is not movable.
+- The `back` button inside submenus is not selectable/movable.
 
 ## Quick Validation
 
