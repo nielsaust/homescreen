@@ -8,6 +8,7 @@ import logging
 import datetime
 import locale
 import pathlib
+import threading
 import tkinter as tk
 from tkinter import font as tkFont
 from PIL import Image, ImageTk
@@ -25,6 +26,7 @@ class WeatherScreen:
         self.main_app = main_app
         self.frame = frame
         self.weather_update_job = None
+        self.weather_fetch_inflight = False
 
         self.is_showing = False
         self.is_created = False
@@ -210,12 +212,29 @@ class WeatherScreen:
             log_event(logger, logging.DEBUG, "weather", "cached_label.icon_load_failed", error=e)
 
     def update_weather(self):
-        result = self.weather_service.fetch_weather(
-            api_key=self.api_key,
-            city_id=self.city_id,
-            language=self.lang,
-            units=self.units,
-        )
+        if self.weather_fetch_inflight:
+            log_event(logger, logging.DEBUG, "weather", "update.skipped", reason="fetch_inflight")
+            return
+        self.weather_fetch_inflight = True
+        threading.Thread(target=self._update_weather_worker, daemon=True).start()
+
+    def _update_weather_worker(self):
+        try:
+            result = self.weather_service.fetch_weather(
+                api_key=self.api_key,
+                city_id=self.city_id,
+                language=self.lang,
+                units=self.units,
+            )
+        except Exception as exc:
+            log_event(logger, logging.ERROR, "weather", "update.worker_failed", error=exc)
+            result = None
+        self.main_app.root.after(0, lambda: self._apply_weather_result(result))
+
+    def _apply_weather_result(self, result):
+        self.weather_fetch_inflight = False
+        if result is None:
+            return
 
         if result.recovery_action:
             threshold = getattr(self.main_app.settings, "weather_api_call_reboot_after_retries", 0)

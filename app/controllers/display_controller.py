@@ -64,7 +64,7 @@ class DisplayController:
         self._apply_kiosk_window_mode()
 
     def _create_base_screens(self):
-        for screen_name in ("off", "setup", "weather", "music", "menu"):
+        for screen_name in ("off", "setup", "weather", "music", "menu", "network_check"):
             self.create_screen(screen_name)
 
     def create_screen(self, screen_name):
@@ -89,6 +89,9 @@ class DisplayController:
         elif screen_name == "menu":
             from app.ui.screens.menu_screen import MenuScreen
             screen_object = MenuScreen(self.main_app,screen_frame)
+        elif screen_name == "network_check":
+            from app.ui.screens.network_check_screen import NetworkCheckScreen
+            screen_object = NetworkCheckScreen(self.main_app, screen_frame)
         
         # Store the screen frame in the dictionary
         self.screens[screen_name] = screen_frame

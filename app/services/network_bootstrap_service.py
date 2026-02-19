@@ -45,6 +45,8 @@ class NetworkBootstrapService:
     def is_network_simulated_down(self):
         if not bool(getattr(self.main_app.settings, "enable_network_simulation", True)):
             return False
+        if bool(getattr(self.main_app.settings, "simulate_outage_internet", False)):
+            return True
         return self.network_sim_flag_path().exists()
 
     def is_network_available(self, timeout=2):

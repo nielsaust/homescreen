@@ -23,6 +23,11 @@ Startup-triggered actions are configured separately in `local_config/startup_act
   - `Opties`
   - `Zet scherm uit`
   - `Sleep mode`
+- `Opties` includes a built-in `Check network` item that opens a live status screen for:
+  - internet reachability
+  - OpenWeather reachability
+  - MQTT connection state
+- In non-production (`app_environment != production`), `Opties` can include dev-only outage simulation toggles.
 - Feature menus are added by `make configuration`:
   - Music enabled: adds `Muziek` submenu including media toggles.
   - Weather enabled: adds `Weer` submenu with `Toon weer als idle`.

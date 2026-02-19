@@ -20,7 +20,11 @@ from tkinter import font as tkFont
 from PIL import ImageTk
 
 from app.ui.menu_registry import build_menu_buttons
-from app.ui.menu_config_loader import load_menu_config, save_local_menu_config
+from app.ui.menu_config_loader import (
+    get_button_setting_requirements,
+    load_menu_config,
+    save_local_menu_config,
+)
 from app.ui.menu_state_resolver import MenuStateResolver
 from app.observability.domain_logger import log_event
 
@@ -42,6 +46,7 @@ class MenuScreen:
         
         self.buttons = build_menu_buttons(self.main_app.settings)
         self.state_resolver = MenuStateResolver(self.main_app)
+        self.button_setting_requirements = get_button_setting_requirements()
         self.button_index = {}
 
         self.button_color = self.main_app.settings.button_color
@@ -356,7 +361,8 @@ class MenuScreen:
         self.click_y = event.y_root
         # Record the time of the initial click
         self.button_click_time = time.time()
-        button.label.configure(highlightthickness=self.main_app.settings.menu_border_thickness)
+        if getattr(button, "is_available", True):
+            button.label.configure(highlightthickness=self.main_app.settings.menu_border_thickness)
         self.close_timeout()
         return "break"
 
@@ -397,6 +403,10 @@ class MenuScreen:
                     self.main_app.interaction_service.handle("up")
                 return "break"
 
+            if not getattr(button, "is_available", True):
+                self._show_unavailable_feedback(button.id)
+                return "break"
+
             sub_button_amount = 0
 
             if(not self.in_subpage):
@@ -433,17 +443,28 @@ class MenuScreen:
         )
         self.main_app.touch_controller.handle_alt_menu_button(button.action)
 
+    def _show_unavailable_feedback(self, button_id):
+        required_settings = self.button_setting_requirements.get(button_id, [])
+        if "enable_mqtt" in required_settings:
+            if not bool(getattr(self.main_app.settings, "enable_mqtt", False)):
+                self.main_app.display_controller.place_action_label(text="First complete MQTT setup")
+            else:
+                self.main_app.display_controller.place_action_label(text="Could not connect to MQTT server")
+            return
+        self.main_app.display_controller.place_action_label(text="Feature unavailable right now")
+
     def update_buttons(self):
         if self.edit_mode:
             self._apply_edit_selection_highlight()
             return
+        self._apply_button_availability_defaults()
         for config in self.state_resolver.resolve():
             button_id = config["button_id"]
             state_condition = config["active"]
             action_text = config.get("action_text", "")
             on_text = config.get("on_text", "")
             off_text = config.get("off_text", "")
-            available = config.get("available", True)
+            available = bool(config.get("available", True)) and self._is_button_available(button_id)
             for button in self.button_index.get(button_id, []):
                 self.change_button(button,state_condition,action_text,on_text,off_text,available,ignore_screen_update=True)
 
@@ -454,6 +475,7 @@ class MenuScreen:
         inactive_color = self.button_color.get("inactive")
         disabled_color = self.button_color.get("disabled")
         button.is_active = state_condition
+        button.is_available = bool(available)
         if on_text!='' and off_text!='':
             new_text = button.text.replace(action_text, on_text if button.is_active else off_text)
             button.label.configure(text=new_text)
@@ -469,6 +491,40 @@ class MenuScreen:
         )
         if(ignore_screen_update==False):
             self.main_app.display_controller.force_screen_update()
+
+    def _is_button_available(self, button_id):
+        required_settings = self.button_setting_requirements.get(button_id, [])
+        if not required_settings:
+            return True
+        for key in required_settings:
+            # MQTT feature enabled but broker disconnected: keep item visible but disabled.
+            if key == "enable_mqtt":
+                if not bool(getattr(self.main_app.settings, "enable_mqtt", False)):
+                    return False
+                if not bool(getattr(self.main_app, "mqtt_connected", False)):
+                    return False
+                continue
+            raw_value = getattr(self.main_app.settings, key, "")
+            if isinstance(raw_value, bool):
+                if not raw_value:
+                    return False
+            else:
+                if not str(raw_value).strip():
+                    return False
+        return True
+
+    def _apply_button_availability_defaults(self):
+        active_color = self.button_color.get("active")
+        inactive_color = self.button_color.get("inactive")
+        disabled_color = self.button_color.get("disabled")
+        for button_id, buttons in self.button_index.items():
+            available = self._is_button_available(button_id)
+            for button in buttons:
+                button.is_available = available
+                if button.label is not None:
+                    button.label.configure(
+                        bg=disabled_color if not available else (active_color if button.is_active else inactive_color)
+                    )
 
     def _can_use_edit_mode(self):
         env = str(getattr(self.main_app.settings, "app_environment", "production") or "production").strip().lower()

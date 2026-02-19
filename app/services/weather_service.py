@@ -113,6 +113,11 @@ class WeatherService:
     def _request_with_retries(self, url: str) -> bytes | None:
         retries = int(getattr(self.settings, "weather_api_call_direct_retries", 1) or 1)
         verify_ssl = bool(getattr(self.settings, "verify_ssl_on_trusted_sources", True))
+        if bool(getattr(self.settings, "enable_network_simulation", True)) and bool(
+            getattr(self.settings, "simulate_outage_weather_service", False)
+        ):
+            logger.warning("Weather request simulated outage enabled; skipping call to %s", url)
+            return None
 
         if not verify_ssl:
             warnings.filterwarnings("ignore", category=InsecureRequestWarning)

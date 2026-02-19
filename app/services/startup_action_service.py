@@ -122,4 +122,4 @@ class StartupActionService:
             attempts=attempts,
             require_mqtt=require_mqtt,
         )
-        dispatcher.dispatch_spec(action_id, item.get("spec", {}))
+        dispatcher.dispatch_spec(action_id, item.get("spec", {}), user_initiated=False)

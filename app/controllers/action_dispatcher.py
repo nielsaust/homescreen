@@ -28,6 +28,7 @@ class ActionDispatcher:
             "turn_screen_off": self._turn_screen_off,
             "music_show_title": self._music_show_title,
             "force_fullscreen": self._force_fullscreen,
+            "show_network_check": self._show_network_check,
         }
 
     def dispatch(self, action: str) -> None:
@@ -42,26 +43,26 @@ class ActionDispatcher:
             else:
                 logger.warning("No action handler found for '%s'", action)
                 return
-        self.dispatch_spec(action, spec)
+        self.dispatch_spec(action, spec, user_initiated=True)
 
-    def dispatch_spec(self, action: str, spec: dict) -> None:
+    def dispatch_spec(self, action: str, spec: dict, user_initiated: bool = False) -> None:
         if not isinstance(spec, dict):
             logger.warning("Invalid action spec for '%s'", action)
             return
-        self._execute(action, spec)
+        self._execute(action, spec, user_initiated=user_initiated)
 
-    def _execute(self, action: str, spec: dict) -> None:
+    def _execute(self, action: str, spec: dict, user_initiated: bool = False) -> None:
         kind = spec.get("kind")
         if kind == "menu_nav":
             self.main_app.request_menu_navigation(spec["command"], source="action_dispatcher")
             return
         if kind == "mqtt_action":
-            if not self._ensure_mqtt_enabled():
+            if not self._ensure_mqtt_enabled(user_initiated=user_initiated):
                 return
             self._publish_mqtt_action(spec)
             return
         if kind in ("mqtt_message", "mqtt_publish"):
-            if not self._ensure_mqtt_enabled():
+            if not self._ensure_mqtt_enabled(user_initiated=user_initiated):
                 return
             self._publish_mqtt_message(spec)
             return
@@ -243,11 +244,19 @@ class ActionDispatcher:
             return
         self.main_app.display_controller.force_kiosk_window_mode()
 
-    def _ensure_mqtt_enabled(self) -> bool:
-        if self.main_app.is_mqtt_enabled():
-            return True
-        self.main_app.notify_setup_required("MQTT")
-        return False
+    def _show_network_check(self) -> None:
+        self.main_app.display_controller.show_screen("network_check", force=True)
+
+    def _ensure_mqtt_enabled(self, user_initiated: bool = False) -> bool:
+        if not self.main_app.is_mqtt_enabled():
+            if user_initiated and hasattr(self.main_app, "display_controller"):
+                self.main_app.display_controller.place_action_label(text="Could not connect to MQTT server")
+            return False
+        if hasattr(self.main_app, "is_mqtt_connected") and not self.main_app.is_mqtt_connected():
+            if user_initiated and hasattr(self.main_app, "display_controller"):
+                self.main_app.display_controller.place_action_label(text="Could not connect to MQTT server")
+            return False
+        return True
 
     def _load_qr_item(self, item_id: str) -> dict | None:
         if not item_id:

@@ -44,6 +44,9 @@ If a local menu already exists, install asks whether it should be overwritten.
 - Language (`weather_langage`)
 - Date locale for idle weather clock (`weather_time_locale`, e.g. `nl_NL.UTF-8`; enter `system` to use OS default)
 - Date format for idle weather clock (`weather_date_format`, strftime format)
+- OpenWeather/network resilience
+  - Weather fetch runs async so temporary API outages do not block menu/idle interaction.
+  - `network_check_refresh_interval_seconds` controls refresh interval for the in-app `Check network` screen.
 
 4. Smart-home integration
 - Device state topic (`devices`)
@@ -65,6 +68,22 @@ If a local menu already exists, install asks whether it should be overwritten.
   - configures `DISPLAY=:0` + `XAUTHORITY`
   - configures a startup wait for X display availability (`/tmp/.X11-unix/X0`)
   - enables app autostart on `graphical.target`
+
+## Dev Outage Simulation
+
+For runtime resilience testing (without real outages), enable dev mode and use the dev-only toggles in `Opties`:
+
+- `Sim internet outage`
+- `Sim weather outage`
+- `Sim MQTT outage`
+
+Settings keys:
+- `enable_network_simulation` (master switch)
+- `simulate_outage_internet`
+- `simulate_outage_weather_service`
+- `simulate_outage_mqtt`
+
+When enabled, the new `Check network` screen reflects simulated failures immediately.
 
 ## Related Commands
 

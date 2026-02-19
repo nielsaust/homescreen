@@ -85,6 +85,8 @@ class MainApp:
         self.queue_pump_service = QueuePumpService(self)
         self.mqtt_controller = DeferredMqttController()
         self.mqtt_initialized = False
+        self.mqtt_connected = False
+        setattr(self.settings, "mqtt_runtime_connected", False)
         self.music_service = MusicService()
         self.music_metrics_service = MusicMetricsService(self, self.music_metrics_interval_ms)
         self.network_status_widget = NetworkStatusWidget(self.root, self.settings.feedback_icon_size)
@@ -128,6 +130,9 @@ class MainApp:
 
     def is_mqtt_enabled(self):
         return bool(getattr(self, "enable_mqtt", False))
+
+    def is_mqtt_connected(self):
+        return bool(getattr(self, "mqtt_connected", False))
 
     def is_music_enabled(self):
         return bool(getattr(self, "enable_music", False))

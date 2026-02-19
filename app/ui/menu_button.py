@@ -9,4 +9,5 @@ class MenuButton:
         self.bind_down_event = None 
         self.bind_up_event = None 
         self.is_active = False
+        self.is_available = True
         self.cancel_close = cancel_close

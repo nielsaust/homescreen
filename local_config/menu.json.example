@@ -47,6 +47,97 @@
           }
         },
         {
+          "id": "check_network",
+          "text": "Check network",
+          "image": "wifi.png",
+          "action": "check_network",
+          "order": 35,
+          "action_spec": {
+            "kind": "custom",
+            "name": "show_network_check"
+          }
+        },
+        {
+          "id": "simulate_outage_internet",
+          "text": "Sim internet outage [sim_inet]",
+          "image": "wifi.png",
+          "action": "simulate_outage_internet",
+          "dev_only": true,
+          "order": 36,
+          "action_spec": {
+            "kind": "setting_toggle",
+            "attr": "simulate_outage_internet"
+          },
+          "state_spec": {
+            "type": "setting_bool",
+            "source": "simulate_outage_internet",
+            "default": false,
+            "action_text": "[sim_inet]",
+            "on_text": "ON",
+            "off_text": "OFF"
+          }
+        },
+        {
+          "id": "simulate_outage_weather_service",
+          "text": "Sim weather outage [sim_wx]",
+          "image": "weather.png",
+          "action": "simulate_outage_weather_service",
+          "dev_only": true,
+          "order": 37,
+          "action_spec": {
+            "kind": "setting_toggle",
+            "attr": "simulate_outage_weather_service"
+          },
+          "state_spec": {
+            "type": "setting_bool",
+            "source": "simulate_outage_weather_service",
+            "default": false,
+            "action_text": "[sim_wx]",
+            "on_text": "ON",
+            "off_text": "OFF"
+          }
+        },
+        {
+          "id": "simulate_outage_mqtt",
+          "text": "Sim MQTT outage [sim_mqtt]",
+          "image": "mqtt.png",
+          "action": "simulate_outage_mqtt",
+          "dev_only": true,
+          "order": 38,
+          "action_spec": {
+            "kind": "setting_toggle",
+            "attr": "simulate_outage_mqtt"
+          },
+          "state_spec": {
+            "type": "setting_bool",
+            "source": "simulate_outage_mqtt",
+            "default": false,
+            "action_text": "[sim_mqtt]",
+            "on_text": "ON",
+            "off_text": "OFF"
+          }
+        },
+        {
+          "id": "enable_network_simulation",
+          "text": "Enable outage simulation [sim]",
+          "image": "wifi.png",
+          "action": "enable_network_simulation",
+          "dev_only": true,
+          "order": 39,
+          "action_spec": {
+            "kind": "setting_toggle",
+            "attr": "enable_network_simulation"
+          },
+          "state_spec": {
+            "type": "setting_bool",
+            "source": "enable_network_simulation",
+            "default": false,
+            "action_text": "[sim]",
+            "on_text": "ON",
+            "off_text": "OFF"
+          }
+        },
+        {
           "id": "quit",
           "text": "Sluit deze app",
           "image": "exit.png",
