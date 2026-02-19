@@ -27,6 +27,7 @@ class WeatherScreen:
         self.frame = frame
         self.weather_update_job = None
         self.weather_fetch_inflight = False
+        self.cache_icon_fetch_inflight = False
 
         self.is_showing = False
         self.is_created = False
@@ -153,9 +154,42 @@ class WeatherScreen:
         if not weather_enabled:
             log_event(logger, logging.INFO, "weather", "screen.show_skipped", reason="enable_weather_false")
             return False
+        self._render_cached_weather_bootstrap()
         self.update_weather_loop()
         self.update_time_loop()
         return True
+
+    def _render_cached_weather_bootstrap(self):
+        snapshot = self.weather_service.load_cached_snapshot()
+        if not snapshot:
+            return
+        payload = snapshot.get("payload")
+        if not isinstance(payload, dict):
+            return
+        try:
+            vm = build_weather_view_model(payload, snapshot.get("cached_at_text"))
+        except Exception as exc:
+            log_event(logger, logging.WARNING, "weather", "cache.bootstrap_render_failed", error=exc)
+            return
+
+        self.update_weather_gui(vm, snapshot.get("icon_bytes"))
+        self.main_app.publish_event(
+            "weather.updated",
+            {"source": "cache", "cached_at_text": snapshot.get("cached_at_text")},
+            source="weather_screen",
+        )
+        log_event(
+            logger,
+            logging.INFO,
+            "weather",
+            "cache.bootstrap_applied",
+            has_icon=bool(snapshot.get("icon_bytes")),
+            cached_at=snapshot.get("cached_at_text"),
+        )
+
+        icon_code = snapshot.get("icon_code")
+        if not snapshot.get("icon_bytes") and icon_code:
+            self._warm_cached_icon(icon_code)
 
     def update_weather_loop(self):
         try:
@@ -277,28 +311,56 @@ class WeatherScreen:
         )
 
         self.update_weather_gui(vm, result.icon_bytes)
+        if result.source == "cache" and not result.icon_bytes:
+            icon_code = self.weather_service.extract_icon_code(result.payload)
+            if icon_code:
+                self._warm_cached_icon(icon_code)
 
     def update_weather_gui(self, vm, icon_bytes=None):
-        try:
-            if icon_bytes:
-                condition_image_bytes = BytesIO(icon_bytes)
-                condition_image = Image.open(condition_image_bytes)
-                condition_image = condition_image.resize(
-                    (self.icon_size_large, self.icon_size_large),
-                    ImageTk.Image.LANCZOS,
-                )
-                self.weather_now_image = ImageTk.PhotoImage(condition_image)
-        except Exception as e:
-            log_event(logger, logging.ERROR, "weather", "icon.decode_failed", error=e)
-            self.weather_now_image = None
-
-        if self.weather_now_image is not None:
-            self.label_condition.configure(image=self.weather_now_image)
-
+        self._apply_icon_bytes(icon_bytes)
         self.label_temperature.configure(text=vm.temperature_text)
         self.label_max.configure(text=vm.max_text)
         self.label_min.configure(text=vm.min_text)
         self.label_description.configure(text=vm.description_text)
+
+    def _apply_icon_bytes(self, icon_bytes):
+        if not icon_bytes:
+            return
+        try:
+            condition_image_bytes = BytesIO(icon_bytes)
+            condition_image = Image.open(condition_image_bytes)
+            condition_image = condition_image.resize(
+                (self.icon_size_large, self.icon_size_large),
+                ImageTk.Image.LANCZOS,
+            )
+            self.weather_now_image = ImageTk.PhotoImage(condition_image)
+        except Exception as e:
+            log_event(logger, logging.ERROR, "weather", "icon.decode_failed", error=e)
+            return
+
+        if self.weather_now_image is not None:
+            self.label_condition.configure(image=self.weather_now_image)
+
+    def _warm_cached_icon(self, icon_code):
+        if self.cache_icon_fetch_inflight:
+            return
+        self.cache_icon_fetch_inflight = True
+        threading.Thread(target=self._warm_cached_icon_worker, args=(icon_code,), daemon=True).start()
+
+    def _warm_cached_icon_worker(self, icon_code):
+        try:
+            icon_bytes = self.weather_service.fetch_icon_for_code(icon_code)
+        except Exception as exc:
+            log_event(logger, logging.DEBUG, "weather", "cache.icon_warm_failed", error=exc, icon_code=icon_code)
+            icon_bytes = None
+        self.main_app.root.after(0, lambda: self._apply_warmed_icon(icon_bytes, icon_code))
+
+    def _apply_warmed_icon(self, icon_bytes, icon_code):
+        self.cache_icon_fetch_inflight = False
+        if not icon_bytes:
+            return
+        self._apply_icon_bytes(icon_bytes)
+        log_event(logger, logging.INFO, "weather", "cache.icon_warmed", icon_code=icon_code)
 
     def update_time(self):
         self._ensure_time_locale()

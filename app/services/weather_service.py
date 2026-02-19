@@ -86,6 +86,25 @@ class WeatherService:
             network_available=True,
         )
 
+    def load_cached_snapshot(self) -> dict | None:
+        payload = self._load_cached_weather()
+        if payload is None:
+            return None
+        icon_code = self._extract_icon_code(payload)
+        icon_bytes = self._load_cached_icon(icon_code) if icon_code else None
+        return {
+            "payload": payload,
+            "icon_code": icon_code,
+            "icon_bytes": icon_bytes,
+            "cached_at_text": self._format_cached_timestamp(payload),
+        }
+
+    def fetch_icon_for_code(self, icon_code: str | None) -> bytes | None:
+        return self._fetch_live_icon(icon_code)
+
+    def extract_icon_code(self, payload: dict) -> str | None:
+        return self._extract_icon_code(payload)
+
     def _fetch_live_payload(self, api_key: str, city_id: str, language: str, units: str) -> dict | None:
         url = (
             "https://api.openweathermap.org/data/2.5/weather"
