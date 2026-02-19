@@ -54,6 +54,7 @@ class MqttController:
         state = bool(connected)
         prev = bool(getattr(self.main_app, "mqtt_connected", False))
         self.main_app.mqtt_connected = state
+        self.main_app.mqtt_unavailable_reason = "" if state else str(reason or "")
         setattr(self.main_app.settings, "mqtt_runtime_connected", state)
         if prev != state and hasattr(self.main_app, "publish_event"):
             self.main_app.publish_event(
@@ -76,14 +77,6 @@ class MqttController:
                 retry_delay = min(self.reconnect_max_interval, retry_delay * 2)
                 continue
             self._mqtt_sim_outage_logged = False
-            if hasattr(self.main_app, "is_network_available") and not self.main_app.is_network_available(timeout=1):
-                log_event(logger, logging.WARNING, "mqtt", "connect.delayed.network_unavailable")
-                self._set_runtime_connected(False, reason="network_unavailable")
-                if hasattr(self.main_app, "publish_event"):
-                    self.main_app.publish_event("network.status", {"online": False}, source="mqtt")
-                time.sleep(retry_delay)
-                retry_delay = min(self.reconnect_max_interval, retry_delay * 2)
-                continue
             try:
                 self.client.connect(self.broker_address, self.broker_port, 60)
                 log_event(
@@ -124,35 +117,21 @@ class MqttController:
                 self._set_runtime_connected(False, reason="simulated_outage")
                 time.sleep(self.reconnect_interval)
                 continue
-            if hasattr(self.main_app, "is_network_available") and not self.main_app.is_network_available(timeout=1):
-                if self.client.is_connected():
-                    try:
-                        self.client.disconnect()
-                    except Exception:
-                        pass
-                self._set_runtime_connected(False, reason="network_unavailable")
             if not self.client.is_connected():
+                # Ensure we keep driving the MQTT state machine after connect(),
+                # otherwise CONNACK may never be processed and state can stick on initializing.
                 self.connect_to_broker()
-                time.sleep(0.2)
-                continue
             try:
                 self.client.loop(timeout=1.0)
             except (TimeoutError, Exception) as e:
                 log_event(logger, logging.WARNING, "mqtt", "loop.error_reconnect", error=e)
                 self.reconnect()
+            time.sleep(0.1)
 
     def reconnect(self):
         """Attempts to reconnect to the MQTT broker with retries."""
         retry_delay = self.reconnect_interval
         while self.running:
-            if hasattr(self.main_app, "is_network_available") and not self.main_app.is_network_available(timeout=1):
-                log_event(logger, logging.WARNING, "mqtt", "reconnect.delayed.network_unavailable")
-                self._set_runtime_connected(False, reason="network_unavailable")
-                if hasattr(self.main_app, "publish_event"):
-                    self.main_app.publish_event("network.status", {"online": False}, source="mqtt")
-                time.sleep(retry_delay)
-                retry_delay = min(self.reconnect_max_interval, retry_delay * 2)
-                continue
             try:
                 self.client.reconnect()
                 log_event(

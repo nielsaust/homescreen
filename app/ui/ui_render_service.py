@@ -112,12 +112,37 @@ class UiRenderService:
             log_event(logger, logging.INFO, "ui", "feedback_label.skipped", reason="disabled_in_settings")
             return None
 
+        is_text_label = text is not None and image is None
+        if is_text_label:
+            label_width = int(
+                getattr(
+                    self.main_app.settings,
+                    "feedback_text_label_width",
+                    max(self.main_app.settings.feedback_label_width, int(self.main_app.settings.screen_width * 0.7)),
+                )
+            )
+            label_height = int(
+                getattr(
+                    self.main_app.settings,
+                    "feedback_text_label_height",
+                    max(self.main_app.settings.feedback_label_height, 140),
+                )
+            )
+            label_padx = int(getattr(self.main_app.settings, "feedback_text_padx", self.main_app.settings.feedback_label_padx))
+            label_pady = int(getattr(self.main_app.settings, "feedback_text_pady", self.main_app.settings.feedback_label_pady))
+        else:
+            label_width = int(self.main_app.settings.feedback_label_width)
+            label_height = int(self.main_app.settings.feedback_label_height)
+            label_padx = int(self.main_app.settings.feedback_label_padx)
+            label_pady = int(self.main_app.settings.feedback_label_pady)
+
+        content_wrap = max(80, label_width - (label_padx * 2) - 12)
         label_options = {
             "fg": fg,
             "bg": bg,
-            "padx": self.main_app.settings.feedback_label_padx,
-            "pady": self.main_app.settings.feedback_label_pady,
-            "wraplength": self.main_app.settings.feedback_label_width - 10,
+            "padx": label_padx,
+            "pady": label_pady,
+            "wraplength": content_wrap,
             "highlightbackground": bordercolor,
             "highlightthickness": self.main_app.settings.feedback_label_border,
         }
@@ -126,6 +151,7 @@ class UiRenderService:
             label_options["text"] = text
             label_options["compound"] = "top"
             label_options["font"] = "Helvetica 20"
+            label_options["justify"] = "center"
 
         label = tk.Label(self.main_app.root, **label_options)
         self.current_overlay_label = label
@@ -138,15 +164,15 @@ class UiRenderService:
             label.image = label_image
             label.configure(
                 image=label_image,
-                width=self.main_app.settings.feedback_label_width,
-                height=self.main_app.settings.feedback_label_height,
+                width=label_width,
+                height=label_height,
             )
 
         label_x = math.floor(
-            (self.main_app.settings.screen_width - self.main_app.settings.feedback_label_width) / 2
+            (self.main_app.settings.screen_width - label_width) / 2
         ) - self.main_app.settings.feedback_label_border
         label_y = math.floor(
-            (self.main_app.settings.screen_height - self.main_app.settings.feedback_label_height) / 2
+            (self.main_app.settings.screen_height - label_height) / 2
         ) - self.main_app.settings.feedback_label_border
 
         if anchor != "center":
@@ -155,7 +181,7 @@ class UiRenderService:
                 y=self.main_app.root.winfo_height() - label.winfo_reqheight(),
             )
         else:
-            label.place(x=label_x, y=label_y)
+            label.place(x=label_x, y=label_y, width=label_width, height=label_height)
 
         self.action_labels.append(label)
         timeout = self.main_app.settings.show_feedback_label_timeout if timeout_ms is None else max(0, int(timeout_ms))

@@ -446,10 +446,7 @@ class MenuScreen:
     def _show_unavailable_feedback(self, button_id):
         required_settings = self.button_setting_requirements.get(button_id, [])
         if "enable_mqtt" in required_settings:
-            if not bool(getattr(self.main_app.settings, "enable_mqtt", False)):
-                self.main_app.display_controller.place_action_label(text="First complete MQTT setup")
-            else:
-                self.main_app.display_controller.place_action_label(text="Could not connect to MQTT server")
+            self.main_app.display_controller.place_action_label(text=self.main_app.mqtt_unavailable_message())
             return
         self.main_app.display_controller.place_action_label(text="Feature unavailable right now")
 

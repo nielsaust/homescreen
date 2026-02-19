@@ -86,6 +86,7 @@ class MainApp:
         self.mqtt_controller = DeferredMqttController()
         self.mqtt_initialized = False
         self.mqtt_connected = False
+        self.mqtt_unavailable_reason = ""
         setattr(self.settings, "mqtt_runtime_connected", False)
         self.music_service = MusicService()
         self.music_metrics_service = MusicMetricsService(self, self.music_metrics_interval_ms)
@@ -133,6 +134,41 @@ class MainApp:
 
     def is_mqtt_connected(self):
         return bool(getattr(self, "mqtt_connected", False))
+
+    def _is_dev_environment(self):
+        env = str(getattr(self.settings, "app_environment", "production") or "production").strip().lower()
+        return env not in {"production", "prod"}
+
+    def mqtt_unavailable_message(self):
+        if not self.is_mqtt_enabled():
+            if self._is_dev_environment():
+                return "MQTT unavailable: disabled in settings"
+            return "Could not connect to MQTT server"
+
+        if not self._is_dev_environment():
+            return "Could not connect to MQTT server"
+
+        reason = str(getattr(self, "mqtt_unavailable_reason", "") or "").strip()
+        reason_map = {
+            "simulated_outage": "simulated outage",
+            "network_unavailable": "network unavailable",
+            "socket_error": "socket error",
+            "connect_exception": "connect exception",
+            "reconnect_failed": "reconnect failed",
+            "publish_failed": "publish failed",
+            "subscribe_exception": "subscribe exception",
+            "initializing": "initializing",
+        }
+        for key, text in reason_map.items():
+            if reason == key:
+                return f"MQTT unavailable: {text}"
+        if reason.startswith("connect_rc_"):
+            return f"MQTT unavailable: broker connect refused ({reason})"
+        if reason.startswith("disconnect_rc_"):
+            return f"MQTT unavailable: disconnected ({reason})"
+        if reason:
+            return f"MQTT unavailable: {reason}"
+        return "MQTT unavailable: unknown reason"
 
     def is_music_enabled(self):
         return bool(getattr(self, "enable_music", False))

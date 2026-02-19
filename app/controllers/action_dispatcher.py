@@ -250,11 +250,11 @@ class ActionDispatcher:
     def _ensure_mqtt_enabled(self, user_initiated: bool = False) -> bool:
         if not self.main_app.is_mqtt_enabled():
             if user_initiated and hasattr(self.main_app, "display_controller"):
-                self.main_app.display_controller.place_action_label(text="Could not connect to MQTT server")
+                self.main_app.display_controller.place_action_label(text=self.main_app.mqtt_unavailable_message())
             return False
         if hasattr(self.main_app, "is_mqtt_connected") and not self.main_app.is_mqtt_connected():
             if user_initiated and hasattr(self.main_app, "display_controller"):
-                self.main_app.display_controller.place_action_label(text="Could not connect to MQTT server")
+                self.main_app.display_controller.place_action_label(text=self.main_app.mqtt_unavailable_message())
             return False
         return True
 
