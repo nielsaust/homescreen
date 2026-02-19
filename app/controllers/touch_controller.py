@@ -39,16 +39,37 @@ class TouchController:
         root.bind("<KeyRelease-space>", self.handle_space_up)
 
     def handle_left_key(self, event):
+        if self._handle_menu_edit_icon_key(-1):
+            return "break"
         self.main_app.interaction_service.handle("left")
+        return "break"
 
     def handle_right_key(self, event):
+        if self._handle_menu_edit_icon_key(1):
+            return "break"
         self.main_app.interaction_service.handle("right")
+        return "break"
 
     def handle_up_key(self, event):
         self.main_app.interaction_service.handle("up")
 
     def handle_down_key(self, event):
         self.main_app.interaction_service.handle("down")
+
+    def _handle_menu_edit_icon_key(self, step):
+        display = getattr(self.main_app, "display_controller", None)
+        if display is None:
+            return False
+        menu_screen = getattr(display, "screen_objects", {}).get("menu")
+        if menu_screen is None:
+            return False
+        handler = getattr(menu_screen, "handle_edit_icon_key", None)
+        if not callable(handler):
+            return False
+        try:
+            return bool(handler(step))
+        except Exception:
+            return False
 
     def handle_double_click(self, event):
         log_event(logger, logging.DEBUG, "touch", "gesture.double_click_ignored")

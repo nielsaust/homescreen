@@ -64,6 +64,7 @@ class MenuScreen:
         self.edit_up_btn = None
         self.edit_down_btn = None
         self.edit_hide_btn = None
+        self._menu_icon_files = None
         self.page_indicator_label = None
         self.current_button_path = []
         self.current_buttons_ref = self.buttons
@@ -642,6 +643,69 @@ class MenuScreen:
         self._render_edit_topbar()
         self._apply_edit_selection_highlight()
 
+    def _get_available_menu_icons(self):
+        if self._menu_icon_files is None:
+            icons_dir = IMAGES_DIR / "buttons"
+            self._menu_icon_files = sorted(path.name for path in icons_dir.glob("*.png"))
+        return self._menu_icon_files
+
+    def _apply_icon_to_button(self, button, icon_filename):
+        image_path = os.fspath(IMAGES_DIR / "buttons" / icon_filename)
+        try:
+            button_image = tk.PhotoImage(file=image_path)
+        except Exception as exc:
+            log_event(
+                logger,
+                logging.WARNING,
+                "menu",
+                "edit_mode.icon_load_failed",
+                icon=icon_filename,
+                error=exc,
+            )
+            return False
+        button.image = icon_filename
+        if button.label is not None:
+            button.label.configure(image=button_image)
+            button.label.image = button_image
+        return True
+
+    def handle_edit_icon_key(self, delta):
+        if not self.edit_mode:
+            return False
+        entry, _ = self._selected_entry_in_current_level()
+        if entry is None:
+            return False
+        button = entry.get("button")
+        if button is None or button.action == "back":
+            return False
+
+        icons = self._get_available_menu_icons()
+        if not icons:
+            return False
+
+        current_icon = str(getattr(button, "image", "") or "")
+        try:
+            idx = icons.index(current_icon)
+        except ValueError:
+            idx = 0
+
+        next_idx = (idx + int(delta)) % len(icons)
+        next_icon = icons[next_idx]
+        if not self._apply_icon_to_button(button, next_icon):
+            return False
+
+        self.edit_dirty_paths.add(tuple(self.current_button_path))
+        self._apply_edit_selection_highlight()
+        log_event(
+            logger,
+            logging.INFO,
+            "menu",
+            "edit_mode.icon_changed",
+            button_id=button.id,
+            icon=next_icon,
+        )
+        return True
+
     def _can_hide_selected(self):
         entry, _ = self._selected_entry_in_current_level()
         if entry is None:
@@ -790,13 +854,23 @@ class MenuScreen:
             local_container = self._get_schema_container(menu_schema, list(path))
             if runtime_container is None or local_container is None:
                 continue
-            runtime_ids = [entry.get("button").id for entry in runtime_container if entry.get("button") is not None]
+            runtime_buttons = {
+                entry.get("button").id: entry.get("button")
+                for entry in runtime_container
+                if entry.get("button") is not None
+            }
+            runtime_ids = list(runtime_buttons.keys())
             by_id = {str(item.get("id", "")): item for item in local_container}
             for idx, item_id in enumerate(runtime_ids):
                 match = by_id.get(str(item_id))
                 if match is None:
                     continue
                 match["order"] = (idx + 1) * 10
+                runtime_button = runtime_buttons.get(item_id)
+                if runtime_button is not None:
+                    icon_name = str(getattr(runtime_button, "image", "") or "").strip()
+                    if icon_name:
+                        match["image"] = icon_name
         for path, hidden_ids in self.edit_hidden_ids_by_path.items():
             local_container = self._get_schema_container(menu_schema, list(path))
             if local_container is None:

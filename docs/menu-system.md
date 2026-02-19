@@ -218,6 +218,7 @@ Add a `screen` list to a menu entry in `local_config/menu.json`:
 - Hold duration is configurable via `menu_edit_hold_ms` in `local_config/settings.json`.
 - In edit mode:
   - tap an item to select it (selected item gets a blue border),
+  - use keyboard `←/→` to cycle icons for the selected item,
   - use `<` and `>` in the top bar to move it within the current level,
   - use `Hide` to mark selected item as hidden from runtime menus,
   - top bar order is `<`, `Cancel`, `Hide`, `Save`, `>`,
