@@ -206,22 +206,28 @@ class MenuScreen:
                     text="",
                     bg="black",
                     fg="white",
-                    font=("Helvetica", 18, "bold"),
-                    padx=12,
-                    pady=6,
+                    font=("Helvetica", 20, "bold"),
+                    padx=20,
+                    pady=20,
                     highlightthickness=0,
                 )
                 self.page_indicator_label.bind("<Button-1>", self._handle_indicator_down)
                 self.page_indicator_label.bind("<ButtonRelease-1>", self._handle_indicator_up)
             self.page_indicator_label.configure(text=f"{page_nr}/{self.max_page}")
-            self.page_indicator_label.place(relx=1.0, rely=1.0, x=-14, y=-14, anchor="se")
+            self.page_indicator_label.place(relx=1.0, rely=1.0, x=0, y=0, anchor="se")
             self.page_indicator_label.lift()
+            if not self.edit_mode:
+                timeout_ms = int(getattr(self.main_app.settings, "show_feedback_label_timeout", 2000) or 0)
+                if timeout_ms > 0:
+                    self.page_indicator_hide_after_id = self.frame.after(timeout_ms, self._hide_page_indicator)
             log_event(logger, logging.DEBUG, "menu", "page.indicator", page=page_nr, max_page=self.max_page)
         elif self.page_indicator_label is not None:
             self.page_indicator_label.place_forget()
 
         self._render_edit_topbar()
         self._finalize_menu_render()
+        if self.main_app.display_controller is not None:
+            self.main_app.display_controller.force_screen_update()
         self._trace_menu_render("menu.render.complete")
 
     def _finalize_menu_render(self):
@@ -602,6 +608,12 @@ class MenuScreen:
 
     def _handle_indicator_down(self, _event):
         self.edit_indicator_press_at = time.time()
+        if self.page_indicator_hide_after_id is not None:
+            try:
+                self.frame.after_cancel(self.page_indicator_hide_after_id)
+            except Exception:
+                pass
+            self.page_indicator_hide_after_id = None
         if self.edit_indicator_hold_after_id is not None:
             try:
                 self.frame.after_cancel(self.edit_indicator_hold_after_id)
@@ -628,6 +640,16 @@ class MenuScreen:
                 self.edit_indicator_hold_after_id = None
             self.edit_indicator_press_at = None
         return "break"
+
+    def _hide_page_indicator(self):
+        self.page_indicator_hide_after_id = None
+        if self.edit_mode:
+            return
+        if self.page_indicator_label is not None:
+            try:
+                self.page_indicator_label.place_forget()
+            except Exception:
+                pass
 
     def _activate_edit_mode_from_hold(self):
         self.edit_indicator_hold_after_id = None
