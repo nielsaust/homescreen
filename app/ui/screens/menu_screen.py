@@ -934,6 +934,12 @@ class MenuScreen:
         self.edit_down_btn.pack(side=tk.LEFT, padx=0)
 
     def _make_edit_topbar_button(self, parent, text, command, enabled=True):
+        text_len = len(str(text or ""))
+        if text in ("◀", "▶"):
+            width_chars = 3
+        else:
+            # Dynamic width for localized labels, capped to keep bar compact.
+            width_chars = max(7, min(16, text_len + 3))
         label = tk.Label(
             parent,
             text=text,
@@ -942,7 +948,7 @@ class MenuScreen:
             font=("Helvetica", 18, "bold"),
             padx=16,
             pady=16,
-            width=5,
+            width=width_chars,
             bd=0,
             highlightthickness=0,
         )

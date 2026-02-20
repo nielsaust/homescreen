@@ -12,6 +12,9 @@ make run
 - `doctor` environment checks
 - `smoke` import/compile checks
 - unit tests in `tests/unit`
+- menu contract checks
+- Python 3.9 annotation guard (`py39-guard`)
+- localization consistency check (`localization-check`)
 
 ## Targeted Commands
 
@@ -19,6 +22,9 @@ make run
 - Unit tests only: `make test-unit`
 - Perf guards: `make perf-check`
 - Smoke only: `make smoke`
+- Localization only: `make localization-check`
+
+Full `make` target list: `docs/make-targets.md`.
 
 ## Device (Pi) Checks
 

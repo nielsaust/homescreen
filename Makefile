@@ -1,6 +1,6 @@
 PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 
-.PHONY: install configuration mqtt-topics locale-setup migrate-local-config menu-migrate-actions service-setup baseline doctor smoke test-unit perf-check menu-contract-check menu-item-scaffold menu-item-new-toggle menu-item-verify-toggle py39-guard check-local test-local test-device run net-down net-up net-status net-recover settings-check settings-update-example settings-update-local settings-prune-local-preview settings-prune-local deploy-dry-run precommit-install precommit-run security-scan
+.PHONY: install configuration mqtt-topics locale-setup migrate-local-config menu-migrate-actions service-setup baseline doctor smoke test-unit perf-check menu-contract-check menu-item-scaffold menu-item-new-toggle menu-item-verify-toggle py39-guard localization-check check-local test-local test-device run net-down net-up net-status net-recover settings-check settings-update-example settings-update-local settings-prune-local-preview settings-prune-local deploy-dry-run precommit-install precommit-run security-scan
 
 install:
 	bash tools/bootstrap.sh
@@ -44,6 +44,9 @@ menu-contract-check:
 py39-guard:
 	$(PYTHON) tools/py39_guard.py
 
+localization-check:
+	$(PYTHON) tools/localization_check.py
+
 menu-item-scaffold:
 	$(PYTHON) tools/menu_item_scaffold.py wizard
 
@@ -54,9 +57,9 @@ menu-item-new-toggle:
 menu-item-verify-toggle:
 	$(PYTHON) tools/menu_item_scaffold.py verify
 
-check-local: settings-check menu-contract-check py39-guard
+check-local: settings-check menu-contract-check py39-guard localization-check
 
-test-local: doctor smoke test-unit menu-contract-check py39-guard
+test-local: doctor smoke test-unit menu-contract-check py39-guard localization-check
 
 test-device:
 	bash tools/device_smoke.sh

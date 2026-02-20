@@ -42,6 +42,7 @@ Full deploy/systemd setup: `docs/deploy.md`
 - Settings sync workflow: `docs/settings.md`
 - Menu schema/actions/state system: `docs/menu-system.md`
 - Localization (NL/EN system texts): `docs/localization.md`
+- Full Make command reference: `docs/make-targets.md`
 - Music integration payload contract: `docs/music-integration.md`
 - Security and history rewrite workflow: `docs/security.md`
 
@@ -53,6 +54,7 @@ Full deploy/systemd setup: `docs/deploy.md`
 - Configure MQTT topics: `make mqtt-topics`
 - Configure OS locales (Linux/Pi): `make locale-setup`
 - Local checks: `make test-local`
+- Localization check only: `make localization-check`
 - Run app: `make run`
 - Pi checks: `make test-device`
 - Simulate outage locally: `make net-down`, `make net-status`, `make net-up`
@@ -61,3 +63,4 @@ Full deploy/systemd setup: `docs/deploy.md`
 - Menu contract check: `make menu-contract-check`
 - Install pre-commit hook: `make precommit-install`
 - Run local secret scans: `make precommit-run`, `make security-scan`
+- Full target overview: `docs/make-targets.md`
