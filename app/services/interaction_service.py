@@ -104,7 +104,7 @@ class InteractionService:
         return False
 
     def _route_by_screen(self, screen_state: str, interaction_type: str) -> None:
-        if screen_state in ("weather", "off", "setup", "status_check"):
+        if screen_state in ("weather", "off", "setup"):
             if interaction_type == "single_click":
                 self.main_app.screen_state_controller.switch_to_menu()
             return

@@ -17,18 +17,21 @@ class OverlayManager:
         from app.ui.screens.print_screen import PrintScreen
         from app.ui.screens.slideshow import SlideShow
         from app.ui.screens.alert_screen import AlertScreen
+        from app.ui.screens.status_check_screen import StatusCheckScreen
 
         self.cam_screen = CamScreen(self.main_app)
         self.calendar_screen = CalendarScreen(self.main_app)
         self.print_screen = PrintScreen(self.main_app)
         self.slideshow = SlideShow(self.main_app)
         self.alert_screen = AlertScreen(self.main_app)
+        self.status_check_screen = StatusCheckScreen(self.main_app)
 
     def close_open_windows(self):
         self.print_screen.destroy()
         self.cam_screen.destroy()
         self.calendar_screen.destroy()
         self.alert_screen.destroy()
+        self.status_check_screen.destroy()
         self.slideshow.destroy()
         self._reset_touch_input_state()
 
@@ -76,6 +79,11 @@ class OverlayManager:
         if self.alert_screen:
             self.close_open_windows()
             self.alert_screen.show(data)
+
+    def show_status_check(self):
+        if self.status_check_screen:
+            self.close_open_windows()
+            self.status_check_screen.show()
 
     def close_alert_screen(self):
         if self.alert_screen:

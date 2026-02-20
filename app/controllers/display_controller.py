@@ -64,7 +64,7 @@ class DisplayController:
         self._apply_kiosk_window_mode()
 
     def _create_base_screens(self):
-        for screen_name in ("off", "setup", "weather", "music", "menu", "status_check"):
+        for screen_name in ("off", "setup", "weather", "music", "menu"):
             self.create_screen(screen_name)
 
     def create_screen(self, screen_name):
@@ -89,9 +89,6 @@ class DisplayController:
         elif screen_name == "menu":
             from app.ui.screens.menu_screen import MenuScreen
             screen_object = MenuScreen(self.main_app,screen_frame)
-        elif screen_name == "status_check":
-            from app.ui.screens.status_check_screen import StatusCheckScreen
-            screen_object = StatusCheckScreen(self.main_app, screen_frame)
         
         # Store the screen frame in the dictionary
         self.screens[screen_name] = screen_frame
@@ -117,6 +114,10 @@ class DisplayController:
 
     def open_slideshow(self):
         self.overlay_manager.open_slideshow()
+
+    def show_status_check(self):
+        self.overlay_manager.show_status_check()
+        self.check_idle(True)
 
     def show_cam(self, data, url, username=None, password=None):
         self.overlay_manager.show_cam(data, url, username, password)
@@ -363,7 +364,6 @@ class DisplayController:
             menu_screen = self.screen_objects.get("menu")
             if(menu_screen):
                 menu_screen.switch_page(page_direction)
-                self.force_screen_update()
                 max_page = menu_screen.max_page
                 current_page = menu_screen.current_menu_page
                 return {"current": current_page, "max": max_page}

@@ -246,10 +246,10 @@ class ActionDispatcher:
         self.main_app.display_controller.force_kiosk_window_mode()
 
     def _show_network_check(self) -> None:
-        self.main_app.display_controller.show_screen("status_check", force=True)
+        self.main_app.display_controller.show_status_check()
 
     def _show_status_check(self) -> None:
-        self.main_app.display_controller.show_screen("status_check", force=True)
+        self.main_app.display_controller.show_status_check()
 
     def _ensure_mqtt_enabled(self, user_initiated: bool = False) -> bool:
         if not self.main_app.is_mqtt_enabled():

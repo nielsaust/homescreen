@@ -321,8 +321,31 @@ class MenuScreen:
             self.fullscreen_image_window = None
 
     def remove_current_menu(self):
-        if(self.frame is not None):
-            self.remove_children(self.frame)
+        if self.frame is None:
+            return
+        # Avoid full widget-tree teardown on every page switch; it causes
+        # visible blank/flicker on slower devices.
+        for entry in self.active_buttons:
+            button = entry.get("button")
+            label = getattr(button, "label", None)
+            if label is None:
+                continue
+            try:
+                label.grid_forget()
+                label.unbind("<Button-1>")
+                label.unbind("<ButtonRelease-1>")
+            except Exception:
+                pass
+
+        if self.edit_topbar is not None:
+            try:
+                self.edit_topbar.destroy()
+            except Exception:
+                pass
+            self.edit_topbar = None
+            self.edit_up_btn = None
+            self.edit_down_btn = None
+            self.edit_hide_btn = None
 
     def remove_children(self, widget):
         for child in widget.winfo_children():

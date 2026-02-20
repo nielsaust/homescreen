@@ -20,81 +20,31 @@ logger = logging.getLogger(__name__)
 
 
 class StatusCheckScreen:
-    def __init__(self, main_app: MainApp, frame):
+    """Overlay-style status check (same lifecycle style as cam/alert)."""
+
+    def __init__(self, main_app: MainApp):
         self.main_app = main_app
-        self.frame = frame
+        self.window = None
+        self.main_frame = None
         self.check_job = None
+        self.close_job = None
         self.check_inflight = False
+        self.is_showing = False
+
+        self.internet_label = None
+        self.openweather_label = None
+        self.mqtt_label = None
+        self.capability_label = None
+        self.checked_at_label = None
+        self.version_label = None
+
         self.last_result = {
             "internet": None,
             "openweather": None,
             "mqtt": None,
             "checked_at": None,
         }
-
-        bg = self.main_app.settings.menu_background_color.get("menu") or "black"
-        fg = "white"
-        title_font = tkFont.Font(family="Helvetica", size=40, weight="bold")
-        row_font = tkFont.Font(family="Helvetica", size=28, weight="bold")
-        meta_font = tkFont.Font(family="Helvetica", size=18)
-
-        self.main_frame = tk.Frame(self.frame, bg=bg)
-        self.main_frame.pack(fill=tk.BOTH, expand=True)
-
-        self.title_label = tk.Label(
-            self.main_frame,
-            text=self.main_app.t("status_check.title", default="Check Status"),
-            font=title_font,
-            bg=bg,
-            fg=fg,
-            pady=24,
-        )
-        self.title_label.pack()
-
-        self.internet_label = tk.Label(self.main_frame, text="", font=row_font, bg=bg, fg=fg, anchor="w")
-        self.internet_label.pack(fill=tk.X, padx=36, pady=10)
-
-        self.openweather_label = tk.Label(self.main_frame, text="", font=row_font, bg=bg, fg=fg, anchor="w")
-        self.openweather_label.pack(fill=tk.X, padx=36, pady=10)
-
-        self.mqtt_label = tk.Label(self.main_frame, text="", font=row_font, bg=bg, fg=fg, anchor="w")
-        self.mqtt_label.pack(fill=tk.X, padx=36, pady=10)
-
-        self.help_label = tk.Label(
-            self.main_frame,
-            text=self.main_app.t(
-                "status_check.help",
-                default="Unavailable menu items stay grey until required connectivity is back.",
-            ),
-            font=meta_font,
-            bg=bg,
-            fg="#b5b5b5",
-            wraplength=int(self.main_app.settings.screen_width * 0.85),
-            justify=tk.LEFT,
-            anchor="w",
-        )
-        self.help_label.pack(fill=tk.X, padx=36, pady=(16, 4))
-
-        self.capability_label = tk.Label(
-            self.main_frame,
-            text="",
-            font=meta_font,
-            bg=bg,
-            fg="#e8e8e8",
-            wraplength=int(self.main_app.settings.screen_width * 0.85),
-            justify=tk.LEFT,
-            anchor="w",
-        )
-        self.capability_label.pack(fill=tk.X, padx=36, pady=4)
-
-        self.checked_at_label = tk.Label(self.main_frame, text="", font=meta_font, bg=bg, fg="#b5b5b5", anchor="w")
-        self.checked_at_label.pack(fill=tk.X, padx=36, pady=4)
-        self.version_label = tk.Label(self.main_frame, text="", font=meta_font, bg=bg, fg="#9f9f9f", anchor="w")
-        self.version_label.pack(fill=tk.X, padx=36, pady=(4, 12))
-
         self._version_text = self._resolve_version_text()
-
-        self._render_status()
 
     def _resolve_version_text(self) -> str:
         version = str(getattr(self.main_app.settings, "version", "dev") or "dev")
@@ -120,10 +70,6 @@ class StatusCheckScreen:
             commit=commit,
         )
 
-    def show(self):
-        self._schedule_checks(immediate=True)
-        return True
-
     def _refresh_interval_seconds(self):
         raw = getattr(self.main_app.settings, "network_check_refresh_interval_seconds", 20)
         try:
@@ -131,18 +77,150 @@ class StatusCheckScreen:
         except (TypeError, ValueError):
             return 20
 
+    def _overlay_timeout_ms(self):
+        # Reuse existing timeout by default; can be overridden via settings.
+        raw = getattr(self.main_app.settings, "status_check_timeout_ms", None)
+        if raw is not None:
+            try:
+                return max(1000, int(raw))
+            except (TypeError, ValueError):
+                pass
+        return max(1000, int(getattr(self.main_app.settings, "destroy_image_timeout", 20000)))
+
+    def show(self):
+        self.destroy()
+        self._version_text = self._resolve_version_text()
+
+        bg = self.main_app.settings.menu_background_color.get("menu") or "black"
+        fg = "white"
+        title_font = tkFont.Font(family="Helvetica", size=40, weight="bold")
+        row_font = tkFont.Font(family="Helvetica", size=28, weight="bold")
+        meta_font = tkFont.Font(family="Helvetica", size=18)
+
+        self.window = tk.Toplevel(self.main_app.root, bg=bg)
+        if not self.main_app.system_info["is_desktop"]:
+            self.window.attributes("-fullscreen", True)
+        else:
+            self.window.geometry(f"{self.main_app.settings.screen_width}x{self.main_app.settings.screen_height}")
+
+        self.main_frame = tk.Frame(self.window, bg=bg)
+        self.main_frame.pack(fill=tk.BOTH, expand=True)
+
+        title_label = tk.Label(
+            self.main_frame,
+            text=self.main_app.t("status_check.title", default="Check Status"),
+            font=title_font,
+            bg=bg,
+            fg=fg,
+            pady=24,
+        )
+        title_label.pack()
+
+        self.internet_label = tk.Label(self.main_frame, text="", font=row_font, bg=bg, fg=fg, anchor="w")
+        self.internet_label.pack(fill=tk.X, padx=36, pady=10)
+
+        self.openweather_label = tk.Label(self.main_frame, text="", font=row_font, bg=bg, fg=fg, anchor="w")
+        self.openweather_label.pack(fill=tk.X, padx=36, pady=10)
+
+        self.mqtt_label = tk.Label(self.main_frame, text="", font=row_font, bg=bg, fg=fg, anchor="w")
+        self.mqtt_label.pack(fill=tk.X, padx=36, pady=10)
+
+        help_label = tk.Label(
+            self.main_frame,
+            text=self.main_app.t(
+                "status_check.help",
+                default="Unavailable menu items stay grey until required connectivity is back.",
+            ),
+            font=meta_font,
+            bg=bg,
+            fg="#b5b5b5",
+            wraplength=int(self.main_app.settings.screen_width * 0.85),
+            justify=tk.LEFT,
+            anchor="w",
+        )
+        help_label.pack(fill=tk.X, padx=36, pady=(16, 4))
+
+        self.capability_label = tk.Label(
+            self.main_frame,
+            text="",
+            font=meta_font,
+            bg=bg,
+            fg="#e8e8e8",
+            wraplength=int(self.main_app.settings.screen_width * 0.85),
+            justify=tk.LEFT,
+            anchor="w",
+        )
+        self.capability_label.pack(fill=tk.X, padx=36, pady=4)
+
+        self.checked_at_label = tk.Label(self.main_frame, text="", font=meta_font, bg=bg, fg="#b5b5b5", anchor="w")
+        self.checked_at_label.pack(fill=tk.X, padx=36, pady=4)
+
+        self.version_label = tk.Label(self.main_frame, text="", font=meta_font, bg=bg, fg="#9f9f9f", anchor="w")
+        self.version_label.pack(fill=tk.X, padx=36, pady=(4, 12))
+
+        # Tap anywhere to close.
+        self.window.bind("<ButtonRelease-1>", self.destroy)
+        self.is_showing = True
+        self.main_app.display_controller.check_idle(True)
+        self._render_status()
+        self._schedule_checks(immediate=True)
+        self.close_job = self.window.after(self._overlay_timeout_ms(), self.destroy)
+        return True
+
+    def destroy(self, _event=None):
+        if not self.is_showing:
+            return
+        self.is_showing = False
+        self.check_inflight = False
+
+        if self.check_job is not None and self.window is not None:
+            try:
+                self.window.after_cancel(self.check_job)
+            except Exception:
+                pass
+            self.check_job = None
+
+        if self.close_job is not None and self.window is not None:
+            try:
+                self.window.after_cancel(self.close_job)
+            except Exception:
+                pass
+            self.close_job = None
+
+        if self.window is not None:
+            try:
+                self.window.destroy()
+            except Exception:
+                pass
+            self.window = None
+        self.main_frame = None
+
+        self.main_app.display_controller.check_idle()
+        self.main_app.root.focus_set()
+
+        touch = getattr(self.main_app, "touch_controller", None)
+        if touch is not None:
+            touch.click_time = None
+            touch.start_x = 0
+            touch.start_y = 0
+            touch.ignore_next_click = False
+            touch.ignore_click_until = 0.0
+
     def _schedule_checks(self, immediate=False):
+        if not self.is_showing or self.window is None:
+            self.check_job = None
+            return
         if self.check_job is not None:
             try:
-                self.main_frame.after_cancel(self.check_job)
+                self.window.after_cancel(self.check_job)
             except Exception:
                 pass
             self.check_job = None
         delay_ms = 1 if immediate else self._refresh_interval_seconds() * 1000
-        self.check_job = self.main_frame.after(delay_ms, self._tick)
+        self.check_job = self.window.after(delay_ms, self._tick)
 
     def _tick(self):
-        if self.main_app.display_controller.get_screen_state() != "status_check":
+        if not self.is_showing or self.window is None:
             self.check_job = None
             return
         self._run_checks_async()
@@ -189,6 +267,8 @@ class StatusCheckScreen:
 
     def _apply_result(self, result):
         self.check_inflight = False
+        if not self.is_showing or self.window is None:
+            return
         self.last_result = result
         self._render_status()
         self.main_app.publish_event(
@@ -207,6 +287,11 @@ class StatusCheckScreen:
         return self.main_app.t("status_check.row.unavailable", default="{label}: unavailable", label=label), "#ff6b6b"
 
     def _render_status(self):
+        if not self.is_showing:
+            return
+        if any(widget is None for widget in (self.internet_label, self.openweather_label, self.mqtt_label, self.capability_label, self.checked_at_label, self.version_label)):
+            return
+
         internet_text, internet_color = self._status_text(
             self.main_app.t("status_check.label.internet", default="Internet"),
             self.last_result.get("internet"),
