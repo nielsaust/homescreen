@@ -27,7 +27,6 @@ class StatusCheckScreen:
         self.window = None
         self.main_frame = None
         self.check_job = None
-        self.close_job = None
         self.check_inflight = False
         self.is_showing = False
 
@@ -76,16 +75,6 @@ class StatusCheckScreen:
             return max(5, int(raw))
         except (TypeError, ValueError):
             return 20
-
-    def _overlay_timeout_ms(self):
-        # Reuse existing timeout by default; can be overridden via settings.
-        raw = getattr(self.main_app.settings, "status_check_timeout_ms", None)
-        if raw is not None:
-            try:
-                return max(1000, int(raw))
-            except (TypeError, ValueError):
-                pass
-        return max(1000, int(getattr(self.main_app.settings, "destroy_image_timeout", 20000)))
 
     def show(self):
         self.destroy()
@@ -164,7 +153,6 @@ class StatusCheckScreen:
         self.main_app.display_controller.check_idle(True)
         self._render_status()
         self._schedule_checks(immediate=True)
-        self.close_job = self.window.after(self._overlay_timeout_ms(), self.destroy)
         return True
 
     def destroy(self, _event=None):
@@ -179,13 +167,6 @@ class StatusCheckScreen:
             except Exception:
                 pass
             self.check_job = None
-
-        if self.close_job is not None and self.window is not None:
-            try:
-                self.window.after_cancel(self.close_job)
-            except Exception:
-                pass
-            self.close_job = None
 
         if self.window is not None:
             try:

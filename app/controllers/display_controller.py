@@ -351,6 +351,13 @@ class DisplayController:
         if(menu_screen):
             menu_screen.update_buttons()
 
+    def refresh_menu_layout(self):
+        menu_screen = self.screen_objects.get("menu")
+        if menu_screen and self.get_screen_state() == "menu":
+            menu_screen.remove_current_menu()
+            menu_screen.make_menu_buttons(menu_screen.current_menu_page, menu_screen.current_buttons_ref)
+            menu_screen.update_buttons()
+
     def menu_ready(self):
         ready = False
         menu_screen = self.screen_objects.get("menu")

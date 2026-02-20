@@ -4,7 +4,10 @@
   "log_console_level": "INFO",
   "log_file_level": "DEBUG",
   "log_noisy_third_party_debug": false,
-  "log_noisy_loggers": ["PIL.PngImagePlugin", "urllib3.connectionpool"],
+  "log_noisy_loggers": [
+    "PIL.PngImagePlugin",
+    "urllib3.connectionpool"
+  ],
   "log_domain_levels": {
     "__main__": "INFO",
     "app.controllers.mqtt_controller": "WARNING",
@@ -19,7 +22,10 @@
   "sentry_event_level": "ERROR",
   "sentry_traces_sample_rate": 0.0,
   "sentry_send_default_pii": false,
-  "sentry_ignore_loggers": ["PIL.PngImagePlugin", "urllib3.connectionpool"],
+  "sentry_ignore_loggers": [
+    "PIL.PngImagePlugin",
+    "urllib3.connectionpool"
+  ],
   "startup_block_on_internet": false,
   "startup_wait_for_internet_seconds": 10,
   "startup_wait_check_interval_seconds": 5,
@@ -28,7 +34,7 @@
   "enable_mqtt": false,
   "enable_music": false,
   "enable_weather": false,
-  "language": "en",
+  "language": "nl",
   "app_environment": "production",
   "enable_network_simulation": true,
   "simulate_outage_internet": false,
@@ -55,7 +61,10 @@
   "feedback_text_label_height": 160,
   "feedback_text_padx": 24,
   "feedback_text_pady": 16,
-  "feedback_icon_size": [60, 60],
+  "feedback_icon_size": [
+    60,
+    60
+  ],
   "mqtt_broker": "127.0.0.1",
   "mqtt_port": 1883,
   "mqtt_user": "CHANGE_ME",
@@ -65,7 +74,6 @@
   "home_assistant_api_base_url": "https://homeassistant.local",
   "weather_api_key": "CHANGE_ME",
   "weather_city_id": "CHANGE_ME",
-  "language": "nl",
   "time_locale": "nl_NL.UTF-8",
   "date_format": "%-d %b",
   "weather_update_interval": 300,
@@ -125,5 +133,6 @@
   "calendar_default_color": "#3a86ff",
   "alert_default_show_seconds": 3,
   "alert_default_foreground_color": "#000000",
-  "alert_default_background_color": "#ffffff"
+  "alert_default_background_color": "#ffffff",
+  "show_menu_page_number": true
 }

@@ -73,6 +73,7 @@ class MenuScreen:
         self.page_indicator_label = None
         self.current_button_path = []
         self.current_buttons_ref = self.buttons
+        self._menu_refresh_after_id = None
 
         self._create_buttons_recursive(self.buttons)
         self._build_button_index()
@@ -196,7 +197,8 @@ class MenuScreen:
                 pass
             self.page_indicator_label = None
 
-        if(self.main_app.display_controller):
+        show_page_number = bool(getattr(self.main_app.settings, "show_menu_page_number", True))
+        if (self.main_app.display_controller) and show_page_number:
             indicator_timeout_ms = 0 if self.edit_mode else None
             indicator_label = self.main_app.display_controller.place_action_label(
                 f"{page_nr}/{self.max_page}",
@@ -210,7 +212,30 @@ class MenuScreen:
             log_event(logger, logging.DEBUG, "menu", "page.indicator", page=page_nr, max_page=self.max_page)
 
         self._render_edit_topbar()
+        self._finalize_menu_render()
         self._trace_menu_render("menu.render.complete")
+
+    def _finalize_menu_render(self):
+        # Tk on some desktop setups can defer paint of freshly re-gridded labels
+        # until a later UI event; force a lightweight idle flush for consistency.
+        if self._menu_refresh_after_id is not None:
+            try:
+                self.frame.after_cancel(self._menu_refresh_after_id)
+            except Exception:
+                pass
+            self._menu_refresh_after_id = None
+
+        def _flush():
+            self._menu_refresh_after_id = None
+            try:
+                self.frame.lift()
+                self.frame.update_idletasks()
+                if self.page_indicator_label is not None:
+                    self.page_indicator_label.lift()
+            except Exception:
+                pass
+
+        self._menu_refresh_after_id = self.frame.after_idle(_flush)
 
     def enter_submenu(self, button_entry=None):
         self.remove_current_menu()

@@ -221,6 +221,8 @@ class ActionDispatcher:
             {"reason": f"setting.toggled:{attr}"},
             source="action_dispatcher",
         )
+        if attr == "show_menu_page_number":
+            self.main_app.display_controller.refresh_menu_layout()
 
     def _turn_screen_off(self) -> None:
         self.main_app.request_menu_navigation("exit", source="action_dispatcher")

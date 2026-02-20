@@ -19,6 +19,21 @@
           }
         },
         {
+          "id": "show_menu_page_number",
+          "text": "Toon pagina nummer",
+          "image": "tools.png",
+          "action": "show_menu_page_number",
+          "action_spec": {
+            "kind": "setting_toggle",
+            "attr": "show_menu_page_number"
+          },
+          "state_spec": {
+            "type": "setting_bool",
+            "source": "show_menu_page_number",
+            "default": true
+          }
+        },
+        {
           "id": "store_settings",
           "text": "Store settings",
           "image": "system.png",
