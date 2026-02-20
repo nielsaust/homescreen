@@ -41,7 +41,7 @@ class NetworkCheckScreen:
 
         self.title_label = tk.Label(
             self.main_frame,
-            text="Network Check",
+            text=self.main_app.t("network_check.title", default="Network Check"),
             font=title_font,
             bg=bg,
             fg=fg,
@@ -60,7 +60,10 @@ class NetworkCheckScreen:
 
         self.help_label = tk.Label(
             self.main_frame,
-            text="Unavailable menu items stay grey until required connectivity is back.",
+            text=self.main_app.t(
+                "network_check.help",
+                default="Unavailable menu items stay grey until required connectivity is back.",
+            ),
             font=meta_font,
             bg=bg,
             fg="#b5b5b5",
@@ -166,22 +169,26 @@ class NetworkCheckScreen:
 
     def _status_text(self, label, value, enabled=True):
         if not enabled:
-            return f"{label}: disabled", "#8f8f8f"
+            return self.main_app.t("network_check.row.disabled", default="{label}: disabled", label=label), "#8f8f8f"
         if value is None:
-            return f"{label}: checking...", "#d8d8d8"
+            return self.main_app.t("network_check.row.checking", default="{label}: checking...", label=label), "#d8d8d8"
         if value:
-            return f"{label}: OK", "#35c759"
-        return f"{label}: unavailable", "#ff6b6b"
+            return self.main_app.t("network_check.row.ok", default="{label}: OK", label=label), "#35c759"
+        return self.main_app.t("network_check.row.unavailable", default="{label}: unavailable", label=label), "#ff6b6b"
 
     def _render_status(self):
-        internet_text, internet_color = self._status_text("Internet", self.last_result.get("internet"), enabled=True)
+        internet_text, internet_color = self._status_text(
+            self.main_app.t("network_check.label.internet", default="Internet"),
+            self.last_result.get("internet"),
+            enabled=True,
+        )
         owm_text, owm_color = self._status_text(
-            "OpenWeather",
+            self.main_app.t("network_check.label.openweather", default="OpenWeather"),
             self.last_result.get("openweather"),
             enabled=bool(getattr(self.main_app.settings, "enable_weather", False)),
         )
         mqtt_text, mqtt_color = self._status_text(
-            "MQTT",
+            self.main_app.t("network_check.label.mqtt", default="MQTT"),
             self.last_result.get("mqtt"),
             enabled=bool(getattr(self.main_app.settings, "enable_mqtt", False)),
         )
@@ -189,18 +196,32 @@ class NetworkCheckScreen:
         self.openweather_label.configure(text=owm_text, fg=owm_color)
         self.mqtt_label.configure(text=mqtt_text, fg=mqtt_color)
 
-        available = ["Base UI"]
+        available = [self.main_app.t("network_check.available.base_ui", default="Base UI")]
         if bool(getattr(self.main_app.settings, "enable_weather", False)) and bool(self.last_result.get("openweather")):
-            available.append("Weather updates")
+            available.append(self.main_app.t("network_check.available.weather", default="Weather updates"))
         if bool(getattr(self.main_app.settings, "enable_mqtt", False)) and bool(self.last_result.get("mqtt")):
-            available.append("MQTT actions/state")
-        self.capability_label.configure(text=f"Available now: {', '.join(available)}")
+            available.append(self.main_app.t("network_check.available.mqtt", default="MQTT actions/state"))
+        self.capability_label.configure(
+            text=self.main_app.t(
+                "network_check.available.now",
+                default="Available now: {items}",
+                items=", ".join(available),
+            )
+        )
 
         checked_at = self.last_result.get("checked_at")
         if checked_at is None:
-            self.checked_at_label.configure(text="Last check: pending")
+            self.checked_at_label.configure(
+                text=self.main_app.t("network_check.last_check_pending", default="Last check: pending")
+            )
         else:
-            self.checked_at_label.configure(text=f"Last check: {checked_at.strftime('%Y-%m-%d %H:%M:%S')}")
+            self.checked_at_label.configure(
+                text=self.main_app.t(
+                    "network_check.last_check",
+                    default="Last check: {timestamp}",
+                    timestamp=checked_at.strftime("%Y-%m-%d %H:%M:%S"),
+                )
+            )
         log_event(
             logger,
             logging.DEBUG,

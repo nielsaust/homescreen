@@ -41,6 +41,7 @@ Full deploy/systemd setup: `docs/deploy.md`
 - Logging and Sentry: `docs/observability.md`
 - Settings sync workflow: `docs/settings.md`
 - Menu schema/actions/state system: `docs/menu-system.md`
+- Localization (NL/EN system texts): `docs/localization.md`
 - Music integration payload contract: `docs/music-integration.md`
 - Security and history rewrite workflow: `docs/security.md`
 

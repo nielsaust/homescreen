@@ -59,12 +59,33 @@ class SetupRequiredScreen:
             getattr(self.main_app.settings, "weather_city_id", "")
         )
 
-        mqtt_line = "MQTT: enabled" if mqtt_enabled else "MQTT: disabled"
-        music_line = "Music: enabled" if music_enabled else "Music: disabled"
-        weather_line = "Weather: configured" if weather_ready else ("Weather: enabled (missing API key/city)" if weather_enabled else "Weather: disabled")
+        t = self.main_app.t
+        mqtt_line = (
+            t("setup.status.mqtt_enabled", default="MQTT: enabled")
+            if mqtt_enabled
+            else t("setup.status.mqtt_disabled", default="MQTT: disabled")
+        )
+        music_line = (
+            t("setup.status.music_enabled", default="Music: enabled")
+            if music_enabled
+            else t("setup.status.music_disabled", default="Music: disabled")
+        )
+        if weather_ready:
+            weather_line = t("setup.status.weather_configured", default="Weather: configured")
+        elif weather_enabled:
+            weather_line = t(
+                "setup.status.weather_missing",
+                default="Weather: enabled (missing API key/city)",
+            )
+        else:
+            weather_line = t("setup.status.weather_disabled", default="Weather: disabled")
 
         return (
-            "Run 'make configuration' in your project root to setup the homescreen.\n\n"
+            t(
+                "setup.title",
+                default="Run 'make configuration' in your project root to setup the homescreen.",
+            )
+            + "\n\n"
             f"{mqtt_line}\n{music_line}\n{weather_line}"
         )
 

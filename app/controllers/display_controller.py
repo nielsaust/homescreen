@@ -82,7 +82,7 @@ class DisplayController:
             screen_object = SetupRequiredScreen(self.main_app, screen_frame)
         elif screen_name == "weather":         
             from app.ui.screens.weather_screen import WeatherScreen
-            screen_object = WeatherScreen(self.main_app,screen_frame,self.main_app.settings.weather_api_key, self.main_app.settings.weather_city_id, self.main_app.settings.weather_langage)
+            screen_object = WeatherScreen(self.main_app,screen_frame,self.main_app.settings.weather_api_key, self.main_app.settings.weather_city_id, self.main_app.settings.language)
         elif screen_name == "music":
             from app.ui.screens.music_screen import MusicScreen
             screen_object = MusicScreen(self.main_app,screen_frame)

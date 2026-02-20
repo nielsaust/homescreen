@@ -12,14 +12,18 @@ The wizard updates `local_config/settings.json` interactively.
 MQTT topics are stored separately in `local_config/mqtt_topics.json`.
 `make install` creates a default `local_config/menu.json` from `local_config/menu.json.example`.
 If a local menu already exists, install asks whether it should be overwritten.
+Built-in localization catalogs live in `app/locales/*.json` and are selected via `ui_locale`.
+Optional per-install overrides can be placed in `local_config/i18n/<locale>.json`.
 
 `app_environment` in `local_config/settings.json` controls visibility of dev-only menu items:
+
 - `production` (default): hide items marked with `"dev_only": true`.
 - non-production values (for example `development`): show dev-only items.
 
 ## Sections
 
 1. MQTT base
+
 - Enable/disable MQTT integration (`enable_mqtt`)
 - Broker host/IP
 - Port
@@ -28,6 +32,7 @@ If a local menu already exists, install asks whether it should be overwritten.
   - If MQTT is disabled, music/smart-home sections require: `First complete MQTT setup`.
 
 2. Music integration
+
 - Enable/disable music integration (`enable_music`)
 - Music topic (`music`, stored in `local_config/mqtt_topics.json`)
 - Home Assistant API base URL (`home_assistant_api_base_url`)
@@ -37,18 +42,27 @@ If a local menu already exists, install asks whether it should be overwritten.
   - Example includes refresh of current music state via topic key `update_music`.
 
 3. Weather integration
+
 - Enable/disable weather integration (`enable_weather`)
 - Display weather when idle (`show_weather_on_idle`)
 - OpenWeather API key (`weather_api_key`)
 - City ID (`weather_city_id`)
-- Language (`weather_langage`)
+- Language (`ui_locale`)
 - Date locale for idle weather clock (`weather_time_locale`, e.g. `nl_NL.UTF-8`; enter `system` to use OS default)
 - Date format for idle weather clock (`weather_date_format`, strftime format)
 - OpenWeather/network resilience
   - Weather fetch runs async so temporary API outages do not block menu/idle interaction.
   - `network_check_refresh_interval_seconds` controls refresh interval for the in-app `Check network` screen.
 
+Localization
+
+- App locale (`ui_locale`, e.g. `en`, `nl`)
+- Standard UI texts use i18n keys with fallback to English.
+- Custom user-added menu item texts are not localized by this step.
+- Full guide: `docs/localization.md`
+
 4. Smart-home integration
+
 - Device state topic (`devices`)
 - Outgoing action topic (`actions_outgoing`)
 - Alert topic (`alert`)
@@ -61,6 +75,7 @@ If a local menu already exists, install asks whether it should be overwritten.
   - If one of these items already exists, the wizard asks whether to overwrite it with the default structure.
 
 5. Auto-start/update setup
+
 - Linux/systemd only.
 - On non-Linux platforms this option is shown as unavailable.
 - On Raspberry Pi this is recommended:
@@ -78,6 +93,7 @@ For runtime resilience testing (without real outages), enable dev mode and use t
 - `Sim MQTT outage`
 
 Settings keys:
+
 - `enable_network_simulation` (master switch)
 - `simulate_outage_internet`
 - `simulate_outage_weather_service`

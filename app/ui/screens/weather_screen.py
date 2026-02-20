@@ -39,8 +39,8 @@ class WeatherScreen:
         self.lang = language
         self.city_id = city_id
         self.units = units
-        self.date_format = str(getattr(self.main_app.settings, "weather_date_format", "%-d %b") or "%-d %b")
-        self.time_locale = str(getattr(self.main_app.settings, "weather_time_locale", "") or "").strip()
+        self.date_format = str(getattr(self.main_app.settings, "date_format", "%-d %b") or "%-d %b")
+        self.time_locale = str(getattr(self.main_app.settings, "time_locale", "") or "").strip()
         self._locale_initialized = False
         self._locale_ok = False
         self.icon_size_large = 300
@@ -102,8 +102,9 @@ class WeatherScreen:
         self.label_max.place(relx=relx, rely=0.5, anchor=tk.SW)
         self.label_min.place(relx=relx, rely=0.5, anchor=tk.NW)
 
-        self.label_condition = tk.Label(self.sub_frame, text="IMAGE", bg=background_color, fg=foreground_color)
-        self.label_description = tk.Label(self.sub_frame, text="mooi weer", font=description_font, bg=background_color, fg=foreground_color)
+        self.label_condition = tk.Label(self.sub_frame, text="...", bg=background_color, fg=foreground_color)
+        text = self.main_app.t("weather.default_weather_text", default="Current weather")
+        self.label_description = tk.Label(self.sub_frame, text=text, font=description_font, bg=background_color, fg=foreground_color)
         self.cached_weather_badge = tk.Frame(
             self.main_frame,
             bg="white",

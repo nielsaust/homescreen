@@ -278,9 +278,13 @@ class MenuScreen:
             qr_label.pack(fill=tk.BOTH, expand=True)
         except Exception:
             log_event(logger, logging.ERROR, "menu", "qr.render_unavailable", reason="missing_qrcode_dependency")
+            fallback_text = self.main_app.t(
+                "menu.qr.render_unavailable",
+                default="QR rendering unavailable.\nInstall package: qrcode",
+            )
             fallback = tk.Label(
                 self.fullscreen_image_window,
-                text="QR rendering unavailable.\nInstall package: qrcode\n\n" + qr_text,
+                text=fallback_text + "\n\n" + qr_text,
                 bg="black",
                 fg="white",
                 justify="center",
@@ -448,7 +452,12 @@ class MenuScreen:
         if "enable_mqtt" in required_settings:
             self.main_app.display_controller.place_action_label(text=self.main_app.mqtt_unavailable_message())
             return
-        self.main_app.display_controller.place_action_label(text="Feature unavailable right now")
+        self.main_app.display_controller.place_action_label(
+            text=self.main_app.t(
+                "feedback.feature_unavailable",
+                default="Feature unavailable right now",
+            )
+        )
 
     def update_buttons(self):
         if self.edit_mode:
@@ -821,7 +830,7 @@ class MenuScreen:
 
         cancel_btn = self._make_edit_topbar_button(
             bar,
-            text="Cancel",
+            text=self.main_app.t("menu.edit.cancel", default="Cancel"),
             command=lambda: self._exit_edit_mode(save=False),
             enabled=True,
         )
@@ -829,7 +838,7 @@ class MenuScreen:
 
         self.edit_hide_btn = self._make_edit_topbar_button(
             bar,
-            text="Hide",
+            text=self.main_app.t("menu.edit.hide", default="Hide"),
             command=self._hide_selected,
             enabled=can_hide,
         )
@@ -837,7 +846,7 @@ class MenuScreen:
 
         save_btn = self._make_edit_topbar_button(
             bar,
-            text="Save",
+            text=self.main_app.t("menu.edit.save", default="Save"),
             command=lambda: self._exit_edit_mode(save=True),
             enabled=True,
         )

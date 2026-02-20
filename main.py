@@ -15,6 +15,7 @@ from app.services.queue_pump_service import QueuePumpService
 from app.services.system_info_service import SystemInfoService
 from app.ui.widgets.network_status_widget import NetworkStatusWidget
 from app.config.settings import Settings
+from app.config.i18n import I18n
 from app.config.mqtt_topics import apply_mqtt_topics_to_settings
 from app.config.mqtt_routes import load_mqtt_routes, resolve_topic_routes
 from app.config.device_state_mapping import load_device_state_mapping
@@ -32,6 +33,7 @@ class MainApp:
     def __init__(self, root):
         log_event(logger, logging.INFO, "app", "startup.begin", at=self.print_current_datetime())
         self.settings = Settings(str(resolve_settings_path()))
+        self.i18n = I18n(self.settings)
         self.mqtt_topics = apply_mqtt_topics_to_settings(self.settings)
         self.mqtt_routes = resolve_topic_routes(self.mqtt_topics, load_mqtt_routes())
         self.device_state_mapping = load_device_state_mapping()
@@ -90,7 +92,7 @@ class MainApp:
         setattr(self.settings, "mqtt_runtime_connected", False)
         self.music_service = MusicService()
         self.music_metrics_service = MusicMetricsService(self, self.music_metrics_interval_ms)
-        self.network_status_widget = NetworkStatusWidget(self.root, self.settings.feedback_icon_size)
+        self.network_status_widget = NetworkStatusWidget(self, self.root, self.settings.feedback_icon_size)
         self.system_info = self.system_info_service.detect_platform()
         self.composition_service.compose_runtime_components()
         self.store.subscribe(self._on_state_changed)
@@ -142,11 +144,11 @@ class MainApp:
     def mqtt_unavailable_message(self):
         if not self.is_mqtt_enabled():
             if self._is_dev_environment():
-                return "MQTT unavailable: disabled in settings"
-            return "Could not connect to MQTT server"
+                return self.t("feedback.mqtt_unavailable.disabled", default="MQTT unavailable: disabled in settings")
+            return self.t("feedback.mqtt_unavailable.generic", default="Could not connect to MQTT server")
 
         if not self._is_dev_environment():
-            return "Could not connect to MQTT server"
+            return self.t("feedback.mqtt_unavailable.generic", default="Could not connect to MQTT server")
 
         reason = str(getattr(self, "mqtt_unavailable_reason", "") or "").strip()
         reason_map = {
@@ -161,14 +163,22 @@ class MainApp:
         }
         for key, text in reason_map.items():
             if reason == key:
-                return f"MQTT unavailable: {text}"
+                return self.t("feedback.mqtt_unavailable.reason", default="MQTT unavailable: {reason}", reason=text)
         if reason.startswith("connect_rc_"):
-            return f"MQTT unavailable: broker connect refused ({reason})"
+            return self.t(
+                "feedback.mqtt_unavailable.connect_rc",
+                default="MQTT unavailable: broker connect refused ({reason})",
+                reason=reason,
+            )
         if reason.startswith("disconnect_rc_"):
-            return f"MQTT unavailable: disconnected ({reason})"
+            return self.t(
+                "feedback.mqtt_unavailable.disconnect_rc",
+                default="MQTT unavailable: disconnected ({reason})",
+                reason=reason,
+            )
         if reason:
-            return f"MQTT unavailable: {reason}"
-        return "MQTT unavailable: unknown reason"
+            return self.t("feedback.mqtt_unavailable.reason", default="MQTT unavailable: {reason}", reason=reason)
+        return self.t("feedback.mqtt_unavailable.unknown", default="MQTT unavailable: unknown reason")
 
     def is_music_enabled(self):
         return bool(getattr(self, "enable_music", False))
@@ -191,10 +201,21 @@ class MainApp:
         return str(default or "").strip()
 
     def notify_setup_required(self, setup_name: str):
-        message = f"First complete {setup_name} setup"
+        localized_setup = self.t(f"setup_name.{setup_name}", default=setup_name)
+        message = self.t("feedback.setup_required", default="First complete {setup_name} setup", setup_name=localized_setup)
         log_event(logger, logging.WARNING, "app", "setup.required", setup=setup_name)
         if hasattr(self, "display_controller") and self.display_controller:
             self.display_controller.place_action_label(text=message)
+
+    def t(self, key: str, default: str | None = None, **kwargs) -> str:
+        if hasattr(self, "i18n") and self.i18n is not None:
+            return self.i18n.t(key, default=default, **kwargs)
+        if default is None:
+            return key
+        try:
+            return default.format(**kwargs) if kwargs else default
+        except Exception:
+            return default
 
     def init_mqtt(self):
         self.mqtt_lifecycle_service.init_mqtt()

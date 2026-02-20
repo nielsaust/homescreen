@@ -1,0 +1,85 @@
+{
+  "feedback": {
+    "setup_required": "Rond eerst de {setup_name}-setup af",
+    "feature_unavailable": "Functie nu niet beschikbaar",
+    "mqtt_unavailable": {
+      "generic": "Kan niet verbinden met de MQTT-server",
+      "disabled": "MQTT niet beschikbaar: uitgeschakeld in settings",
+      "reason": "MQTT niet beschikbaar: {reason}",
+      "connect_rc": "MQTT niet beschikbaar: broker connect geweigerd ({reason})",
+      "disconnect_rc": "MQTT niet beschikbaar: verbinding verbroken ({reason})",
+      "unknown": "MQTT niet beschikbaar: onbekende reden"
+    }
+  },
+  "weather": {
+    "default_weather_text": "Huidig weer"
+  },
+  "setup": {
+    "title": "Voer 'make configuration' uit in je project root om homescreen te configureren.",
+    "status": {
+      "mqtt_enabled": "MQTT: ingeschakeld",
+      "mqtt_disabled": "MQTT: uitgeschakeld",
+      "music_enabled": "Muziek: ingeschakeld",
+      "music_disabled": "Muziek: uitgeschakeld",
+      "weather_configured": "Weer: geconfigureerd",
+      "weather_missing": "Weer: ingeschakeld (API key/city ontbreekt)",
+      "weather_disabled": "Weer: uitgeschakeld"
+    }
+  },
+  "network_banner": {
+    "connection_lost_at": "Verbinding verbroken om {timestamp}"
+  },
+  "network_check": {
+    "title": "Netwerkcontrole",
+    "help": "Niet-beschikbare menu-items blijven grijs tot de vereiste connectiviteit terug is.",
+    "label": {
+      "internet": "Internet",
+      "openweather": "OpenWeather",
+      "mqtt": "MQTT"
+    },
+    "row": {
+      "disabled": "{label}: uitgeschakeld",
+      "checking": "{label}: controleren...",
+      "ok": "{label}: OK",
+      "unavailable": "{label}: niet beschikbaar"
+    },
+    "available": {
+      "base_ui": "Basis UI",
+      "weather": "Weer-updates",
+      "mqtt": "MQTT acties/status",
+      "now": "Nu beschikbaar: {items}"
+    },
+    "last_check_pending": "Laatste check: in behandeling",
+    "last_check": "Laatste check: {timestamp}"
+  },
+  "menu": {
+    "edit": {
+      "cancel": "Annuleer",
+      "hide": "Verberg",
+      "save": "Opslaan"
+    },
+    "qr": {
+      "render_unavailable": "QR-rendering niet beschikbaar.\nInstalleer pakket: qrcode"
+    }
+  },
+  "calendar": {
+    "tomorrow": "morgen",
+    "starts_at": "start om {time} uur",
+    "tomorrow_at": "morgen om {time} uur",
+    "weekday_at": "{weekday} om {time} uur",
+    "date_at": "{weekday} {date} om {time} uur",
+    "ends_at": "eindigt om {time} uur"
+  },
+  "dialog": {
+    "recover_network": {
+      "title": "Netwerk herstellen",
+      "question": "Wil je proberen de netwerkverbinding te herstellen?"
+    }
+  },
+  "setup_name": {
+    "MQTT": "MQTT",
+    "Music": "Muziek",
+    "Camera": "Camera",
+    "QR config": "QR-configuratie"
+  }
+}

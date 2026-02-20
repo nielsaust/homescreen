@@ -22,7 +22,12 @@ class CalendarScreen:
         sudo locale-gen
         """
         if(not self.main_app.system_info["is_desktop"]):
-            locale.setlocale(locale.LC_TIME, "nl_NL.UTF8") # dutch
+            language = str(getattr(self.main_app.settings, "language", "en") or "en").lower()
+            desired = "nl_NL.UTF8" if language.startswith("nl") else "en_US.UTF8"
+            try:
+                locale.setlocale(locale.LC_TIME, desired)
+            except Exception:
+                pass
 
         current_time = datetime.datetime.now()
         time_string = current_time.strftime("%H:%M")
@@ -61,21 +66,46 @@ class CalendarScreen:
         if self.all_day:
             # all-day event
             if event_is_tomorrow:
-                self.label_bottom.configure(text="morgen")
+                self.label_bottom.configure(
+                    text=self.main_app.t("calendar.tomorrow", default="tomorrow")
+                )
             else:
                 self.label_bottom.configure(text=self.description)
         else:
             # timed event                    
             if self.event_start_date.date() == today:
-                self.event_start_date_string = self.event_start_date.strftime("start om %H:%M uur")
+                self.event_start_date_string = self.main_app.t(
+                    "calendar.starts_at",
+                    default="starts at {time}",
+                    time=self.event_start_date.strftime("%H:%M"),
+                )
             elif event_is_tomorrow:
-                self.event_start_date_string = self.event_start_date.strftime("morgen om %H:%M uur")
+                self.event_start_date_string = self.main_app.t(
+                    "calendar.tomorrow_at",
+                    default="tomorrow at {time}",
+                    time=self.event_start_date.strftime("%H:%M"),
+                )
             elif event_is_this_week:
-                self.event_start_date_string = self.event_start_date.strftime("%A om %H:%M uur")
+                self.event_start_date_string = self.main_app.t(
+                    "calendar.weekday_at",
+                    default="{weekday} at {time}",
+                    weekday=self.event_start_date.strftime("%A"),
+                    time=self.event_start_date.strftime("%H:%M"),
+                )
             else:
-                self.event_start_date_string = self.event_start_date.strftime("%A %#d %b om %H:%M uur")
+                self.event_start_date_string = self.main_app.t(
+                    "calendar.date_at",
+                    default="{weekday} {date} at {time}",
+                    weekday=self.event_start_date.strftime("%A"),
+                    date=self.event_start_date.strftime("%#d %b"),
+                    time=self.event_start_date.strftime("%H:%M"),
+                )
             
-            self.event_end_date_string = self.event_end_date.strftime("eindigt om %H:%M uur")
+            self.event_end_date_string = self.main_app.t(
+                "calendar.ends_at",
+                default="ends at {time}",
+                time=self.event_end_date.strftime("%H:%M"),
+            )
 
             if current_time < self.event_start_date.timestamp():
                 time_string = self.event_start_date_string

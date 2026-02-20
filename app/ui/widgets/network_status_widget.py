@@ -11,7 +11,8 @@ from PIL import Image, ImageTk
 class NetworkStatusWidget:
     """Global network indicator widget, independent from screen implementations."""
 
-    def __init__(self, root, icon_size):
+    def __init__(self, main_app, root, icon_size):
+        self.main_app = main_app
         self.root = root
         project_root = pathlib.Path(__file__).resolve().parents[3]
         image_path = os.fspath(project_root / "images" / "buttons" / "no-wifi-white.png")
@@ -53,7 +54,13 @@ class NetworkStatusWidget:
     def show(self) -> None:
         if self.lost_at_text is None:
             self.lost_at_text = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.text_label.configure(text=f"Connection lost at {self.lost_at_text}")
+        self.text_label.configure(
+            text=self.main_app.t(
+                "network_banner.connection_lost_at",
+                default="Connection lost at {timestamp}",
+                timestamp=self.lost_at_text,
+            )
+        )
         if self.visible:
             self.banner.lift()
             return

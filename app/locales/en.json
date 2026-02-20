@@ -1,0 +1,85 @@
+{
+  "feedback": {
+    "setup_required": "First complete {setup_name} setup",
+    "feature_unavailable": "Feature unavailable right now",
+    "mqtt_unavailable": {
+      "generic": "Could not connect to MQTT server",
+      "disabled": "MQTT unavailable: disabled in settings",
+      "reason": "MQTT unavailable: {reason}",
+      "connect_rc": "MQTT unavailable: broker connect refused ({reason})",
+      "disconnect_rc": "MQTT unavailable: disconnected ({reason})",
+      "unknown": "MQTT unavailable: unknown reason"
+    }
+  },
+  "weather": {
+    "default_weather_text": "Current weather"
+  },
+  "setup": {
+    "title": "Run 'make configuration' in your project root to setup the homescreen.",
+    "status": {
+      "mqtt_enabled": "MQTT: enabled",
+      "mqtt_disabled": "MQTT: disabled",
+      "music_enabled": "Music: enabled",
+      "music_disabled": "Music: disabled",
+      "weather_configured": "Weather: configured",
+      "weather_missing": "Weather: enabled (missing API key/city)",
+      "weather_disabled": "Weather: disabled"
+    }
+  },
+  "network_banner": {
+    "connection_lost_at": "Connection lost at {timestamp}"
+  },
+  "network_check": {
+    "title": "Network Check",
+    "help": "Unavailable menu items stay grey until required connectivity is back.",
+    "label": {
+      "internet": "Internet",
+      "openweather": "OpenWeather",
+      "mqtt": "MQTT"
+    },
+    "row": {
+      "disabled": "{label}: disabled",
+      "checking": "{label}: checking...",
+      "ok": "{label}: OK",
+      "unavailable": "{label}: unavailable"
+    },
+    "available": {
+      "base_ui": "Base UI",
+      "weather": "Weather updates",
+      "mqtt": "MQTT actions/state",
+      "now": "Available now: {items}"
+    },
+    "last_check_pending": "Last check: pending",
+    "last_check": "Last check: {timestamp}"
+  },
+  "menu": {
+    "edit": {
+      "cancel": "Cancel",
+      "hide": "Hide",
+      "save": "Save"
+    },
+    "qr": {
+      "render_unavailable": "QR rendering unavailable.\nInstall package: qrcode"
+    }
+  },
+  "calendar": {
+    "tomorrow": "tomorrow",
+    "starts_at": "starts at {time}",
+    "tomorrow_at": "tomorrow at {time}",
+    "weekday_at": "{weekday} at {time}",
+    "date_at": "{weekday} {date} at {time}",
+    "ends_at": "ends at {time}"
+  },
+  "dialog": {
+    "recover_network": {
+      "title": "Recover Network",
+      "question": "Shall we try to recover network connectivity?"
+    }
+  },
+  "setup_name": {
+    "MQTT": "MQTT",
+    "Music": "Music",
+    "Camera": "Camera",
+    "QR config": "QR config"
+  }
+}

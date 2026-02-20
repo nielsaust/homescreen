@@ -24,5 +24,6 @@ local_config/mqtt_routes.json
 local_config/device_state_mapping.json
 local_config/startup_actions.json
 local_config/menu.json
+local_config/i18n/*.json
 local_config/*.backup.json
 local_config/*.json.backup

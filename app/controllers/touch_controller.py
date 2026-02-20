@@ -175,7 +175,12 @@ class TouchController:
         Args:
             interface (str): The name of the network interface to recover (e.g., 'wlan0').
         """
-        if messagebox.askyesno("Recover Network", f"Shall we try to recover network connectivity?"):
+        title = self.main_app.t("dialog.recover_network.title", default="Recover Network")
+        question = self.main_app.t(
+            "dialog.recover_network.question",
+            default="Shall we try to recover network connectivity?",
+        )
+        if messagebox.askyesno(title, question):
             log_event(logger, logging.WARNING, "network", "recovery.start")
 
             # Bring the interface down

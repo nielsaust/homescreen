@@ -55,7 +55,7 @@ def wizard() -> int:
         return rc
 
     print("[locale-setup] done")
-    print(f"[locale-setup] You can now set weather_time_locale to '{locale_name}' in local_config/settings.json")
+    print(f"[locale-setup] You can now set time_locale to '{locale_name}' in local_config/settings.json")
     return 0
 
 
