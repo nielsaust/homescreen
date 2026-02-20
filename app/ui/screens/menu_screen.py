@@ -71,6 +71,7 @@ class MenuScreen:
         self.edit_hide_btn = None
         self._menu_icon_files = None
         self.page_indicator_label = None
+        self.page_indicator_hide_after_id = None
         self.current_button_path = []
         self.current_buttons_ref = self.buttons
         self._menu_refresh_after_id = None
@@ -190,26 +191,34 @@ class MenuScreen:
             label.bind("<Button-1>", button.bind_down_event)
             label.bind("<ButtonRelease-1>", button.bind_up_event)
 
-        if self.page_indicator_label is not None:
+        if self.page_indicator_hide_after_id is not None:
             try:
-                self.page_indicator_label.destroy()
+                self.frame.after_cancel(self.page_indicator_hide_after_id)
             except Exception:
                 pass
-            self.page_indicator_label = None
+            self.page_indicator_hide_after_id = None
 
         show_page_number = bool(getattr(self.main_app.settings, "show_menu_page_number", True))
-        if (self.main_app.display_controller) and show_page_number:
-            indicator_timeout_ms = 0 if self.edit_mode else None
-            indicator_label = self.main_app.display_controller.place_action_label(
-                f"{page_nr}/{self.max_page}",
-                anchor="se",
-                timeout_ms=indicator_timeout_ms,
-            )
-            if indicator_label is not None:
-                self.page_indicator_label = indicator_label
-                indicator_label.bind("<Button-1>", self._handle_indicator_down)
-                indicator_label.bind("<ButtonRelease-1>", self._handle_indicator_up)
+        if show_page_number:
+            if self.page_indicator_label is None:
+                self.page_indicator_label = tk.Label(
+                    self.frame,
+                    text="",
+                    bg="black",
+                    fg="white",
+                    font=("Helvetica", 18, "bold"),
+                    padx=12,
+                    pady=6,
+                    highlightthickness=0,
+                )
+                self.page_indicator_label.bind("<Button-1>", self._handle_indicator_down)
+                self.page_indicator_label.bind("<ButtonRelease-1>", self._handle_indicator_up)
+            self.page_indicator_label.configure(text=f"{page_nr}/{self.max_page}")
+            self.page_indicator_label.place(relx=1.0, rely=1.0, x=-14, y=-14, anchor="se")
+            self.page_indicator_label.lift()
             log_event(logger, logging.DEBUG, "menu", "page.indicator", page=page_nr, max_page=self.max_page)
+        elif self.page_indicator_label is not None:
+            self.page_indicator_label.place_forget()
 
         self._render_edit_topbar()
         self._finalize_menu_render()
@@ -593,8 +602,6 @@ class MenuScreen:
 
     def _handle_indicator_down(self, _event):
         self.edit_indicator_press_at = time.time()
-        if self.main_app.display_controller and self.page_indicator_label is not None:
-            self.main_app.display_controller.hold_action_label(self.page_indicator_label)
         if self.edit_indicator_hold_after_id is not None:
             try:
                 self.frame.after_cancel(self.edit_indicator_hold_after_id)
@@ -619,8 +626,6 @@ class MenuScreen:
                 except Exception:
                     pass
                 self.edit_indicator_hold_after_id = None
-            if (not self.edit_mode) and self.main_app.display_controller and self.page_indicator_label is not None:
-                self.main_app.display_controller.release_action_label(self.page_indicator_label)
             self.edit_indicator_press_at = None
         return "break"
 
@@ -654,8 +659,6 @@ class MenuScreen:
         self.edit_dirty_paths = set()
         self.edit_hidden_ids_by_path = {}
         self._clear_all_button_selection_highlights()
-        if self.main_app.display_controller and self.page_indicator_label is not None:
-            self.main_app.display_controller.release_action_label(self.page_indicator_label)
         self.remove_current_menu()
         self.make_menu_buttons(self.current_menu_page, self.current_buttons_ref)
         self.update_buttons()
