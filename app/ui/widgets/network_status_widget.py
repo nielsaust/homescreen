@@ -4,7 +4,6 @@ import datetime
 import os
 import pathlib
 import tkinter as tk
-from tkinter import TclError
 
 from PIL import Image, ImageTk
 
@@ -26,7 +25,7 @@ class NetworkStatusWidget:
 
         self.banner = tk.Frame(self.root, bg="#f4c542", highlightthickness=0)
         self.content = tk.Frame(self.banner, bg="#f4c542")
-        self.content.place(relx=0.5, rely=0.5, anchor="center")
+        self.content.pack(padx=14, pady=0)
 
         self.icon_label = tk.Label(self.content, image=self.icon, bg="#f4c542")
         self.icon_label.image = self.icon
@@ -45,26 +44,6 @@ class NetworkStatusWidget:
         self.lost_at_text = None
         self.visible = False
         self.banner_height = 32
-        self.banner_pad_x = 14
-        self.root.bind("<Configure>", self._on_root_resize, add="+")
-
-    def _on_root_resize(self, _event=None) -> None:
-        if not self.visible:
-            return
-        try:
-            if self.banner.winfo_exists() and self.content.winfo_exists():
-                self._place_centered_banner()
-        except TclError:
-            # Widget tree may be in teardown while root resize events still arrive.
-            return
-
-    def _place_centered_banner(self) -> None:
-        # Keep banner compact around icon+text with horizontal padding.
-        self.banner.update_idletasks()
-        content_width = max(self.content.winfo_reqwidth(), 1)
-        width = content_width + (self.banner_pad_x * 2)
-        self.banner.place(relx=0.5, x=0, y=0, anchor="n", width=width, height=self.banner_height)
-        self.banner.lift()
 
     def set_online(self, online: bool) -> None:
         if online:
@@ -83,9 +62,11 @@ class NetworkStatusWidget:
             )
         )
         if self.visible:
-            self._place_centered_banner()
+            self.banner.lift()
             return
-        self._place_centered_banner()
+        # Center banner by content size; do not force update_idletasks or resize hooks.
+        self.banner.place(relx=0.5, y=0, anchor="n", height=self.banner_height)
+        self.banner.lift()
         self.visible = True
 
     def hide(self) -> None:
