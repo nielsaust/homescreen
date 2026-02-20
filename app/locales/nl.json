@@ -29,8 +29,8 @@
   "network_banner": {
     "connection_lost_at": "Verbinding verbroken om {timestamp}"
   },
-  "network_check": {
-    "title": "Netwerkcontrole",
+  "status_check": {
+    "title": "Check status",
     "help": "Niet-beschikbare menu-items blijven grijs tot de vereiste connectiviteit terug is.",
     "label": {
       "internet": "Internet",
@@ -50,7 +50,8 @@
       "now": "Nu beschikbaar: {items}"
     },
     "last_check_pending": "Laatste check: in behandeling",
-    "last_check": "Laatste check: {timestamp}"
+    "last_check": "Laatste check: {timestamp}",
+    "build": "Versie: {version}  Commit: {commit}"
   },
   "menu": {
     "edit": {

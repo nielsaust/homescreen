@@ -47,14 +47,14 @@
           }
         },
         {
-          "id": "check_network",
-          "text": "Check network",
+          "id": "check_status",
+          "text": "Check status",
           "image": "wifi.png",
-          "action": "check_network",
+          "action": "check_status",
           "order": 35,
           "action_spec": {
             "kind": "custom",
-            "name": "show_network_check"
+            "name": "show_status_check"
           }
         },
         {

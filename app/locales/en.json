@@ -29,8 +29,8 @@
   "network_banner": {
     "connection_lost_at": "Connection lost at {timestamp}"
   },
-  "network_check": {
-    "title": "Network Check",
+  "status_check": {
+    "title": "Check Status",
     "help": "Unavailable menu items stay grey until required connectivity is back.",
     "label": {
       "internet": "Internet",
@@ -50,7 +50,8 @@
       "now": "Available now: {items}"
     },
     "last_check_pending": "Last check: pending",
-    "last_check": "Last check: {timestamp}"
+    "last_check": "Last check: {timestamp}",
+    "build": "Version: {version}  Commit: {commit}"
   },
   "menu": {
     "edit": {

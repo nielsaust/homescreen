@@ -52,7 +52,7 @@ Optional per-install overrides can be placed in `local_config/i18n/<locale>.json
 - Date format for idle weather clock (`weather_date_format`, strftime format)
 - OpenWeather/network resilience
   - Weather fetch runs async so temporary API outages do not block menu/idle interaction.
-  - `network_check_refresh_interval_seconds` controls refresh interval for the in-app `Check network` screen.
+  - `network_check_refresh_interval_seconds` controls refresh interval for the in-app `Check status` screen.
 
 Localization
 
@@ -99,7 +99,7 @@ Settings keys:
 - `simulate_outage_weather_service`
 - `simulate_outage_mqtt`
 
-When enabled, the new `Check network` screen reflects simulated failures immediately.
+When enabled, the new `Check status` screen reflects simulated failures immediately.
 
 ## Related Commands
 

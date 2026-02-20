@@ -30,7 +30,7 @@ Use `self.main_app.t(...)` in screens/controllers/services that have access to `
 Simple:
 
 ```python
-text = self.main_app.t("network_check.title", default="Network Check")
+text = self.main_app.t("status_check.title", default="Check Status")
 ```
 
 With placeholders:

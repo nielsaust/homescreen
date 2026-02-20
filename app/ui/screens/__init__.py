@@ -3,7 +3,7 @@ from .calendar_screen import CalendarScreen
 from .cam_screen import CamScreen
 from .menu_screen import MenuScreen
 from .music_screen import MusicScreen
-from .network_check_screen import NetworkCheckScreen
+from .status_check_screen import StatusCheckScreen
 from .print_screen import PrintScreen
 from .slider_screen import SliderScreen
 from .slideshow import SlideShow
@@ -23,4 +23,5 @@ __all__ = [
     "SetupRequiredScreen",
     "TurnedOffScreen",
     "WeatherScreen",
+    "StatusCheckScreen",
 ]

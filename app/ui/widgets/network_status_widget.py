@@ -4,6 +4,7 @@ import datetime
 import os
 import pathlib
 import tkinter as tk
+from tkinter import TclError
 
 from PIL import Image, ImageTk
 
@@ -44,6 +45,26 @@ class NetworkStatusWidget:
         self.lost_at_text = None
         self.visible = False
         self.banner_height = 32
+        self.banner_pad_x = 14
+        self.root.bind("<Configure>", self._on_root_resize, add="+")
+
+    def _on_root_resize(self, _event=None) -> None:
+        if not self.visible:
+            return
+        try:
+            if self.banner.winfo_exists() and self.content.winfo_exists():
+                self._place_centered_banner()
+        except TclError:
+            # Widget tree may be in teardown while root resize events still arrive.
+            return
+
+    def _place_centered_banner(self) -> None:
+        # Keep banner compact around icon+text with horizontal padding.
+        self.banner.update_idletasks()
+        content_width = max(self.content.winfo_reqwidth(), 1)
+        width = content_width + (self.banner_pad_x * 2)
+        self.banner.place(relx=0.5, x=0, y=0, anchor="n", width=width, height=self.banner_height)
+        self.banner.lift()
 
     def set_online(self, online: bool) -> None:
         if online:
@@ -62,10 +83,9 @@ class NetworkStatusWidget:
             )
         )
         if self.visible:
-            self.banner.lift()
+            self._place_centered_banner()
             return
-        self.banner.place(relx=0.0, rely=0.0, relwidth=1.0, height=self.banner_height, anchor="nw")
-        self.banner.lift()
+        self._place_centered_banner()
         self.visible = True
 
     def hide(self) -> None:

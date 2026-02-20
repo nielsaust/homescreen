@@ -28,6 +28,7 @@ class ActionDispatcher:
             "turn_screen_off": self._turn_screen_off,
             "music_show_title": self._music_show_title,
             "force_fullscreen": self._force_fullscreen,
+            "show_status_check": self._show_status_check,
             "show_network_check": self._show_network_check,
         }
 
@@ -245,7 +246,10 @@ class ActionDispatcher:
         self.main_app.display_controller.force_kiosk_window_mode()
 
     def _show_network_check(self) -> None:
-        self.main_app.display_controller.show_screen("network_check", force=True)
+        self.main_app.display_controller.show_screen("status_check", force=True)
+
+    def _show_status_check(self) -> None:
+        self.main_app.display_controller.show_screen("status_check", force=True)
 
     def _ensure_mqtt_enabled(self, user_initiated: bool = False) -> bool:
         if not self.main_app.is_mqtt_enabled():
