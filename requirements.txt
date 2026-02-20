@@ -1,0 +1,12 @@
+aiohttp
+certifi
+frozenlist
+paho-mqtt
+ping3
+pillow
+psutil
+requests
+sentry-sdk
+yarl
+qrcode
+RPi.GPIO; platform_system == "Linux" and (platform_machine == "armv6l" or platform_machine == "armv7l" or platform_machine == "aarch64")
