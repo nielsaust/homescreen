@@ -102,19 +102,19 @@ class StatusCheckScreen:
                 break
 
         update_text = ""
-        if pull_date_text:
-            update_text = self.main_app.t(
-                "status_check.last_update",
-                default="Last update: {timestamp} ({source})",
-                timestamp=pull_date_text,
-                source=self.main_app.t("status_check.last_update_source.pull", default="pull"),
-            )
-        elif commit_date_text:
+        if commit_date_text:
             update_text = self.main_app.t(
                 "status_check.last_update",
                 default="Last update: {timestamp} ({source})",
                 timestamp=commit_date_text,
-                source=self.main_app.t("status_check.last_update_source.commit", default="commit"),
+                source=self.main_app.t("status_check.last_update_source.commit", default="from git commit date"),
+            )
+        elif pull_date_text:
+            update_text = self.main_app.t(
+                "status_check.last_update",
+                default="Last update: {timestamp} ({source})",
+                timestamp=pull_date_text,
+                source=self.main_app.t("status_check.last_update_source.pull", default="from deploy pull"),
             )
         else:
             update_text = self.main_app.t(

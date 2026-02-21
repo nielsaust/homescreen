@@ -55,8 +55,8 @@
     "last_update": "Laatste update: {timestamp} ({source})",
     "last_update_pending": "Laatste update: onbekend",
     "last_update_source": {
-      "pull": "pull",
-      "commit": "commit"
+      "pull": "via deploy pull",
+      "commit": "via git commit-datum"
     }
   },
   "menu": {

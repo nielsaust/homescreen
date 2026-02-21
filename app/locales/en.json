@@ -55,8 +55,8 @@
     "last_update": "Last update: {timestamp} ({source})",
     "last_update_pending": "Last update: unknown",
     "last_update_source": {
-      "pull": "pull",
-      "commit": "commit"
+      "pull": "from deploy pull",
+      "commit": "from git commit date"
     }
   },
   "menu": {
