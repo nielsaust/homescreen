@@ -5,6 +5,11 @@ This document reflects the current working setup:
 - `homescreen.service` runs the app.
 - `homescreen-deploy.timer` polls `main` and runs `tools/deploy_on_pi.sh`.
 
+## 0) Deploy Strategy
+
+This project uses local pull-based deploy on the device (`homescreen-deploy.timer`).
+No GitHub-hosted remote deploy is required.
+
 ## 1) Clone + Python env
 
 ```bash
@@ -44,6 +49,8 @@ Option A (recommended): run helper
 ```bash
 make service-setup
 ```
+
+The helper now asks for deploy check interval (`every X minutes/hours/days`) and writes it into `homescreen-deploy.timer`.
 
 Option B: manual setup (below)
 

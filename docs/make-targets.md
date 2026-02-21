@@ -11,7 +11,7 @@ Complete overview of available `make` commands.
 - `make migrate-local-config`  
   One-time migration for older local config layouts.
 - `make service-setup`  
-  Linux/Pi systemd setup wizard.
+  Linux/Pi systemd setup wizard (includes deploy polling interval: every X minutes/hours/days).
 - `make locale-setup`  
   Linux locale helper (for date/time locale rendering).
 - `make mqtt-topics`  

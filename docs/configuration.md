@@ -83,6 +83,7 @@ Localization
   - configures `DISPLAY=:0` + `XAUTHORITY`
   - configures a startup wait for X display availability (`/tmp/.X11-unix/X0`)
   - enables app autostart on `graphical.target`
+  - configures local deploy polling interval (`every X minutes/hours/days`)
 
 ## Dev Outage Simulation
 

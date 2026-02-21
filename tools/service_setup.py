@@ -31,6 +31,34 @@ def _prompt_bool(text: str, default: bool) -> bool:
         print("Please answer y or n.")
 
 
+def _prompt_choice(text: str, choices: tuple[str, ...], default: str) -> str:
+    allowed = "/".join(choices)
+    while True:
+        raw = _prompt(f"{text} ({allowed})", default).strip().lower()
+        if raw in choices:
+            return raw
+        print(f"Please choose one of: {allowed}.")
+
+
+def _prompt_positive_int(text: str, default: int) -> int:
+    while True:
+        raw = _prompt(text, str(default)).strip()
+        try:
+            value = int(raw)
+            if value > 0:
+                return value
+        except ValueError:
+            pass
+        print("Please enter a positive integer.")
+
+
+def _prompt_deploy_interval() -> tuple[str, str]:
+    amount = _prompt_positive_int("Deploy check interval value", 2)
+    unit = _prompt_choice("Deploy check interval unit", ("minutes", "hours", "days"), "minutes")
+    unit_suffix = {"minutes": "min", "hours": "h", "days": "d"}[unit]
+    return f"{amount}{unit_suffix}", f"every {amount} {unit}"
+
+
 def _run(cmd: list[str]) -> int:
     print(f"[service-setup] running: {' '.join(cmd)}")
     return subprocess.run(cmd, check=False).returncode
@@ -48,12 +76,13 @@ def wizard() -> int:
     app_dir = _prompt("Homescreen app directory", str(ROOT))
     service_name = _prompt("Service name", "homescreen.service")
     install_now = _prompt_bool("Install/update systemd units now?", False)
+    deploy_interval_systemd, deploy_interval_human = _prompt_deploy_interval()
 
     print("\n[service-setup] summary")
     print(f"- user: {user}")
     print(f"- app_dir: {app_dir}")
     print(f"- service: {service_name}")
-    print("- deploy timer: homescreen-deploy.timer")
+    print(f"- deploy timer: homescreen-deploy.timer ({deploy_interval_human})")
 
     if not install_now:
         print("[service-setup] Skipped installation. You can run this helper later.")
@@ -74,6 +103,24 @@ def wizard() -> int:
             "sudo",
             "cp",
             str(SYSTEMD_DIR / "homescreen-deploy.timer.example"),
+            "/etc/systemd/system/homescreen-deploy.timer",
+        ]
+    )
+    _run(
+        [
+            "sudo",
+            "sed",
+            "-i",
+            f"s|^Description=.*|Description=Run Homescreen deploy check {deploy_interval_human}|",
+            "/etc/systemd/system/homescreen-deploy.timer",
+        ]
+    )
+    _run(
+        [
+            "sudo",
+            "sed",
+            "-i",
+            f"s|^OnUnitActiveSec=.*|OnUnitActiveSec={deploy_interval_systemd}|",
             "/etc/systemd/system/homescreen-deploy.timer",
         ]
     )
