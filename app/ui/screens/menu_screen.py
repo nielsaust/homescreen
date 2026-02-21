@@ -43,6 +43,9 @@ class MenuScreen:
         self.exit_timeout_future = None
         self.exit_timeout_ms = self.main_app.settings.close_menu_timeout
         self.button_click_time = None
+        self.hold_feedback_after_id = None
+        self.hold_feedback_ready = False
+        self.hold_feedback_button = None
         
         self.buttons = build_menu_buttons(self.main_app.settings)
         self.state_resolver = MenuStateResolver(self.main_app)
@@ -184,7 +187,7 @@ class MenuScreen:
             label.grid(row=row, column=col, padx=self.main_app.settings.menu_button_padding, pady=self.main_app.settings.menu_button_padding, sticky="nsew")
 
             button_entry = self.active_buttons[i]
-            button.bind_down_event = lambda event, button=button: self.handle_button_click(event, button)
+            button.bind_down_event = lambda event, button=button, entry=button_entry: self.handle_button_click(event, button, entry)
             button.bind_up_event = lambda event, button=button, entry=button_entry: self.handle_button_release(event, button, entry)
 
             # Register a click event for each button
@@ -421,13 +424,55 @@ class MenuScreen:
         widget.configure(background=background_color)
 
     # Define a method to handle button clicks
-    def handle_button_click(self, event, button):
+    def _has_hold_action(self, button_entry):
+        hold_spec = button_entry.get("hold_action_spec") if isinstance(button_entry, dict) else None
+        return isinstance(hold_spec, dict) and bool(hold_spec)
+
+    def _resolve_button_base_color(self, button):
+        if not getattr(button, "is_available", True):
+            return self.button_color.get("disabled")
+        return self.button_color.get("active") if button.is_active else self.button_color.get("inactive")
+
+    def _cancel_hold_feedback(self, restore=True):
+        if self.hold_feedback_after_id is not None:
+            try:
+                self.frame.after_cancel(self.hold_feedback_after_id)
+            except Exception:
+                pass
+            self.hold_feedback_after_id = None
+        if restore and self.hold_feedback_button is not None and getattr(self.hold_feedback_button, "label", None) is not None:
+            try:
+                self.hold_feedback_button.label.configure(bg=self._resolve_button_base_color(self.hold_feedback_button))
+            except Exception:
+                pass
+        self.hold_feedback_ready = False
+        self.hold_feedback_button = None
+
+    def _activate_hold_feedback(self):
+        self.hold_feedback_after_id = None
+        if self.button_click_time is None or self.hold_feedback_button is None:
+            return
+        label = getattr(self.hold_feedback_button, "label", None)
+        if label is None:
+            return
+        self.hold_feedback_ready = True
+        try:
+            label.configure(bg=self.button_color.get("down"))
+        except Exception:
+            return
+
+    def handle_button_click(self, event, button, button_entry):
         if self.edit_mode:
             return "break"
         self.click_x = event.x_root
         self.click_y = event.y_root
         # Record the time of the initial click
         self.button_click_time = time.time()
+        self._cancel_hold_feedback(restore=False)
+        if self._has_hold_action(button_entry):
+            self.hold_feedback_button = button
+            hold_ms = int(float(self.main_app.settings.hold_time) * 1000)
+            self.hold_feedback_after_id = self.frame.after(max(1, hold_ms), self._activate_hold_feedback)
         if getattr(button, "is_available", True):
             button.label.configure(highlightthickness=self.main_app.settings.menu_border_thickness)
         self.close_timeout()
@@ -456,6 +501,7 @@ class MenuScreen:
             
             if(max_movement>min_movement):
                 log_event(logger, logging.DEBUG, "menu", "gesture.swipe_detected", min_movement=min_movement, movement=max_movement)
+                self._cancel_hold_feedback()
                 # Consume menu widget event and route swipe explicitly so root handlers
                 # do not need to receive this event.
                 x_abs = abs(x_dir)
@@ -471,6 +517,7 @@ class MenuScreen:
                 return "break"
 
             if not getattr(button, "is_available", True):
+                self._cancel_hold_feedback()
                 self._show_unavailable_feedback(button.id)
                 return "break"
 
@@ -493,6 +540,7 @@ class MenuScreen:
                     self.main_app.touch_controller.handle_menu_button(button.action)
             return "break"
         finally:
+            self._cancel_hold_feedback()
             # Never carry touch capture state across button interactions.
             self.button_click_time = None
             self.click_x = None

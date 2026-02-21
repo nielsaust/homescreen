@@ -114,6 +114,7 @@ Wizard modes:
 - `edit`: edits an existing item (label/icon/action) and can scaffold missing inline action specs.
 - `remove`: removes an existing item and optionally removes unreferenced action/settings keys.
 - `verify`: checks one item wiring.
+- `create` and `edit` can also configure `hold_action_spec` (long-press action) per menu item.
 
 Supported item types in `create`:
 
@@ -148,6 +149,7 @@ Notes:
 - You can add items to top-level or any existing submenu container listed by the wizard.
 - Icon guidelines live in `images/buttons/README.md`.
 - `edit` now supports `hidden` so you can re-show items hidden in the app editor.
+- `verify` validates both click (`action_spec`) and long-press (`hold_action_spec`) references.
 
 ## Supported Action Kinds
 

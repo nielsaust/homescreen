@@ -538,6 +538,131 @@ def _ensure_action_spec(action_specs: dict[str, dict[str, Any]], action_id: str,
     raise RuntimeError(f"Unsupported item type: {item_type}")
 
 
+def _build_inline_spec(item_type: str, action_id_hint: str) -> tuple[dict[str, Any], str | None]:
+    """Build an inline spec (for hold actions) without touching legacy action_specs."""
+    if item_type == "setting_toggle":
+        setting_key = _prompt_required("Setting key to toggle", action_id_hint)
+        default_true = _prompt_choice("Default setting true?", ["y", "n"], "n") == "y"
+        _set_setting_defaults(setting_key, True if default_true else False)
+        return {"kind": "setting_toggle", "attr": setting_key}, setting_key
+
+    if item_type == "mqtt_action":
+        mqtt_action = _prompt_required("MQTT action payload", action_id_hint)
+        return {"kind": "mqtt_action", "action": mqtt_action}, None
+
+    if item_type == "mqtt_message":
+        topic = _prompt_required("MQTT topic", "screen_commands/outgoing")
+        return {"kind": "mqtt_message", "topic": topic, "payload": None}, None
+
+    if item_type == "mqtt_publish":
+        mode = _prompt_choice("Use topic key or explicit topic?", ["topic_key", "topic"], "topic_key")
+        spec: dict[str, Any] = {"kind": "mqtt_publish", "payload": None}
+        if mode == "topic_key":
+            spec["topic_key"] = _prompt_required(
+                "MQTT topic key (from local_config/mqtt_topics.json)",
+                "actions_outgoing",
+            )
+        else:
+            spec["topic"] = _prompt_required("MQTT topic", "screen_commands/outgoing")
+        payload_raw = _prompt_optional("Payload (blank for none, JSON object/array, or plain string)", "")
+        if payload_raw:
+            try:
+                if payload_raw.startswith("{") or payload_raw.startswith("["):
+                    spec["payload"] = json.loads(payload_raw)
+                else:
+                    spec["payload"] = payload_raw
+            except Exception:
+                spec["payload"] = payload_raw
+        return spec, None
+
+    if item_type == "show_image":
+        image_file = _prompt_required("Image file to show", "qr-wifi.png")
+        return {"kind": "show_image", "image": image_file}, None
+
+    if item_type == "show_qr":
+        qr_item_id = _prompt_required("QR item id (from local_config/qr_items.json)", action_id_hint)
+        return {"kind": "show_qr", "item_id": qr_item_id}, None
+
+    if item_type == "show_camera":
+        camera_id = _prompt_required("Camera id (from local_config/cameras.json)", action_id_hint)
+        return {"kind": "show_camera", "camera_id": camera_id}, None
+
+    if item_type == "show_slider":
+        entity = _prompt_required("Entity id", action_id_hint)
+        title = _prompt_required("Slider title", entity)
+        slider_type = _prompt_choice("Slider type", ["light", "cover"], "light")
+        return {"kind": "show_slider", "entity": entity, "title": title, "slider_type": slider_type}, None
+
+    if item_type == "media":
+        op = _prompt_choice("Media op", ["play_pause", "volume", "skip"], "play_pause")
+        spec: dict[str, Any] = {"kind": "media", "op": op}
+        if op == "volume":
+            spec["arg"] = _prompt_choice("Volume direction", ["up", "down"], "up")
+        elif op == "skip":
+            spec["arg"] = _prompt_choice("Skip direction", ["next", "previous"], "next")
+        return spec, None
+
+    if item_type == "custom":
+        handler_name = _prompt_required("Custom handler name", action_id_hint)
+        _add_custom_handler_stub(handler_name)
+        return {"kind": "custom", "name": handler_name}, None
+
+    raise RuntimeError(f"Unsupported inline spec type: {item_type}")
+
+
+def _configure_hold_spec(entry: dict[str, Any], action_id_hint: str) -> None:
+    existing = entry.get("hold_action_spec")
+    has_existing = isinstance(existing, dict) and bool(existing)
+    if has_existing:
+        mode = _prompt_choice("Hold action (long press): keep/replace/remove", ["keep", "replace", "remove"], "keep")
+        if mode == "keep":
+            return
+        if mode == "remove":
+            entry.pop("hold_action_spec", None)
+            return
+    else:
+        add_hold = _prompt_choice("Add hold (long-press) action?", ["y", "n"], "n")
+        if add_hold != "y":
+            return
+
+    hold_type = _prompt_choice(
+        "Hold action type",
+        ["setting_toggle", "mqtt_action", "mqtt_message", "mqtt_publish", "show_image", "show_qr", "show_camera", "show_slider", "media", "custom"],
+        "mqtt_publish",
+    )
+    hold_spec, _ = _build_inline_spec(hold_type, action_id_hint)
+    entry["hold_action_spec"] = hold_spec
+
+
+def _verify_spec_links(spec: dict[str, Any], prefix: str = "") -> None:
+    if not isinstance(spec, dict):
+        return
+    kind = str(spec.get("kind", "")).strip()
+    if kind == "show_qr":
+        item_id = str(spec.get("item_id", "")).strip()
+        items = _load_json_object(QR_ITEMS_PATH) or {}
+        if item_id and item_id not in items:
+            print(f"[menu-item] warning: {prefix}qr item '{item_id}' not found in local_config/qr_items.json")
+    elif kind == "show_camera":
+        camera_id = str(spec.get("camera_id", "")).strip()
+        cameras = _load_cameras()
+        if camera_id and camera_id not in cameras:
+            print(f"[menu-item] warning: {prefix}camera '{camera_id}' not found in local_config/cameras.json")
+    elif kind == "setting_toggle":
+        setting_key = str(spec.get("attr", "")).strip()
+        local_settings = _load_json_object(SETTINGS_LOCAL) or {}
+        example_settings = _load_json_object(SETTINGS_EXAMPLE) or {}
+        if setting_key and setting_key not in local_settings and setting_key not in example_settings:
+            print(f"[menu-item] warning: {prefix}setting key '{setting_key}' missing in settings files")
+    elif kind in ("mqtt_action", "mqtt_publish", "mqtt_message"):
+        topic_key = str(spec.get("topic_key", "")).strip()
+        if topic_key:
+            topics = _load_json_object(MQTT_TOPICS_LOCAL) or _load_json_object(MQTT_TOPICS_EXAMPLE) or {}
+            topic_block = topics.get("topics") if isinstance(topics.get("topics"), dict) else {}
+            if topic_key not in topic_block:
+                print(f"[menu-item] warning: {prefix}mqtt topic key '{topic_key}' missing in mqtt_topics.json")
+
+
 def _create_item() -> int:
     config = _load_menu_config_data()
     schema = _load_menu_schema(config)
@@ -578,6 +703,7 @@ def _create_item() -> int:
         spec = action_specs_all.get(action_id)
         if isinstance(spec, dict):
             new_entry["action_spec"] = copy.deepcopy(spec)
+    _configure_hold_spec(new_entry, action_id)
 
     target = _get_container(schema, container["path"])
     target.append(new_entry)
@@ -602,30 +728,10 @@ def _verify_item() -> int:
         print(f"[menu-item] missing action spec for '{action_id}'")
         return 1
     if isinstance(spec, dict):
-        kind = str(spec.get("kind", "")).strip()
-        if kind == "show_qr":
-            item_id = str(spec.get("item_id", "")).strip()
-            items = _load_json_object(QR_ITEMS_PATH) or {}
-            if item_id and item_id not in items:
-                print(f"[menu-item] warning: qr item '{item_id}' not found in local_config/qr_items.json")
-        elif kind == "show_camera":
-            camera_id = str(spec.get("camera_id", "")).strip()
-            cameras = _load_cameras()
-            if camera_id and camera_id not in cameras:
-                print(f"[menu-item] warning: camera '{camera_id}' not found in local_config/cameras.json")
-        elif kind == "setting_toggle":
-            setting_key = str(spec.get("attr", "")).strip()
-            local_settings = _load_json_object(SETTINGS_LOCAL) or {}
-            example_settings = _load_json_object(SETTINGS_EXAMPLE) or {}
-            if setting_key and setting_key not in local_settings and setting_key not in example_settings:
-                print(f"[menu-item] warning: setting key '{setting_key}' missing in settings files")
-        elif kind in ("mqtt_action", "mqtt_publish", "mqtt_message"):
-            topic_key = str(spec.get("topic_key", "")).strip()
-            if topic_key:
-                topics = _load_json_object(MQTT_TOPICS_LOCAL) or _load_json_object(MQTT_TOPICS_EXAMPLE) or {}
-                topic_block = topics.get("topics") if isinstance(topics.get("topics"), dict) else {}
-                if topic_key not in topic_block:
-                    print(f"[menu-item] warning: mqtt topic key '{topic_key}' missing in mqtt_topics.json")
+        _verify_spec_links(spec, prefix="")
+    hold_spec = entry.get("hold_action_spec")
+    if isinstance(hold_spec, dict):
+        _verify_spec_links(hold_spec, prefix="hold ")
     print(f"[menu-item] verify OK id='{entry.get('id')}' action='{action_id}'")
     return 0
 
@@ -698,6 +804,8 @@ def _edit_item() -> int:
         entry.pop("action_spec", None)
     else:
         entry.pop("action_spec", None)
+
+    _configure_hold_spec(entry, new_action)
 
     if new_action != old_action:
         remaining_actions = {r["entry"].get("action") for r in _collect_entries(schema)}
