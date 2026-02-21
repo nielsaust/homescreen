@@ -1,9 +1,12 @@
 PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 
-.PHONY: install configuration mqtt-topics locale-setup migrate-local-config menu-migrate-actions service-setup baseline doctor smoke test-unit perf-check menu-contract-check menu-item-scaffold menu-item-new-toggle menu-item-verify-toggle py39-guard localization-check check-local test-local test-device run net-down net-up net-status net-recover settings-check settings-update-example settings-update-local settings-prune-local-preview settings-prune-local deploy-dry-run precommit-install precommit-run security-scan
+.PHONY: install configuration mqtt-topics locale-setup migrate-local-config menu-migrate-actions service-setup baseline doctor smoke test-unit perf-check menu-contract-check menu-item-scaffold menu-item-new-toggle menu-item-verify-toggle py39-guard localization-check check-local test-local test-device run net-down net-up net-status net-recover settings-check settings-update-example settings-update-local settings-prune-local-preview settings-prune-local deploy-dry-run precommit-install precommit-run security-scan wizard
 
 install:
 	bash tools/bootstrap.sh
+
+wizard:
+	$(PYTHON) tools/make_wizard.py
 
 configuration:
 	$(PYTHON) tools/configuration_wizard.py

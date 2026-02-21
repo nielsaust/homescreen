@@ -2,6 +2,14 @@
 
 Complete overview of available `make` commands.
 
+## Task Navigator
+
+- `make wizard`  
+  Interactive menu to browse targets by category.
+  - shows short explanations per option
+  - selected target runs immediately
+  - supports back (`0`) and quit (`q`)
+
 ## Onboarding & Setup
 
 - `make install`  

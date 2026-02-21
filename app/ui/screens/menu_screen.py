@@ -560,6 +560,54 @@ class MenuScreen:
         if not isinstance(hold_spec, dict) or not hold_spec:
             log_event(logger, logging.DEBUG, "menu", "button.hold_ignored", reason="no_hold_action_spec", action=button.action)
             return
+
+        # Shorthand support:
+        # - if hold spec omits kind and item has submenu children, treat hold as open submenu
+        # - if hold spec omits kind but has "action", dispatch that action id
+        def _open_hold_submenu_if_any():
+            sub_buttons = button_entry.get("screen") or []
+            if isinstance(sub_buttons, list) and len(sub_buttons) > 0:
+                self.enter_submenu(button_entry=button_entry)
+                return True
+            return False
+
+        kind = str(hold_spec.get("kind", "")).strip()
+        if not kind:
+            if _open_hold_submenu_if_any():
+                return
+            action_id = str(hold_spec.get("action", "")).strip()
+            if action_id:
+                if action_id == "open_page":
+                    if _open_hold_submenu_if_any():
+                        return
+                    else:
+                        log_event(
+                            logger,
+                            logging.WARNING,
+                            "menu",
+                            "button.hold_invalid_spec",
+                            reason="open_page_without_submenu",
+                            action=button.action,
+                        )
+                    return
+                self.main_app.touch_controller.suppress_next_click()
+                self.main_app.touch_controller.handle_menu_button(action_id)
+                return
+            log_event(
+                logger,
+                logging.WARNING,
+                "menu",
+                "button.hold_invalid_spec",
+                reason="missing_kind_and_no_inferable_behavior",
+                action=button.action,
+            )
+            return
+        if kind == "menu_nav":
+            command = str(hold_spec.get("command", "")).strip()
+            if command in ("open_page", "submenu", ""):
+                if _open_hold_submenu_if_any():
+                    return
+
         self.main_app.touch_controller.suppress_next_click()
         self.main_app.action_dispatcher.dispatch_spec(f"{button.action}:hold", hold_spec, user_initiated=True)
 

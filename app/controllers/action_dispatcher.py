@@ -55,7 +55,11 @@ class ActionDispatcher:
     def _execute(self, action: str, spec: dict, user_initiated: bool = False) -> None:
         kind = spec.get("kind")
         if kind == "menu_nav":
-            self.main_app.request_menu_navigation(spec["command"], source="action_dispatcher")
+            command = str(spec.get("command", "")).strip()
+            if not command:
+                logger.warning("menu_nav missing command for action '%s'", action)
+                return
+            self.main_app.request_menu_navigation(command, source="action_dispatcher")
             return
         if kind == "mqtt_action":
             if not self._ensure_mqtt_enabled(user_initiated=user_initiated):
