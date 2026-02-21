@@ -63,20 +63,7 @@ class StatusCheckScreen:
 
     def _resolve_build_metadata_text(self) -> tuple[str, str]:
         version = str(getattr(self.main_app.settings, "version", "dev") or "dev")
-        commit = "unknown"
         repo_root = Path(__file__).resolve().parents[3]
-        sha = self._git_capture(repo_root, ["rev-parse", "--short", "HEAD"])
-        if sha:
-            commit = sha
-
-        commit_date_text = ""
-        commit_iso = self._git_capture(repo_root, ["log", "-1", "--format=%cI"])
-        if commit_iso:
-            try:
-                commit_dt = datetime.datetime.fromisoformat(commit_iso.replace("Z", "+00:00"))
-                commit_date_text = commit_dt.astimezone().strftime("%Y-%m-%d %H:%M:%S")
-            except Exception:
-                commit_date_text = commit_iso
 
         pull_date_text = ""
         reflog_lines = self._git_capture(
@@ -89,7 +76,8 @@ class StatusCheckScreen:
                 if "\t" not in line:
                     continue
                 msg, date_text = line.split("\t", 1)
-                if "pull" not in msg.lower():
+                msg_l = msg.lower()
+                if "pull" not in msg_l and "clone" not in msg_l:
                     continue
                 date_text = date_text.strip()
                 if not date_text:
@@ -102,19 +90,12 @@ class StatusCheckScreen:
                 break
 
         update_text = ""
-        if commit_date_text:
-            update_text = self.main_app.t(
-                "status_check.last_update",
-                default="Last update: {timestamp} ({source})",
-                timestamp=commit_date_text,
-                source=self.main_app.t("status_check.last_update_source.commit", default="from git commit date"),
-            )
-        elif pull_date_text:
+        if pull_date_text:
             update_text = self.main_app.t(
                 "status_check.last_update",
                 default="Last update: {timestamp} ({source})",
                 timestamp=pull_date_text,
-                source=self.main_app.t("status_check.last_update_source.pull", default="from deploy pull"),
+                source=self.main_app.t("status_check.last_update_source.pull", default="from local git update"),
             )
         else:
             update_text = self.main_app.t(
@@ -124,9 +105,8 @@ class StatusCheckScreen:
 
         build_text = self.main_app.t(
             "status_check.build",
-            default="Version: {version}  Commit: {commit}",
+            default="Version: {version}",
             version=version,
-            commit=commit,
         )
         return build_text, update_text
 

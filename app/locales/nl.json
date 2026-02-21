@@ -51,11 +51,11 @@
     },
     "last_check_pending": "Laatste check: in behandeling",
     "last_check": "Laatste check: {timestamp}",
-    "build": "Versie: {version}  Commit: {commit}",
+    "build": "Versie: {version}",
     "last_update": "Laatste update: {timestamp} ({source})",
     "last_update_pending": "Laatste update: onbekend",
     "last_update_source": {
-      "pull": "via deploy pull",
+      "pull": "via lokale git-update",
       "commit": "via git commit-datum"
     }
   },

@@ -51,11 +51,11 @@
     },
     "last_check_pending": "Last check: pending",
     "last_check": "Last check: {timestamp}",
-    "build": "Version: {version}  Commit: {commit}",
+    "build": "Version: {version}",
     "last_update": "Last update: {timestamp} ({source})",
     "last_update_pending": "Last update: unknown",
     "last_update_source": {
-      "pull": "from deploy pull",
+      "pull": "from local git update",
       "commit": "from git commit date"
     }
   },
