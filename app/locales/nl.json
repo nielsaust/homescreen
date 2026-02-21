@@ -51,7 +51,13 @@
     },
     "last_check_pending": "Laatste check: in behandeling",
     "last_check": "Laatste check: {timestamp}",
-    "build": "Versie: {version}  Commit: {commit}"
+    "build": "Versie: {version}  Commit: {commit}",
+    "last_update": "Laatste update: {timestamp} ({source})",
+    "last_update_pending": "Laatste update: onbekend",
+    "last_update_source": {
+      "pull": "pull",
+      "commit": "commit"
+    }
   },
   "menu": {
     "edit": {

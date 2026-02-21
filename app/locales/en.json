@@ -51,7 +51,13 @@
     },
     "last_check_pending": "Last check: pending",
     "last_check": "Last check: {timestamp}",
-    "build": "Version: {version}  Commit: {commit}"
+    "build": "Version: {version}  Commit: {commit}",
+    "last_update": "Last update: {timestamp} ({source})",
+    "last_update_pending": "Last update: unknown",
+    "last_update_source": {
+      "pull": "pull",
+      "commit": "commit"
+    }
   },
   "menu": {
     "edit": {

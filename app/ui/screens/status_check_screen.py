@@ -36,6 +36,7 @@ class StatusCheckScreen:
         self.capability_label = None
         self.checked_at_label = None
         self.version_label = None
+        self.last_update_label = None
 
         self.last_result = {
             "internet": None,
@@ -43,31 +44,91 @@ class StatusCheckScreen:
             "mqtt": None,
             "checked_at": None,
         }
-        self._version_text = self._resolve_version_text()
+        self._version_text, self._last_update_text = self._resolve_build_metadata_text()
 
-    def _resolve_version_text(self) -> str:
+    def _git_capture(self, repo_root: Path, args: list[str], timeout_seconds: float = 1.5) -> str:
+        try:
+            proc = subprocess.run(
+                ["git", "-C", str(repo_root)] + args,
+                capture_output=True,
+                text=True,
+                timeout=timeout_seconds,
+                check=False,
+            )
+            if proc.returncode != 0:
+                return ""
+            return proc.stdout.strip()
+        except Exception:
+            return ""
+
+    def _resolve_build_metadata_text(self) -> tuple[str, str]:
         version = str(getattr(self.main_app.settings, "version", "dev") or "dev")
         commit = "unknown"
         repo_root = Path(__file__).resolve().parents[3]
-        try:
-            proc = subprocess.run(
-                ["git", "-C", str(repo_root), "rev-parse", "--short", "HEAD"],
-                capture_output=True,
-                text=True,
-                timeout=1.5,
-                check=False,
+        sha = self._git_capture(repo_root, ["rev-parse", "--short", "HEAD"])
+        if sha:
+            commit = sha
+
+        commit_date_text = ""
+        commit_iso = self._git_capture(repo_root, ["log", "-1", "--format=%cI"])
+        if commit_iso:
+            try:
+                commit_dt = datetime.datetime.fromisoformat(commit_iso.replace("Z", "+00:00"))
+                commit_date_text = commit_dt.astimezone().strftime("%Y-%m-%d %H:%M:%S")
+            except Exception:
+                commit_date_text = commit_iso
+
+        pull_date_text = ""
+        reflog_lines = self._git_capture(
+            repo_root,
+            ["reflog", "--date=iso", "--format=%gs\t%cd", "-n", "120"],
+            timeout_seconds=2.0,
+        )
+        if reflog_lines:
+            for line in reflog_lines.splitlines():
+                if "\t" not in line:
+                    continue
+                msg, date_text = line.split("\t", 1)
+                if "pull" not in msg.lower():
+                    continue
+                date_text = date_text.strip()
+                if not date_text:
+                    continue
+                try:
+                    pull_dt = datetime.datetime.fromisoformat(date_text.replace("Z", "+00:00"))
+                    pull_date_text = pull_dt.astimezone().strftime("%Y-%m-%d %H:%M:%S")
+                except Exception:
+                    pull_date_text = date_text
+                break
+
+        update_text = ""
+        if pull_date_text:
+            update_text = self.main_app.t(
+                "status_check.last_update",
+                default="Last update: {timestamp} ({source})",
+                timestamp=pull_date_text,
+                source=self.main_app.t("status_check.last_update_source.pull", default="pull"),
             )
-            sha = proc.stdout.strip()
-            if proc.returncode == 0 and sha:
-                commit = sha
-        except Exception:
-            pass
-        return self.main_app.t(
+        elif commit_date_text:
+            update_text = self.main_app.t(
+                "status_check.last_update",
+                default="Last update: {timestamp} ({source})",
+                timestamp=commit_date_text,
+                source=self.main_app.t("status_check.last_update_source.commit", default="commit"),
+            )
+        else:
+            update_text = self.main_app.t(
+                "status_check.last_update_pending",
+                default="Last update: unknown",
+            )
+
+        build_text = self.main_app.t(
             "status_check.build",
             default="Version: {version}  Commit: {commit}",
             version=version,
             commit=commit,
         )
+        return build_text, update_text
 
     def _refresh_interval_seconds(self):
         raw = getattr(self.main_app.settings, "network_check_refresh_interval_seconds", 20)
@@ -78,7 +139,7 @@ class StatusCheckScreen:
 
     def show(self):
         self.destroy()
-        self._version_text = self._resolve_version_text()
+        self._version_text, self._last_update_text = self._resolve_build_metadata_text()
 
         bg = self.main_app.settings.menu_background_color.get("menu") or "black"
         fg = "white"
@@ -146,6 +207,8 @@ class StatusCheckScreen:
 
         self.version_label = tk.Label(self.main_frame, text="", font=meta_font, bg=bg, fg="#9f9f9f", anchor="w")
         self.version_label.pack(fill=tk.X, padx=36, pady=(4, 12))
+        self.last_update_label = tk.Label(self.main_frame, text="", font=meta_font, bg=bg, fg="#9f9f9f", anchor="w")
+        self.last_update_label.pack(fill=tk.X, padx=36, pady=(0, 12))
 
         # Tap anywhere to close.
         self.window.bind("<ButtonRelease-1>", self.destroy)
@@ -270,7 +333,7 @@ class StatusCheckScreen:
     def _render_status(self):
         if not self.is_showing:
             return
-        if any(widget is None for widget in (self.internet_label, self.openweather_label, self.mqtt_label, self.capability_label, self.checked_at_label, self.version_label)):
+        if any(widget is None for widget in (self.internet_label, self.openweather_label, self.mqtt_label, self.capability_label, self.checked_at_label, self.version_label, self.last_update_label)):
             return
 
         internet_text, internet_color = self._status_text(
@@ -319,6 +382,7 @@ class StatusCheckScreen:
                 )
             )
         self.version_label.configure(text=self._version_text)
+        self.last_update_label.configure(text=self._last_update_text)
         log_event(
             logger,
             logging.DEBUG,
