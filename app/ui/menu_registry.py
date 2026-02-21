@@ -46,10 +46,14 @@ def _build_entry(schema_entry):
         cancel_close=bool(schema_entry.get("cancel_close", False)),
     )
     sub_schema = schema_entry.get("screen", [])
-    return {
+    entry = {
         "button": button,
         "screen": [_build_entry(child) for child in sub_schema],
     }
+    hold_spec = schema_entry.get("hold_action_spec")
+    if isinstance(hold_spec, dict) and hold_spec:
+        entry["hold_action_spec"] = copy.deepcopy(hold_spec)
+    return entry
 
 
 def _is_enabled_by_settings(button_id, settings):

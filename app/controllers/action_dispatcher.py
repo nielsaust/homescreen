@@ -76,6 +76,15 @@ class ActionDispatcher:
                 return
             self.main_app.display_controller.show_fullscreen_qr(payload)
             return
+        if kind == "show_slider":
+            entity = str(spec.get("entity", "")).strip()
+            if not entity:
+                logger.warning("Slider action missing entity")
+                return
+            title = str(spec.get("title", "")).strip() or entity
+            slider_type = str(spec.get("slider_type", "light")).strip() or "light"
+            self.main_app.display_controller.show_show_slider(entity, title, slider_type)
+            return
         if kind == "show_camera":
             self._show_camera(
                 spec.get("camera_id", ""),

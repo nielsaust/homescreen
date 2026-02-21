@@ -127,22 +127,6 @@ class TouchController:
             else:
                 log_event(logger, logging.ERROR, "touch", "gesture.error", reason="click_time_missing")
 
-
-    def handle_alt_menu_button(self, action): # hold actions
-        self.suppress_next_click()
-        
-        if action=="light_woonkamer":
-            self.main_app.display_controller.show_show_slider("light_woonkamer","Woonkamer licht")
-        elif action=="light_keuken":
-            self.main_app.display_controller.show_show_slider("light_keuken","Keuken licht")
-        elif action=="light_kleur":
-            self.main_app.display_controller.show_show_slider("light_kleur","Kleur licht")
-        elif action=="light_tafel":
-            self.main_app.display_controller.show_show_slider("light_tafel","Tafel licht")
-        elif action=="cover_kitchen":
-            self.main_app.display_controller.show_show_slider("cover_kitchen","Rolgordijn keuken","cover")
-
-
     def handle_menu_button(self, action):
         log_event(logger, logging.DEBUG, "touch", "menu.button_action", action=action)
         self.action_dispatcher.dispatch(action)

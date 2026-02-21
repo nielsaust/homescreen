@@ -10,6 +10,7 @@ Startup-triggered actions are configured separately in `local_config/startup_act
   - `local_config/menu.json.example` (template)
 - Per-button behavior/state metadata (preferred):
   - `action_spec` on each menu item
+  - `hold_action_spec` on each menu item (optional long-press behavior)
   - `state_spec` on each menu item
   - `setting_requirements` on each menu item
 - Legacy fallback (still supported while migrating older files):
@@ -86,6 +87,19 @@ Startup-triggered actions are configured separately in `local_config/startup_act
 }
 ```
 
+4. Optional: add long-press behavior via `hold_action_spec`.
+
+```json
+{
+  "id": "music_play_pause",
+  "hold_action_spec": {
+    "kind": "mqtt_publish",
+    "topic": "screen_commands/outgoing",
+    "payload": { "action": "voice_music" }
+  }
+}
+```
+
 ## Step-By-Step Helper (Make)
 
 Use the new scaffolder:
@@ -95,12 +109,14 @@ make menu-item-scaffold
 ```
 
 Wizard modes:
+
 - `create`: creates a menu item and updates required files automatically.
 - `edit`: edits an existing item (label/icon/action) and can scaffold missing inline action specs.
 - `remove`: removes an existing item and optionally removes unreferenced action/settings keys.
 - `verify`: checks one item wiring.
 
 Supported item types in `create`:
+
 - `setting_toggle`
 - `mqtt_action`
 - `mqtt_message`
@@ -112,6 +128,7 @@ Supported item types in `create`:
 - `submenu` (includes placeholder child action + custom stub)
 
 Files updated automatically (as needed):
+
 - `local_config/menu.json`
 - `app/controllers/action_dispatcher.py` (for `custom` stubs)
 - `settings.json.example` and `local_config/settings.json` (for new setting keys)
@@ -126,6 +143,7 @@ make settings-check
 ```
 
 Notes:
+
 - Selection is done via numbered options in the terminal (not arrow-key navigation).
 - You can add items to top-level or any existing submenu container listed by the wizard.
 - Icon guidelines live in `images/buttons/README.md`.
@@ -166,6 +184,9 @@ Defined in item `action_spec` (or legacy top-level `action_specs`).
   - `{"kind": "show_camera", "camera_id": "doorbell"}`
   - Optional override fields:
   - `command_topic`, `command_payload`
+- `show_slider`
+  - Example:
+  - `{"kind": "show_slider", "entity": "light_keuken", "title": "Keuken licht", "slider_type": "light"}`
 - `setting_toggle`
   - Example:
   - `{"kind": "setting_toggle", "attr": "media_show_titles"}`

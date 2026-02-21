@@ -485,7 +485,7 @@ class MenuScreen:
                 time_elapsed = release_time - self.button_click_time
 
                 if time_elapsed >= self.main_app.settings.hold_time:
-                    self.handle_button_hold(button,time_elapsed)
+                    self.handle_button_hold(button, button_entry, time_elapsed)
                 elif(sub_button_amount>0):
                     self.enter_submenu(button_entry=button_entry)
                 else:
@@ -498,7 +498,7 @@ class MenuScreen:
             self.click_x = None
             self.click_y = None
 
-    def handle_button_hold(self, button, time_held):
+    def handle_button_hold(self, button, button_entry, time_held):
         log_event(
             logger,
             logging.DEBUG,
@@ -508,7 +508,12 @@ class MenuScreen:
             held_seconds=time_held,
             action=button.action,
         )
-        self.main_app.touch_controller.handle_alt_menu_button(button.action)
+        hold_spec = button_entry.get("hold_action_spec") if isinstance(button_entry, dict) else None
+        if not isinstance(hold_spec, dict) or not hold_spec:
+            log_event(logger, logging.DEBUG, "menu", "button.hold_ignored", reason="no_hold_action_spec", action=button.action)
+            return
+        self.main_app.touch_controller.suppress_next_click()
+        self.main_app.action_dispatcher.dispatch_spec(f"{button.action}:hold", hold_spec, user_initiated=True)
 
     def _show_unavailable_feedback(self, button_id):
         required_settings = self.button_setting_requirements.get(button_id, [])
