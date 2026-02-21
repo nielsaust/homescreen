@@ -53,8 +53,9 @@ def _prompt_positive_int(text: str, default: int) -> int:
 
 
 def _prompt_deploy_interval() -> tuple[str, str]:
-    amount = _prompt_positive_int("Deploy check interval value", 2)
     unit = _prompt_choice("Deploy check interval unit", ("minutes", "hours", "days"), "minutes")
+    default_by_unit = {"minutes": 2, "hours": 1, "days": 1}
+    amount = _prompt_positive_int(f"Deploy check every, how many {unit}", default_by_unit[unit])
     unit_suffix = {"minutes": "min", "hours": "h", "days": "d"}[unit]
     return f"{amount}{unit_suffix}", f"every {amount} {unit}"
 
@@ -72,11 +73,14 @@ def wizard() -> int:
         print("[service-setup] systemctl not found; skipping service setup.")
         return 0
 
-    user = _prompt("Linux user for service", getpass.getuser())
-    app_dir = _prompt("Homescreen app directory", str(ROOT))
-    service_name = _prompt("Service name", "homescreen.service")
+    user = _prompt("Linux user for service (default: current shell user)", getpass.getuser())
+    app_dir = _prompt("Homescreen app directory (default: current project root)", str(ROOT))
+    service_name = _prompt("Service name (default: homescreen.service)", "homescreen.service")
     install_now = _prompt_bool("Install/update systemd units now?", False)
-    deploy_interval_systemd, deploy_interval_human = _prompt_deploy_interval()
+    deploy_interval_systemd = "2min"
+    deploy_interval_human = "every 2 minutes"
+    if install_now:
+        deploy_interval_systemd, deploy_interval_human = _prompt_deploy_interval()
 
     print("\n[service-setup] summary")
     print(f"- user: {user}")
