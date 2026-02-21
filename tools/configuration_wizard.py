@@ -184,7 +184,7 @@ def _music_menu_item() -> dict:
         "id": "music",
         "text": "Muziek",
         "image": "music.png",
-        "action": "music_menu",
+        "action": "open_page",
         "order": 400,
         "setting_requirements": ["enable_mqtt", "enable_music"],
         "screen": [

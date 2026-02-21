@@ -228,6 +228,10 @@ Add a `screen` list to a menu entry in `local_config/menu.json`:
 }
 ```
 
+Behavior note:
+- Tap opens a submenu only when the item action is `open_page`.
+- If an item has a normal tap action (for example MQTT toggle) and should open submenu on hold, keep its normal `action` and use `hold_action_spec` with `action: "open_page"`.
+
 ## Common Issues
 
 - Button shows but does nothing:

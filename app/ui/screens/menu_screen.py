@@ -522,10 +522,12 @@ class MenuScreen:
                 return "break"
 
             sub_button_amount = 0
+            opens_submenu_on_tap = False
 
             if(not self.in_subpage):
                 sub_buttons = button_entry.get("screen") or []
                 sub_button_amount = len(sub_buttons)
+                opens_submenu_on_tap = button.action == "open_page" and sub_button_amount > 0
 
             if self.button_click_time is not None:
                 release_time = time.time()
@@ -533,7 +535,7 @@ class MenuScreen:
 
                 if time_elapsed >= self.main_app.settings.hold_time:
                     self.handle_button_hold(button, button_entry, time_elapsed)
-                elif(sub_button_amount>0):
+                elif(opens_submenu_on_tap):
                     self.enter_submenu(button_entry=button_entry)
                 else:
                     self.change_button_background(button=button, new_color=self.button_color.get("down"), duration_ms=self.main_app.settings.button_down_color_change_time)
