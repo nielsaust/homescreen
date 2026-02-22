@@ -37,6 +37,7 @@ class TestLoggingPolicy(unittest.TestCase):
     def test_profile_pi_applies_expected_levels(self):
         settings = SimpleNamespace(
             log_profile="pi",
+            log_debug_enabled=False,
             log_noisy_loggers=["urllib3.connectionpool"],
             log_domain_levels={},
         )
@@ -51,11 +52,13 @@ class TestLoggingPolicy(unittest.TestCase):
     def test_explicit_settings_override_profile(self):
         settings = SimpleNamespace(
             log_profile="quiet",
+            log_debug_enabled=False,
             log_level="DEBUG",
             log_console_level="WARNING",
             log_file_level="ERROR",
             log_noisy_third_party_debug=True,
             log_noisy_loggers=["PIL.PngImagePlugin"],
+            log_enable_domain_levels=True,
             log_domain_levels={"app.controllers.mqtt_controller": "WARNING"},
         )
 
@@ -70,8 +73,10 @@ class TestLoggingPolicy(unittest.TestCase):
     def test_legacy_keys_remain_supported(self):
         settings = SimpleNamespace(
             log_profile="default",
+            log_debug_enabled=False,
             console_log_level="ERROR",
             file_log_level="WARNING",
+            log_enable_domain_levels=True,
             logger_levels={"app.ui.screens.music_screen": "WARNING"},
             log_noisy_loggers=[],
         )
@@ -81,6 +86,22 @@ class TestLoggingPolicy(unittest.TestCase):
         self.assertEqual(self.console_handler.level, logging.ERROR)
         self.assertEqual(self.file_handler.level, logging.WARNING)
         self.assertEqual(logging.getLogger("app.ui.screens.music_screen").level, logging.WARNING)
+
+    def test_unified_debug_switch_sets_all_levels_to_debug(self):
+        settings = SimpleNamespace(
+            log_profile="quiet",
+            log_debug_enabled=True,
+            log_console_level="WARNING",
+            log_file_level="ERROR",
+            log_noisy_loggers=[],
+            log_domain_levels={"app.controllers.mqtt_controller": "WARNING"},
+        )
+
+        apply_runtime_logging_policy(settings)
+
+        self.assertEqual(self.root.level, logging.DEBUG)
+        self.assertEqual(self.console_handler.level, logging.DEBUG)
+        self.assertEqual(self.file_handler.level, logging.DEBUG)
 
 
 if __name__ == "__main__":

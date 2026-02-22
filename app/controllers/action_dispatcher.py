@@ -18,6 +18,20 @@ logger = logging.getLogger(__name__)
 QR_ITEMS_PATH = Path(__file__).resolve().parent.parent.parent / "local_config" / "qr_items.json"
 
 
+def _to_bool(value, default=False):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in ("1", "true", "yes", "on"):
+            return True
+        if lowered in ("0", "false", "no", "off"):
+            return False
+    if value is None:
+        return default
+    return bool(value)
+
+
 class ActionDispatcher:
     """Routes menu actions to handlers, separate from touch/gesture input code."""
 
@@ -219,10 +233,21 @@ class ActionDispatcher:
 
     def _toggle_setting(self, attr: str) -> None:
         default = True if attr == "store_settings" else False
-        current = bool(getattr(self.main_app.settings, attr, default))
-        setattr(self.main_app.settings, attr, not current)
+        current = _to_bool(getattr(self.main_app.settings, attr, default), default)
+        new_value = not current
+        setattr(self.main_app.settings, attr, new_value)
+        log_event(
+            logger,
+            logging.DEBUG,
+            "settings",
+            "toggle.applied",
+            attr=attr,
+            previous=current,
+            new=new_value,
+            persisted=_to_bool(getattr(self.main_app.settings, "store_settings", True), True) or attr == "store_settings",
+        )
 
-        should_persist = bool(getattr(self.main_app.settings, "store_settings", True))
+        should_persist = _to_bool(getattr(self.main_app.settings, "store_settings", True), True)
         # Always persist the store_settings toggle itself so the persistence mode is explicit.
         if attr == "store_settings" or should_persist:
             self.main_app.settings.save_settings()
@@ -236,6 +261,13 @@ class ActionDispatcher:
         )
         if attr == "show_menu_page_number":
             self.main_app.display_controller.refresh_menu_layout()
+        if attr in {"simulate_outage_mqtt", "enable_network_simulation", "simulate_outage_internet"}:
+            mqtt_controller = getattr(self.main_app, "mqtt_controller", None)
+            if mqtt_controller is not None:
+                if hasattr(mqtt_controller, "force_reconnect_cycle"):
+                    mqtt_controller.force_reconnect_cycle(reason=f"setting_toggled:{attr}:{new_value}")
+                elif hasattr(mqtt_controller, "nudge_reconnect"):
+                    mqtt_controller.nudge_reconnect(reason=f"setting_toggled:{attr}:{new_value}")
 
     def _turn_screen_off(self) -> None:
         self.main_app.request_menu_navigation("exit", source="action_dispatcher")

@@ -19,6 +19,20 @@ from app.observability.domain_logger import log_event
 logger = logging.getLogger(__name__)
 
 
+def _to_bool(value, default=False):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in ("1", "true", "yes", "on"):
+            return True
+        if lowered in ("0", "false", "no", "off"):
+            return False
+    if value is None:
+        return default
+    return bool(value)
+
+
 class StatusCheckScreen:
     """Overlay-style status check (same lifecycle style as cam/alert)."""
 
@@ -258,9 +272,12 @@ class StatusCheckScreen:
 
     def _collect_status_worker(self):
         settings = self.main_app.settings
-        simulation_enabled = bool(getattr(settings, "enable_network_simulation", True))
-        simulate_weather = simulation_enabled and bool(getattr(settings, "simulate_outage_weather_service", False))
-        simulate_mqtt = simulation_enabled and bool(getattr(settings, "simulate_outage_mqtt", False))
+        simulation_enabled = _to_bool(getattr(settings, "enable_network_simulation", True), True)
+        simulate_weather = simulation_enabled and _to_bool(
+            getattr(settings, "simulate_outage_weather_service", False),
+            False,
+        )
+        simulate_mqtt = simulation_enabled and _to_bool(getattr(settings, "simulate_outage_mqtt", False), False)
 
         weather_enabled = bool(getattr(settings, "enable_weather", False))
         mqtt_enabled = bool(getattr(settings, "enable_mqtt", False))

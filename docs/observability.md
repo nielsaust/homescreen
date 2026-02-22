@@ -71,21 +71,22 @@ For local verbosity control, these settings are available:
 ```json
 {
   "log_profile": "default",
+  "log_debug_enabled": false,
   "log_console_level": "INFO",
   "log_file_level": "DEBUG",
   "log_noisy_third_party_debug": false,
   "log_noisy_loggers": ["PIL.PngImagePlugin", "urllib3.connectionpool"],
-  "log_domain_levels": {
-    "app.controllers.mqtt_controller": "WARNING",
-    "app.ui.screens.music_screen": "INFO"
-  }
+  "log_enable_domain_levels": false,
+  "log_domain_levels": {}
 }
 ```
 
 - `log_profile`: baseline preset (`default`, `dev`, `pi`, `quiet`).
+- `log_debug_enabled`: one switch for full debug mode (all handlers and root become `DEBUG`).
 - `log_console_level`: keep lower noise on Pi terminal/journal.
 - `log_file_level`: usually `DEBUG` to preserve diagnostics in log files.
 - `log_noisy_third_party_debug`: when `false`, noisy third-party loggers are set to `WARNING`.
+- `log_enable_domain_levels`: explicit opt-in for per-logger overrides.
 - `log_domain_levels`: per-logger overrides after profile/global levels are applied.
 
 ## UI Trace Logging (local diagnosis)

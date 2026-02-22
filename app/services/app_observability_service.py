@@ -33,19 +33,19 @@ class AppObservabilityService:
         if not self.main_app.music_debug_logging:
             return
         if payload is None:
-            log_event(logger, logging.INFO, "music", "debug", message=message)
+            log_event(logger, logging.DEBUG, "music", "debug", message=message)
             return
         try:
             log_event(
                 logger,
-                logging.INFO,
+                logging.DEBUG,
                 "music",
                 "debug",
                 message=message,
                 payload=json.dumps(payload, default=str, ensure_ascii=False),
             )
         except Exception:
-            log_event(logger, logging.INFO, "music", "debug", message=message, payload=payload)
+            log_event(logger, logging.DEBUG, "music", "debug", message=message, payload=payload)
 
     def trace_ui_event(self, event_name, **fields) -> None:
         if not self.main_app.ui_trace_logging:
@@ -56,6 +56,6 @@ class AppObservabilityService:
             **fields,
         }
         try:
-            log_event(logger, logging.INFO, "ui", "trace", payload=json.dumps(payload, default=str, ensure_ascii=False))
+            log_event(logger, logging.DEBUG, "ui", "trace", payload=json.dumps(payload, default=str, ensure_ascii=False))
         except Exception:
-            log_event(logger, logging.INFO, "ui", "trace", payload=payload)
+            log_event(logger, logging.DEBUG, "ui", "trace", payload=payload)

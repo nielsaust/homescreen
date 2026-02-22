@@ -47,6 +47,20 @@ def _parse_level(value, default=logging.INFO) -> int:
     return int(default)
 
 
+def _parse_bool(value, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "on", "enabled"}:
+            return True
+        if normalized in {"0", "false", "no", "off", "disabled", ""}:
+            return False
+    return default
+
+
 def _resolve_profile(settings):
     profile_name = str(getattr(settings, "log_profile", DEFAULT_LOG_PROFILE) or DEFAULT_LOG_PROFILE).strip().lower()
     profile = DEFAULT_LOG_PROFILES.get(profile_name, DEFAULT_LOG_PROFILES[DEFAULT_LOG_PROFILE])
@@ -213,16 +227,26 @@ def apply_runtime_logging_policy(settings):
     root_logger = logging.getLogger()
     profile_name, profile = _resolve_profile(settings)
 
-    console_level = _parse_level(
-        getattr(settings, "log_console_level", getattr(settings, "console_log_level", profile["console_level"])),
-        logging.INFO,
+    debug_enabled = _parse_bool(
+        getattr(settings, "log_debug_enabled", getattr(settings, "debug_logging", False)),
+        False,
     )
-    file_level = _parse_level(
-        getattr(settings, "log_file_level", getattr(settings, "file_log_level", profile["file_level"])),
-        logging.DEBUG,
-    )
-    root_default = min(console_level, file_level)
-    root_level = _parse_level(getattr(settings, "log_level", root_default), root_default)
+    if debug_enabled:
+        # Unified debug mode: one switch enables debug everywhere.
+        console_level = logging.DEBUG
+        file_level = logging.DEBUG
+        root_level = logging.DEBUG
+    else:
+        console_level = _parse_level(
+            getattr(settings, "log_console_level", getattr(settings, "console_log_level", profile["console_level"])),
+            logging.INFO,
+        )
+        file_level = _parse_level(
+            getattr(settings, "log_file_level", getattr(settings, "file_log_level", profile["file_level"])),
+            logging.DEBUG,
+        )
+        root_default = min(console_level, file_level)
+        root_level = _parse_level(getattr(settings, "log_level", root_default), root_default)
 
     root_logger.setLevel(root_level)
     for handler in root_logger.handlers:
@@ -245,16 +269,22 @@ def apply_runtime_logging_policy(settings):
         else:
             target_logger.setLevel(logging.WARNING)
 
+    domain_override_enabled = _parse_bool(
+        getattr(settings, "log_enable_domain_levels", getattr(settings, "enable_domain_log_levels", False)),
+        False,
+    )
     logger_levels = getattr(settings, "log_domain_levels", getattr(settings, "logger_levels", {})) or {}
-    if isinstance(logger_levels, dict):
+    if domain_override_enabled and isinstance(logger_levels, dict):
         for logger_name, configured_level in logger_levels.items():
             logging.getLogger(str(logger_name)).setLevel(_parse_level(configured_level, logging.INFO))
 
     logging.getLogger(__name__).info(
-        "Logging policy profile='%s' applied (root=%s, console=%s, file=%s, noisy_debug=%s).",
+        "Logging policy profile='%s' applied (debug=%s, root=%s, console=%s, file=%s, noisy_debug=%s, domain_overrides=%s).",
         profile_name,
+        debug_enabled,
         logging.getLevelName(root_level),
         logging.getLevelName(console_level),
         logging.getLevelName(file_level),
         noisy_debug_enabled,
+        domain_override_enabled,
     )

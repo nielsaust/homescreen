@@ -27,7 +27,13 @@
     }
   },
   "network_banner": {
-    "connection_lost_at": "Verbinding verbroken om {timestamp}"
+    "connection_lost_at": "Verbinding verbroken om {timestamp}",
+    "connections_lost_at": "Verbinding verbroken ({connections}) om {timestamp}",
+    "connection_lost_single": "{connection} offline sinds {timestamp}",
+    "connection": {
+      "internet": "Internet",
+      "mqtt": "MQTT"
+    }
   },
   "status_check": {
     "title": "Check status",

@@ -55,11 +55,13 @@ The sync tool preserves key ordering based on `settings.json.example`, so new ke
 Useful runtime keys:
 
 - `log_profile`: logging profile preset (`default`, `dev`, `pi`, `quiet`)
+- `log_debug_enabled`: single global debug switch (`true` => root/console/file all `DEBUG`)
 - `log_console_level`: console/journal verbosity
 - `log_file_level`: date-based file log verbosity
 - `log_noisy_third_party_debug`: enable noisy third-party debug logs
 - `log_noisy_loggers`: list of logger names to treat as noisy
-- `log_domain_levels`: per-logger explicit levels map (e.g. `"app.controllers.mqtt_controller": "WARNING"`)
+- `log_enable_domain_levels`: opt-in for per-logger overrides (default `false`)
+- `log_domain_levels`: per-logger explicit levels map (used only when `log_enable_domain_levels=true`)
 - `app_environment`: controls dev-only menu visibility (`production` hides `dev_only` items)
 - `ui_locale`: UI language for system texts (`en`, `nl`; fallback to English)
 - `menu_edit_hold_ms`: long-press duration (ms) to open runtime menu edit mode

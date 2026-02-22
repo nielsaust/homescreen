@@ -68,9 +68,11 @@ class MainApp:
             logging.INFO,
             "app",
             "logging.policy_applied",
+            debug_enabled=getattr(self.settings, "log_debug_enabled", False),
             root=getattr(self.settings, "log_level", "AUTO"),
             console=getattr(self.settings, "log_console_level", getattr(self.settings, "console_log_level", "INFO")),
             file=getattr(self.settings, "log_file_level", getattr(self.settings, "file_log_level", "DEBUG")),
+            domain_overrides=getattr(self.settings, "log_enable_domain_levels", False),
         )
 
     def _init_bootstrap_services(self):
@@ -119,8 +121,17 @@ class MainApp:
         self.time_last_action = time.time()
 
     def update_network_status_ui(self, online):
-        if hasattr(self, "network_status_widget") and self.network_status_widget:
-            self.network_status_widget.set_online(bool(online))
+        if not (hasattr(self, "network_status_widget") and self.network_status_widget):
+            return
+
+        disconnected = []
+        internet_online = None if online is None else bool(online)
+        if internet_online is False:
+            disconnected.append(self.t("network_banner.connection.internet", default="Internet"))
+        if self.is_mqtt_enabled() and not self.is_mqtt_connected():
+            disconnected.append(self.t("network_banner.connection.mqtt", default="MQTT"))
+
+        self.network_status_widget.set_disconnected_connections(disconnected)
 
     def _on_state_changed(self, state, event):
         intents = self.ui_intent_mapper_service.map_event(state, event)
@@ -155,6 +166,7 @@ class MainApp:
         reason = str(getattr(self, "mqtt_unavailable_reason", "") or "").strip()
         reason_map = {
             "simulated_outage": "simulated outage",
+            "reconnecting": "reconnecting",
             "network_unavailable": "network unavailable",
             "socket_error": "socket error",
             "connect_exception": "connect exception",

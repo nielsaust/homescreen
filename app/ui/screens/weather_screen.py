@@ -221,11 +221,6 @@ class WeatherScreen:
     def update_network_availability(self, network_available):
         if not network_available:
             log_event(logger, logging.WARNING, "network", "weather.network_unavailable")
-        self.main_app.publish_event(
-            "network.status",
-            {"online": bool(network_available)},
-            source="weather_service",
-        )
 
     def show_cached_weather_label(self, cached_at_text):
         self.cached_weather_label.configure(text=f"{cached_at_text}")

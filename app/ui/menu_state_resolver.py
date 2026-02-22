@@ -3,6 +3,20 @@ from __future__ import annotations
 from app.ui.menu_config_loader import get_state_specs
 
 
+def _to_bool(value, default=False):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in ("1", "true", "yes", "on"):
+            return True
+        if lowered in ("0", "false", "no", "off"):
+            return False
+    if value is None:
+        return default
+    return bool(value)
+
+
 class MenuStateResolver:
     """Resolves button visual state from app/settings/device/music state."""
 
@@ -46,7 +60,7 @@ class MenuStateResolver:
             music = getattr(self.main_app, "music_object", None)
             active = music is not None and getattr(music, "state", None) == spec.get("state")
         elif spec_type == "setting_bool":
-            active = bool(self._get_settings_value(spec.get("source"), spec.get("default", False)))
+            active = _to_bool(self._get_settings_value(spec.get("source"), spec.get("default", False)), False)
         elif spec_type == "light":
             light = self._light_state(self._get_device_value(spec.get("source"), {}))
             active = light["state"] == "on"

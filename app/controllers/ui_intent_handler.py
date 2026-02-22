@@ -65,9 +65,17 @@ class UiIntentHandler:
 
     def _apply_network_status(self, intent):
         online = intent.get("online")
-        if online is None or online == self._last_network_ui_state:
+        if online is None:
             return
-        self._last_network_ui_state = online
+
+        network_signature = (
+            bool(online),
+            bool(getattr(self.main_app, "enable_mqtt", False)),
+            bool(getattr(self.main_app, "mqtt_connected", False)),
+        )
+        if network_signature == self._last_network_ui_state:
+            return
+        self._last_network_ui_state = network_signature
         self.main_app.update_network_status_ui(online)
 
     def _apply_weather_cache_status(self, intent):

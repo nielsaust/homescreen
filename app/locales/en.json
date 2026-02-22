@@ -27,7 +27,13 @@
     }
   },
   "network_banner": {
-    "connection_lost_at": "Connection lost at {timestamp}"
+    "connection_lost_at": "Connection lost at {timestamp}",
+    "connections_lost_at": "Connection lost ({connections}) at {timestamp}",
+    "connection_lost_single": "{connection} offline since {timestamp}",
+    "connection": {
+      "internet": "Internet",
+      "mqtt": "MQTT"
+    }
   },
   "status_check": {
     "title": "Check Status",

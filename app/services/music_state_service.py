@@ -51,10 +51,11 @@ class MusicStateService:
                 "album_art_api_url": self.main_app.music_object.album_art_api_url,
             },
         )
-        logging.debug("========= Music object updated =========")
+        logger.debug("========= Music object updated =========")
         obj = self.main_app.music_object
-        for key, value in vars(obj).items():
-            logging.info("music_object.%s = %r", key, value)
+        if self.main_app.music_debug_logging:
+            for key, value in vars(obj).items():
+                logger.debug("music_object.%s = %r", key, value)
 
         log_event(logger, logging.DEBUG, "music", "state.updated", state=state, title=title)
         self.main_app.publish_event(

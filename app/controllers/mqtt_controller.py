@@ -16,6 +16,21 @@ from app.observability.domain_logger import log_event
 
 logger = logging.getLogger(__name__)
 
+
+def _to_bool(value, default=False):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in ("1", "true", "yes", "on"):
+            return True
+        if lowered in ("0", "false", "no", "off"):
+            return False
+    if value is None:
+        return default
+    return bool(value)
+
+
 class MqttController:
     def __init__(self, main_app: MainApp, broker_address, broker_port, username, password):
         self.main_app = main_app
@@ -41,14 +56,23 @@ class MqttController:
         self.client.username_pw_set(self.username, self.password)
         self._set_runtime_connected(False, reason="initializing")
         self._mqtt_sim_outage_logged = False
+        self._reconnect_wakeup = threading.Event()
+        self._last_simulated_outage_state = None
+        self._last_client_connected_state = None
+        self._awaiting_connack = False
+        self._awaiting_connack_since = 0.0
+        self._connack_timeout_seconds = max(
+            3,
+            int(getattr(self.main_app.settings, "mqtt_connack_timeout_seconds", 8) or 8),
+        )
 
         # Initial connect is handled in background loop to avoid blocking app startup.
         self.custom_loop_start()
 
     def _is_mqtt_simulated_outage(self) -> bool:
-        if not bool(getattr(self.main_app.settings, "enable_network_simulation", True)):
+        if not _to_bool(getattr(self.main_app.settings, "enable_network_simulation", True), True):
             return False
-        return bool(getattr(self.main_app.settings, "simulate_outage_mqtt", False))
+        return _to_bool(getattr(self.main_app.settings, "simulate_outage_mqtt", False), False)
 
     def _set_runtime_connected(self, connected: bool, reason: str = ""):
         state = bool(connected)
@@ -62,10 +86,74 @@ class MqttController:
                 {"reason": "mqtt.connection.changed", "connected": state},
                 source="mqtt",
             )
+            # Refresh connectivity banner on MQTT state changes without mutating
+            # canonical internet status.
+            try:
+                store = getattr(self.main_app, "store", None)
+                online = getattr(store.get_state(), "network_online", None) if store else None
+                if online is not None and hasattr(self.main_app, "update_network_status_ui"):
+                    self.main_app.root.after(0, lambda: self.main_app.update_network_status_ui(bool(online)))
+            except Exception:
+                pass
             log_event(logger, logging.INFO, "mqtt", "runtime.connection_state", connected=state, reason=reason)
+            self._log_runtime_snapshot(logging.DEBUG, "runtime.snapshot", trigger="connection_state_changed")
+
+    def _runtime_snapshot(self):
+        return {
+            "mqtt_enabled": _to_bool(getattr(self.main_app.settings, "enable_mqtt", False), False),
+            "sim_enabled": _to_bool(getattr(self.main_app.settings, "enable_network_simulation", True), True),
+            "sim_mqtt": _to_bool(getattr(self.main_app.settings, "simulate_outage_mqtt", False), False),
+            "sim_internet": _to_bool(getattr(self.main_app.settings, "simulate_outage_internet", False), False),
+            "runtime_connected": bool(getattr(self.main_app, "mqtt_connected", False)),
+            "client_connected": bool(self.client.is_connected()),
+            "unavailable_reason": str(getattr(self.main_app, "mqtt_unavailable_reason", "") or ""),
+            "running": bool(self.running),
+            "awaiting_connack": bool(self._awaiting_connack),
+            "awaiting_connack_seconds": round(max(0.0, time.time() - self._awaiting_connack_since), 3)
+            if self._awaiting_connack
+            else 0.0,
+        }
+
+    def _log_runtime_snapshot(self, level, event_name: str, **extra):
+        payload = self._runtime_snapshot()
+        payload.update(extra or {})
+        log_event(logger, level, "mqtt", event_name, **payload)
+
+    def _sleep_before_retry(self, delay_seconds: int | float) -> None:
+        wait_seconds = max(0, float(delay_seconds))
+        self._reconnect_wakeup.wait(timeout=wait_seconds)
+        self._reconnect_wakeup.clear()
+
+    def nudge_reconnect(self, reason: str = "") -> None:
+        if not self.running:
+            return
+        self._reconnect_wakeup.set()
+        if reason:
+            log_event(logger, logging.DEBUG, "mqtt", "reconnect.nudged", reason=reason)
+        self._log_runtime_snapshot(logging.DEBUG, "reconnect.nudge_snapshot", reason=reason)
+
+    def force_reconnect_cycle(self, reason: str = "") -> None:
+        if not self.running:
+            return
+        self._log_runtime_snapshot(logging.DEBUG, "reconnect.force_cycle.begin", reason=reason)
+        self._mqtt_sim_outage_logged = False
+        self._awaiting_connack = False
+        self._awaiting_connack_since = 0.0
+        try:
+            if self.client.is_connected():
+                self.client.disconnect()
+        except Exception:
+            pass
+        # Clear stale simulated_outage user feedback when simulation is toggled off.
+        if not self._is_mqtt_simulated_outage():
+            self._set_runtime_connected(False, reason="reconnecting")
+        self.nudge_reconnect(reason=reason or "force_reconnect_cycle")
+        self._log_runtime_snapshot(logging.DEBUG, "reconnect.force_cycle.end", reason=reason)
 
     def connect_to_broker(self):
         """Attempts to connect to the broker."""
+        if self._awaiting_connack:
+            return
         retry_delay = self.reconnect_interval
         while self.running:
             if self._is_mqtt_simulated_outage():
@@ -73,11 +161,20 @@ class MqttController:
                 if not self._mqtt_sim_outage_logged:
                     log_event(logger, logging.WARNING, "mqtt", "connect.delayed.simulated_outage")
                     self._mqtt_sim_outage_logged = True
-                time.sleep(retry_delay)
+                self._sleep_before_retry(retry_delay)
                 retry_delay = min(self.reconnect_max_interval, retry_delay * 2)
                 continue
             self._mqtt_sim_outage_logged = False
             try:
+                log_event(
+                    logger,
+                    logging.DEBUG,
+                    "mqtt",
+                    "connect.attempt",
+                    broker=self.broker_address,
+                    port=self.broker_port,
+                    retry_delay_seconds=retry_delay,
+                )
                 self.client.connect(self.broker_address, self.broker_port, 60)
                 log_event(
                     logger,
@@ -87,8 +184,8 @@ class MqttController:
                     broker=self.broker_address,
                     port=self.broker_port,
                 )
-                if hasattr(self.main_app, "publish_event"):
-                    self.main_app.publish_event("network.status", {"online": True}, source="mqtt")
+                self._awaiting_connack = True
+                self._awaiting_connack_since = time.time()
                 break
             except socket.error as e:
                 self._set_runtime_connected(False, reason="socket_error")
@@ -96,7 +193,7 @@ class MqttController:
             except Exception as e:
                 self._set_runtime_connected(False, reason="connect_exception")
                 log_event(logger, logging.ERROR, "mqtt", "connect.exception", error=e)
-            time.sleep(retry_delay)
+            self._sleep_before_retry(retry_delay)
             retry_delay = min(self.reconnect_max_interval, retry_delay * 2)
             log_event(logger, logging.WARNING, "mqtt", "connect.retry_scheduled", retry_delay_seconds=retry_delay)
 
@@ -108,16 +205,47 @@ class MqttController:
     def custom_loop(self):
         """Custom loop to keep MQTT connection alive and reconnect if needed."""
         while self.running:
-            if self._is_mqtt_simulated_outage():
+            sim_state = self._is_mqtt_simulated_outage()
+            client_connected = bool(self.client.is_connected())
+            if (
+                sim_state != self._last_simulated_outage_state
+                or client_connected != self._last_client_connected_state
+            ):
+                self._last_simulated_outage_state = sim_state
+                self._last_client_connected_state = client_connected
+                self._log_runtime_snapshot(logging.DEBUG, "loop.state_changed")
+            if sim_state:
                 if self.client.is_connected():
                     try:
                         self.client.disconnect()
                     except Exception:
                         pass
+                self._awaiting_connack = False
+                self._awaiting_connack_since = 0.0
                 self._set_runtime_connected(False, reason="simulated_outage")
-                time.sleep(self.reconnect_interval)
+                self._sleep_before_retry(self.reconnect_interval)
                 continue
             if not self.client.is_connected():
+                if self._awaiting_connack:
+                    elapsed = time.time() - self._awaiting_connack_since
+                    if elapsed > self._connack_timeout_seconds:
+                        log_event(
+                            logger,
+                            logging.WARNING,
+                            "mqtt",
+                            "connect.connack_timeout",
+                            timeout_seconds=self._connack_timeout_seconds,
+                            waited_seconds=round(elapsed, 3),
+                        )
+                        self._awaiting_connack = False
+                        self._awaiting_connack_since = 0.0
+                    else:
+                        try:
+                            self.client.loop(timeout=1.0)
+                        except (TimeoutError, Exception) as e:
+                            log_event(logger, logging.WARNING, "mqtt", "loop.error_reconnect", error=e)
+                        time.sleep(0.1)
+                        continue
                 # Ensure we keep driving the MQTT state machine after connect(),
                 # otherwise CONNACK may never be processed and state can stick on initializing.
                 self.connect_to_broker()
@@ -133,6 +261,15 @@ class MqttController:
         retry_delay = self.reconnect_interval
         while self.running:
             try:
+                log_event(
+                    logger,
+                    logging.DEBUG,
+                    "mqtt",
+                    "reconnect.attempt",
+                    broker=self.broker_address,
+                    port=self.broker_port,
+                    retry_delay_seconds=retry_delay,
+                )
                 self.client.reconnect()
                 log_event(
                     logger,
@@ -142,13 +279,12 @@ class MqttController:
                     broker=self.broker_address,
                     port=self.broker_port,
                 )
-                if hasattr(self.main_app, "publish_event"):
-                    self.main_app.publish_event("network.status", {"online": True}, source="mqtt")
                 break
             except Exception as e:
                 self._set_runtime_connected(False, reason="reconnect_failed")
                 log_event(logger, logging.ERROR, "mqtt", "reconnect.failed", error=e)
-                time.sleep(retry_delay)
+                self._log_runtime_snapshot(logging.DEBUG, "reconnect.failed_snapshot")
+                self._sleep_before_retry(retry_delay)
                 retry_delay = min(self.reconnect_max_interval, retry_delay * 2)
 
     def handle_message(self, topic, payload):
@@ -199,6 +335,8 @@ class MqttController:
         return fixed if fixed != text else None
 
     def on_connect(self, client, userdata, flags, rc):
+        self._awaiting_connack = False
+        self._awaiting_connack_since = 0.0
         if rc == 0:
             self._set_runtime_connected(True, reason="connected")
             log_event(logger, logging.INFO, "mqtt", "session.connected", broker=self.broker_address)
@@ -226,10 +364,12 @@ class MqttController:
         self.handle_message(message.topic, message.payload)
 
     def on_disconnect(self, client, userdata, rc):
+        self._awaiting_connack = False
+        self._awaiting_connack_since = 0.0
         self._set_runtime_connected(False, reason=f"disconnect_rc_{rc}")
         if rc != 0:
             log_event(logger, logging.WARNING, "mqtt", "session.disconnected", rc=rc)
-            self.reconnect()
+            self.nudge_reconnect(reason="disconnect")
 
     def on_publish(self, client, userdata, mid):
         log_event(logger, logging.DEBUG, "mqtt", "publish.ack", message_id=mid)
@@ -277,6 +417,7 @@ class MqttController:
 
     def stop(self):
         self.running = False
+        self._reconnect_wakeup.set()
         self.client.loop_stop()
         self.client.disconnect()
         log_event(logger, logging.INFO, "mqtt", "client.stopped")

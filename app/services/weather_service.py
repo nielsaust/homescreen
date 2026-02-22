@@ -15,6 +15,20 @@ import warnings
 logger = logging.getLogger(__name__)
 
 
+def _to_bool(value, default=False):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in ("1", "true", "yes", "on"):
+            return True
+        if lowered in ("0", "false", "no", "off"):
+            return False
+    if value is None:
+        return default
+    return bool(value)
+
+
 @dataclass
 class WeatherFetchResult:
     payload: dict | None
@@ -132,8 +146,9 @@ class WeatherService:
     def _request_with_retries(self, url: str) -> bytes | None:
         retries = int(getattr(self.settings, "weather_api_call_direct_retries", 1) or 1)
         verify_ssl = bool(getattr(self.settings, "verify_ssl_on_trusted_sources", True))
-        if bool(getattr(self.settings, "enable_network_simulation", True)) and bool(
-            getattr(self.settings, "simulate_outage_weather_service", False)
+        if _to_bool(getattr(self.settings, "enable_network_simulation", True), True) and _to_bool(
+            getattr(self.settings, "simulate_outage_weather_service", False),
+            False,
         ):
             logger.warning("Weather request simulated outage enabled; skipping call to %s", url)
             return None
