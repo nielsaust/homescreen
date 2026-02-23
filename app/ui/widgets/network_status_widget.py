@@ -24,10 +24,10 @@ class NetworkStatusWidget:
         self.icon = ImageTk.PhotoImage(black_icon)
 
         self.banner_bg = "#f4c542"
-        self.row_height = 30
+        self.row_height = 35
         self.row_gap = 0
         screen_width = int(getattr(self.main_app.settings, "screen_width", 720) or 720)
-        self.row_width = max(200, min(screen_width - 200, 250))
+        self.row_width = max(200, min(screen_width - 200, 300))
         self.issue_first_seen: dict[str, str] = {}
         self.issue_rows: dict[str, tk.Frame] = {}
         self.visible = False
@@ -104,7 +104,7 @@ class NetworkStatusWidget:
             ),
             bg=self.banner_bg,
             fg="black",
-            font=("Helvetica", 11, "bold"),
+            font=("Helvetica", 13, "bold"),
             anchor="center",
             justify=tk.CENTER,
         )
