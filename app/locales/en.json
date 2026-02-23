@@ -30,6 +30,7 @@
     "connection_lost_at": "Connection lost at {timestamp}",
     "connections_lost_at": "Connection lost ({connections}) at {timestamp}",
     "connection_lost_single": "No {connection} ({timestamp})",
+    "weather_last_cached": "Last weather at ({timestamp})",
     "connection": {
       "internet": "Internet",
       "mqtt": "MQTT"

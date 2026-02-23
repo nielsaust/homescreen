@@ -37,7 +37,7 @@ class AppCompositionService:
         self.main_app.observability_service = AppObservabilityService(self.main_app)
 
     def compose_runtime_components(self) -> None:
-        self.main_app.device_states = DeviceStates()
+        self.main_app.device_states = DeviceStates(mapping=getattr(self.main_app, "device_state_mapping", None))
 
         from app.controllers.touch_controller import TouchController
         self.main_app.touch_controller = TouchController(self.main_app)

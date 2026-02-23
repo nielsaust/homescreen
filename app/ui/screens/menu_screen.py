@@ -636,19 +636,32 @@ class MenuScreen:
             action_text = config.get("action_text", "")
             on_text = config.get("on_text", "")
             off_text = config.get("off_text", "")
+            display_text = config.get("display_text", "")
             available = bool(config.get("available", True)) and self._is_button_available(button_id)
             for button in self.button_index.get(button_id, []):
-                self.change_button(button,state_condition,action_text,on_text,off_text,available,ignore_screen_update=True)
+                self.change_button(
+                    button,
+                    state_condition,
+                    action_text,
+                    on_text,
+                    off_text,
+                    available,
+                    ignore_screen_update=True,
+                    display_text=display_text,
+                )
 
         self.created_and_updated = True
 
-    def change_button(self,button,state_condition,action_text,on_text,off_text,available,ignore_screen_update=False):
+    def change_button(self,button,state_condition,action_text,on_text,off_text,available,ignore_screen_update=False, display_text=""):
         active_color = self.button_color.get("active")
         inactive_color = self.button_color.get("inactive")
         disabled_color = self.button_color.get("disabled")
         button.is_active = state_condition
         button.is_available = bool(available)
-        if on_text!='' and off_text!='':
+        if action_text and display_text:
+            new_text = button.text.replace(action_text, display_text)
+            button.label.configure(text=new_text)
+        elif on_text!='' and off_text!='':
             new_text = button.text.replace(action_text, on_text if button.is_active else off_text)
             button.label.configure(text=new_text)
         button.label.configure(bg=disabled_color if not available else active_color if button.is_active else inactive_color)

@@ -16,8 +16,6 @@ Complete overview of available `make` commands.
   Bootstrap `.venv`, install Python deps, prepare local runtime defaults.
 - `make configuration`  
   Interactive feature setup wizard.
-- `make migrate-local-config`  
-  One-time migration for older local config layouts.
 - `make service-setup`  
   Linux/Pi systemd setup wizard (includes deploy polling interval: every X minutes/hours/days).
 - `make locale-setup`  
@@ -68,8 +66,6 @@ Complete overview of available `make` commands.
   Deprecated alias; forwards to scaffold wizard.
 - `make menu-item-verify-toggle`  
   Verify one existing menu item wiring.
-- `make menu-migrate-actions`  
-  Migrate menu action metadata to current format.
 
 ## Settings Sync
 

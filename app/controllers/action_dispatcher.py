@@ -114,6 +114,9 @@ class ActionDispatcher:
         if kind == "setting_toggle":
             self._toggle_setting(spec["attr"])
             return
+        if kind == "setting_cycle":
+            self._cycle_setting(spec["attr"], spec.get("values"))
+            return
         if kind == "media":
             op = spec.get("op")
             if op == "play_pause":
@@ -268,6 +271,45 @@ class ActionDispatcher:
                     mqtt_controller.force_reconnect_cycle(reason=f"setting_toggled:{attr}:{new_value}")
                 elif hasattr(mqtt_controller, "nudge_reconnect"):
                     mqtt_controller.nudge_reconnect(reason=f"setting_toggled:{attr}:{new_value}")
+
+    def _cycle_setting(self, attr: str, values) -> None:
+        if not isinstance(values, (list, tuple)) or len(values) == 0:
+            logger.warning("setting_cycle missing values for attr '%s'", attr)
+            return
+        normalized_values = [str(v).strip() for v in values if str(v).strip()]
+        if not normalized_values:
+            logger.warning("setting_cycle has no usable values for attr '%s'", attr)
+            return
+
+        current = str(getattr(self.main_app.settings, attr, normalized_values[0]) or "").strip()
+        try:
+            current_index = normalized_values.index(current)
+        except ValueError:
+            current_index = 0
+        new_value = normalized_values[(current_index + 1) % len(normalized_values)]
+        setattr(self.main_app.settings, attr, new_value)
+        log_event(
+            logger,
+            logging.DEBUG,
+            "settings",
+            "cycle.applied",
+            attr=attr,
+            previous=current,
+            new=new_value,
+            values=normalized_values,
+            persisted=_to_bool(getattr(self.main_app.settings, "store_settings", True), True),
+        )
+
+        if _to_bool(getattr(self.main_app.settings, "store_settings", True), True):
+            self.main_app.settings.save_settings()
+        else:
+            logger.info("Setting '%s' changed runtime-only (store_settings=false)", attr)
+
+        self.main_app.publish_event(
+            "menu.refresh.requested",
+            {"reason": f"setting.cycled:{attr}"},
+            source="action_dispatcher",
+        )
 
     def _turn_screen_off(self) -> None:
         self.main_app.request_menu_navigation("exit", source="action_dispatcher")

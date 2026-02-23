@@ -1,54 +1,54 @@
+from __future__ import annotations
+
 import logging
+
 logger = logging.getLogger(__name__)
 
+
 class DeviceStates:
-    def __init__(self):
+    def __init__(self, mapping=None):
         self.devices_inited = False
         self.data = None
         self.printer_progress = 0
-        self.harmony_state = None
-        self.cover_kitchen = None
-        self.living_room_temp = None
-        self.light_tafel = None
-        self.light_keuken = None
-        self.light_kleur = None
-        self.light_woonkamer = None
-        self.sleep_mode_changed = None
+        self._field_specs = {}
+
+        # Runtime-critical defaults; mapping fields are declarative and optional.
+        self.sleep_mode_changed = False
         self.sleep_mode_original = None
-        self.sleep_mode = None
-        self.trash_warning = None
-        self.bed_heating_on = None
-        self.playstation_power = None
-        self.playstation_available = None
+        self.sleep_mode = False
+
+        self._configure_fields(mapping)
+
+    def _configure_fields(self, mapping=None):
+        fields = {}
+        if isinstance(mapping, dict):
+            candidate = mapping.get("fields")
+            if isinstance(candidate, dict):
+                fields = candidate
+
+        self._field_specs = fields
+        for attr, spec in fields.items():
+            if not isinstance(spec, dict):
+                continue
+            default = spec.get("default")
+            if not hasattr(self, attr):
+                setattr(self, attr, default)
+
+            if spec.get("track_original"):
+                original_attr = f"{attr}_original"
+                changed_attr = f"{attr}_changed"
+                if not hasattr(self, original_attr):
+                    setattr(self, original_attr, None)
+                if not hasattr(self, changed_attr):
+                    setattr(self, changed_attr, False)
 
     def update_states(self, data, mapping=None):
         self.data = data or {}
-        fields = {}
-        if isinstance(mapping, dict):
-            fields = mapping.get("fields", {}) if isinstance(mapping.get("fields"), dict) else {}
 
-        if not fields:
-            fields = {
-                "harmony_state": {"source": "harmony_state", "type": "string", "default": "Off"},
-                "cover_kitchen": {"source": "cover_kitchen", "type": "float", "default": 0},
-                "living_room_temp": {"source": "living_room_temp", "type": "float", "default": 15},
-                "light_tafel": {"source": "light_tafel", "type": "light"},
-                "light_keuken": {"source": "light_keuken", "type": "light"},
-                "light_kleur": {"source": "light_kleur", "type": "light"},
-                "light_woonkamer": {"source": "light_woonkamer", "type": "light"},
-                "sleep_mode": {"source": "sleep_mode", "type": "on_off_bool", "default": False, "track_original": True},
-                "trash_warning": {"source": "trash_warning", "type": "on_off_bool", "default": False},
-                "bed_heating_on": {"source": "bed_heating_on", "type": "on_off_bool", "default": False},
-                "playstation_power": {"source": "playstation_power", "type": "on_off_bool", "default": False},
-                "playstation_available": {
-                    "source": "playstation_power",
-                    "type": "availability",
-                    "unavailable_value": "unavailable",
-                    "default": True,
-                },
-            }
+        if mapping is not None:
+            self._configure_fields(mapping)
 
-        for attr, spec in fields.items():
+        for attr, spec in self._field_specs.items():
             if not isinstance(spec, dict):
                 continue
             source = str(spec.get("source", attr)).strip() or attr

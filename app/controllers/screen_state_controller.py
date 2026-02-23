@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from app.services.idle_mode_service import resolve_idle_mode
+
 if TYPE_CHECKING:
     from main import MainApp
 
@@ -26,24 +28,13 @@ class ScreenStateController:
         return bool(getattr(self.main_app.settings, "enable_weather", True))
 
     def switch_to_idle(self, force=False):
-        if hasattr(self.main_app, "is_any_visual_feature_enabled") and not self.main_app.is_any_visual_feature_enabled():
-            self.main_app.publish_event(
-                "ui.screen.changed",
-                {
-                    "screen": "setup",
-                    "is_display_on": True,
-                    "force": bool(force),
-                },
-                source="screen_state_controller",
-            )
-            return
-
-        show_weather = bool(self.main_app.settings.show_weather_on_idle) and self._is_weather_enabled()
+        idle_mode = resolve_idle_mode(self.main_app.settings, weather_enabled=self._is_weather_enabled())
+        target_screen = "off" if idle_mode == "off" else idle_mode
         self.main_app.publish_event(
             "ui.screen.changed",
             {
-                "screen": "weather" if show_weather else "off",
-                "is_display_on": show_weather,
+                "screen": target_screen,
+                "is_display_on": idle_mode != "off",
                 "force": bool(force),
             },
             source="screen_state_controller",

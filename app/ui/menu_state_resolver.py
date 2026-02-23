@@ -61,6 +61,27 @@ class MenuStateResolver:
             active = music is not None and getattr(music, "state", None) == spec.get("state")
         elif spec_type == "setting_bool":
             active = _to_bool(self._get_settings_value(spec.get("source"), spec.get("default", False)), False)
+        elif spec_type == "setting_choice":
+            current = str(self._get_settings_value(spec.get("source"), spec.get("default", "")) or "").strip()
+            choices = spec.get("choices", {})
+            if not isinstance(choices, dict):
+                choices = {}
+            inactive_values = spec.get("inactive_values", [])
+            if not isinstance(inactive_values, (list, tuple, set)):
+                inactive_values = []
+            normalized_inactive = {str(v).strip() for v in inactive_values}
+            display_text = str(choices.get(current, current)).strip()
+            if not display_text:
+                display_text = str(spec.get("fallback_text", "")).strip()
+            return self._spec(
+                button_id,
+                active=current not in normalized_inactive,
+                action_text=spec.get("action_text", ""),
+                on_text=spec.get("on_text", ""),
+                off_text=spec.get("off_text", ""),
+                available=available,
+                display_text=display_text,
+            )
         elif spec_type == "light":
             light = self._light_state(self._get_device_value(spec.get("source"), {}))
             active = light["state"] == "on"
@@ -100,7 +121,7 @@ class MenuStateResolver:
         return getattr(settings, source, default)
 
     @staticmethod
-    def _spec(button_id, active, action_text="", on_text="", off_text="", available=True):
+    def _spec(button_id, active, action_text="", on_text="", off_text="", available=True, display_text=""):
         return {
             "button_id": button_id,
             "active": bool(active),
@@ -108,6 +129,7 @@ class MenuStateResolver:
             "on_text": on_text,
             "off_text": off_text,
             "available": bool(available),
+            "display_text": display_text,
         }
 
     @staticmethod

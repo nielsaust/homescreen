@@ -76,28 +76,16 @@ class UiIntentHandler:
         if network_signature == self._last_network_ui_state:
             return
         self._last_network_ui_state = network_signature
-        self.main_app.update_network_status_ui(online)
+        self.main_app.network_status_banner_service.refresh(online)
 
     def _apply_weather_cache_status(self, intent):
-        if not self._is_weather_enabled():
-            return
-        weather_screen = self.main_app.display_controller.screen_objects.get("weather")
-        if weather_screen is None:
-            return
-
         source = intent.get("source")
         cached_at_text = intent.get("cached_at_text")
-        if source == "cache" and cached_at_text:
-            if cached_at_text == self._last_cached_weather_label_text:
-                return
-            self._last_cached_weather_label_text = cached_at_text
-            weather_screen.show_cached_weather_label(cached_at_text)
+        next_value = cached_at_text if source == "cache" and cached_at_text else None
+        if next_value == self._last_cached_weather_label_text:
             return
-
-        if self._last_cached_weather_label_text is None:
-            return
-        self._last_cached_weather_label_text = None
-        weather_screen.hide_cached_weather_label()
+        self._last_cached_weather_label_text = next_value
+        self.main_app.network_status_banner_service.refresh(None)
 
     def _apply_music_render(self, intent):
         if not self._is_music_enabled():
@@ -166,9 +154,12 @@ class UiIntentHandler:
             return
         if screen == "weather":
             if not self._is_weather_enabled():
-                self.main_app.display_controller.turn_off()
+                self.main_app.screen_state_controller.switch_to_idle(force=force)
                 return
             self.main_app.display_controller.show_screen("weather", force=force)
+            return
+        if screen == "time":
+            self.main_app.display_controller.show_screen("time", force=force)
             return
         if screen == "music":
             if not self._is_music_enabled():

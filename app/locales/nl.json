@@ -30,6 +30,7 @@
     "connection_lost_at": "Verbinding verbroken om {timestamp}",
     "connections_lost_at": "Verbinding verbroken ({connections}) om {timestamp}",
     "connection_lost_single": "Geen {connection} ({timestamp})",
+    "weather_last_cached": "Laatste weer om ({timestamp})",
     "connection": {
       "internet": "Internet",
       "mqtt": "MQTT"

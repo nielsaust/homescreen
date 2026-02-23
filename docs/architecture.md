@@ -70,6 +70,9 @@ Most logic moved into services/controllers.
   - startup MQTT sync queue for required topics.
 - `ui_intent_mapper_service.py`
   - store event -> UI intent mapping.
+- `device_state_mapping.py` + `DeviceStates`
+  - declarative device-state mapping loaded from `local_config/device_state_mapping.json`
+  - dynamic field coercion based on mapping `fields` specs.
 
 ## UI Thread Safety Strategy
 

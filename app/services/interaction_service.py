@@ -5,6 +5,7 @@ import time
 from typing import TYPE_CHECKING
 
 from app.observability.domain_logger import log_event
+from app.services.idle_mode_service import is_idle_display_on
 
 if TYPE_CHECKING:
     from main import MainApp
@@ -82,13 +83,14 @@ class InteractionService:
 
         sleep_mode_active = bool(getattr(self.main_app.device_states, "sleep_mode", False))
         # Keep first tap responsive from idle/off/setup: go straight to menu flow.
-        if not sleep_mode_active and interaction_type == "single_click" and screen_state in ("off", "setup", "weather"):
+        if not sleep_mode_active and interaction_type == "single_click" and screen_state in ("off", "setup", "weather", "time"):
             return False
 
         if (
-            self.main_app.settings.show_weather_on_idle
-            and hasattr(self.main_app, "is_weather_enabled")
-            and self.main_app.is_weather_enabled()
+            is_idle_display_on(
+                self.main_app.settings,
+                weather_enabled=bool(hasattr(self.main_app, "is_weather_enabled") and self.main_app.is_weather_enabled()),
+            )
             and screen_state == "off"
         ):
             self.main_app.display_controller.check_idle(True)
@@ -104,7 +106,7 @@ class InteractionService:
         return False
 
     def _route_by_screen(self, screen_state: str, interaction_type: str) -> None:
-        if screen_state in ("weather", "off", "setup"):
+        if screen_state in ("weather", "time", "off", "setup"):
             if interaction_type == "single_click":
                 self.main_app.screen_state_controller.switch_to_menu()
             return

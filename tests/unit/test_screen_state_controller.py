@@ -21,11 +21,15 @@ class _MainApp:
     def __init__(self):
         self.display_controller = _DisplayController()
         self.music_object = SimpleNamespace(state="idle")
-        self.settings = SimpleNamespace(show_weather_on_idle=True)
+        self.settings = SimpleNamespace(show_on_idle="weather", show_weather_on_idle=True)
+        self.enable_weather = True
         self.events = []
 
     def publish_event(self, name, payload, source=None):
         self.events.append((name, payload, source))
+
+    def is_weather_enabled(self):
+        return bool(self.enable_weather)
 
 
 class TestScreenStateController(unittest.TestCase):
@@ -40,13 +44,24 @@ class TestScreenStateController(unittest.TestCase):
 
     def test_switch_to_idle_off_when_disabled(self):
         app = _MainApp()
-        app.settings.show_weather_on_idle = False
+        app.settings.show_on_idle = "off"
         controller = ScreenStateController(app)
 
         controller.switch_to_idle()
 
         self.assertEqual(app.events[-1][1]["screen"], "off")
         self.assertFalse(app.events[-1][1]["is_display_on"])
+
+    def test_switch_to_idle_time_when_weather_disabled(self):
+        app = _MainApp()
+        app.settings.show_on_idle = "weather"
+        app.enable_weather = False
+        controller = ScreenStateController(app)
+
+        controller.switch_to_idle()
+
+        self.assertEqual(app.events[-1][1]["screen"], "time")
+        self.assertTrue(app.events[-1][1]["is_display_on"])
 
     def test_switch_to_music_ignored_when_menu_active_without_force(self):
         app = _MainApp()

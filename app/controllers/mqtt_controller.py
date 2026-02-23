@@ -91,8 +91,9 @@ class MqttController:
             try:
                 store = getattr(self.main_app, "store", None)
                 online = getattr(store.get_state(), "network_online", None) if store else None
-                if online is not None and hasattr(self.main_app, "update_network_status_ui"):
-                    self.main_app.root.after(0, lambda: self.main_app.update_network_status_ui(bool(online)))
+                banner_service = getattr(self.main_app, "network_status_banner_service", None)
+                if online is not None and banner_service is not None:
+                    self.main_app.root.after(0, lambda: banner_service.refresh(bool(online)))
             except Exception:
                 pass
             log_event(logger, logging.INFO, "mqtt", "runtime.connection_state", connected=state, reason=reason)

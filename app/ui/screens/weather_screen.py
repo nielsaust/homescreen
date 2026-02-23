@@ -6,8 +6,6 @@ if TYPE_CHECKING:
 
 import logging
 import datetime
-import locale
-import pathlib
 import threading
 import tkinter as tk
 from tkinter import font as tkFont
@@ -17,6 +15,7 @@ from io import BytesIO
 from app.services.weather_service import WeatherService
 from app.viewmodels.weather_view_model import build_weather_view_model
 from app.observability.domain_logger import log_event
+from app.ui.screens.weather_time_shared import WeatherTimeSharedLogic
 
 logger = logging.getLogger(__name__)
 
@@ -39,15 +38,11 @@ class WeatherScreen:
         self.lang = language
         self.city_id = city_id
         self.units = units
-        self.date_format = str(getattr(self.main_app.settings, "date_format", "%-d %b") or "%-d %b")
-        self.time_locale = str(getattr(self.main_app.settings, "time_locale", "") or "").strip()
-        self._locale_initialized = False
-        self._locale_ok = False
+        self.shared = WeatherTimeSharedLogic(self.main_app)
         self.icon_size_large = 300
         self.last_updated = 0
         self.previous_condition_image_url = ""
         self.weather_now_image = None
-        self.cached_weather_icon = None
 
         self.weather_service = WeatherService(
             settings=self.main_app.settings,
@@ -63,84 +58,59 @@ class WeatherScreen:
         width = self.main_app.settings.screen_width
         height = self.main_app.settings.screen_height
 
-        timedate_font = tkFont.Font(family="Helvetica", size=60, weight="bold")
-        temp_font = tkFont.Font(family="Helvetica", size=100, weight="bold")
-        description_font = tkFont.Font(family="Helvetica", size=50)
-        minmax_font = tkFont.Font(family="Helvetica", size=30)
+        self.icon_size_large = 240
+        temp_font = tkFont.Font(family="Helvetica", size=96, weight="bold")
+        description_font = tkFont.Font(family="Helvetica", size=42)
+        timedate_font = tkFont.Font(family="Helvetica", size=52, weight="bold")
 
         self.main_frame = tk.Frame(self.frame, background=background_color, width=width, height=height)
-        self.time_frame = tk.Frame(self.main_frame, background=background_color, width=width, height=130)
-        self.sub_frame = tk.Frame(self.main_frame, background=background_color, width=width, height=540)
-        self.bottom_frame = tk.Frame(self.main_frame, background=background_color, width=width, height=50)
-        self.temp_frame = tk.Frame(self.sub_frame, background=background_color, width=width, height=200)
+        self.main_frame.pack(fill=tk.BOTH, expand=True)
+        self.main_frame.pack_propagate(False)
 
-        self.sub_frame.grid_propagate(False)
-        self.time_frame.grid_propagate(False)
-        self.bottom_frame.grid_propagate(False)
-        self.temp_frame.grid_propagate(False)
+        self.primary_frame = tk.Frame(self.main_frame, background=background_color)
+        self.primary_frame.place(relx=0.5, rely=0.44, anchor=tk.CENTER)
+        self.secondary_frame = tk.Frame(self.main_frame, background=background_color)
+        self.secondary_frame.place(relx=0.5, rely=1.0, y=-22, anchor=tk.S)
 
-        self.main_frame.grid(row=0, column=0, sticky="nsew")
-        self.time_frame.grid(row=0, column=0, sticky="nsew")
-        self.sub_frame.grid(row=1, column=0, sticky="nsew")
-        self.bottom_frame.grid(row=2, column=0, sticky="nsew")
-
-        self.label_time = tk.Label(self.time_frame, text="00:00", font=timedate_font, bg=background_color, fg=foreground_color, padx=30, pady=30)
-        self.label_date = tk.Label(self.time_frame, text="ma 1 jan", font=timedate_font, bg=background_color, fg=foreground_color, padx=30, pady=30)
-
-        self.label_time.place(relx=0, rely=0, x=18, y=10, anchor=tk.NW)
-        self.label_date.place(relx=1, rely=0, x=-18, y=10, anchor=tk.NE)
-
-        self.label_temperature = tk.Label(self.temp_frame, text="--\u00b0C", font=temp_font, bg=background_color, fg=foreground_color, padx=20, pady=20)
-        self.label_min = tk.Label(self.temp_frame, text="\u25bc --\u00b0C", font=minmax_font, bg=background_color, fg=foreground_color, padx=20, pady=10)
-        self.label_max = tk.Label(self.temp_frame, text="\u25b2 --\u00b0C", font=minmax_font, bg=background_color, fg=foreground_color, padx=20, pady=10)
-
-        relx = 0.6
-        rely_correction = 0
-        if not self.main_app.system_info["is_desktop"]:
-            rely_correction = 0.05
-        self.label_temperature.place(relx=relx, rely=0.5 + rely_correction, anchor=tk.E)
-        self.label_max.place(relx=relx, rely=0.5, anchor=tk.SW)
-        self.label_min.place(relx=relx, rely=0.5, anchor=tk.NW)
-
-        self.label_condition = tk.Label(self.sub_frame, text="...", bg=background_color, fg=foreground_color)
+        self.label_condition = tk.Label(self.primary_frame, text="", bg=background_color, fg=foreground_color)
+        self.label_temperature = tk.Label(self.primary_frame, text="--\u00b0C", font=temp_font, bg=background_color, fg=foreground_color)
         text = self.main_app.t("weather.default_weather_text", default="Current weather")
-        self.label_description = tk.Label(self.sub_frame, text=text, font=description_font, bg=background_color, fg=foreground_color)
-        self.cached_weather_badge = tk.Frame(
-            self.main_frame,
-            bg="white",
-            padx=8,
-            pady=4,
-            highlightthickness=1,
-            highlightbackground="#d0d0d0",
+        self.label_description = tk.Label(
+            self.primary_frame,
+            text=text,
+            font=description_font,
+            bg=background_color,
+            fg=foreground_color,
         )
-        self.cached_weather_icon_label = tk.Label(
-            self.cached_weather_badge,
-            bg="white",
+        self.label_time = tk.Label(
+            self.secondary_frame,
+            text="00:00",
+            font=timedate_font,
+            bg=background_color,
+            fg=foreground_color,
         )
-        self.cached_weather_label = tk.Label(
-            self.cached_weather_badge,
+        self.label_separator = tk.Label(
+            self.secondary_frame,
+            text="  •  ",
+            font=timedate_font,
+            bg=background_color,
+            fg=foreground_color,
+        )
+        self.label_date = tk.Label(
+            self.secondary_frame,
             text="",
-            font=tkFont.Font(family="Helvetica", size=12, weight="bold"),
-            bg="white",
-            fg="black",
-            padx=4,
-            pady=0,
+            font=timedate_font,
+            bg=background_color,
+            fg=foreground_color,
         )
-        self.cached_weather_icon_label.pack(side=tk.LEFT)
-        self.cached_weather_label.pack(side=tk.LEFT)
-        self._load_cached_weather_icon()
 
-        self.label_condition.grid(row=0, column=0)
-        self.temp_frame.grid(row=1, column=0)
-        self.label_description.grid(row=2, column=0)
-        self.cached_weather_badge.place_forget()
+        self.label_condition.pack(anchor=tk.CENTER)
+        self.label_temperature.pack(anchor=tk.CENTER, pady=(6, 0))
+        self.label_description.pack(anchor=tk.CENTER, pady=(0, 0))
 
-        self.time_frame.grid_columnconfigure(0, weight=1)
-        self.sub_frame.grid_columnconfigure(0, weight=1)
-        self.bottom_frame.grid_columnconfigure(0, weight=1)
-        self.time_frame.grid_rowconfigure(0, weight=1)
-        self.sub_frame.grid_rowconfigure(0, weight=1)
-        self.bottom_frame.grid_rowconfigure(0, weight=1)
+        self.label_time.pack(side=tk.LEFT, anchor=tk.S)
+        self.label_separator.pack(side=tk.LEFT, anchor=tk.S)
+        self.label_date.pack(side=tk.LEFT, anchor=tk.S)
 
         self.is_created = True
         self.recurring_job = None
@@ -168,7 +138,11 @@ class WeatherScreen:
         if not isinstance(payload, dict):
             return
         try:
-            vm = build_weather_view_model(payload, snapshot.get("cached_at_text"))
+            vm = build_weather_view_model(
+                payload,
+                snapshot.get("cached_at_text"),
+                units=self.shared.weather_units(),
+            )
         except Exception as exc:
             log_event(logger, logging.WARNING, "weather", "cache.bootstrap_render_failed", error=exc)
             return
@@ -222,25 +196,6 @@ class WeatherScreen:
         if not network_available:
             log_event(logger, logging.WARNING, "network", "weather.network_unavailable")
 
-    def show_cached_weather_label(self, cached_at_text):
-        self.cached_weather_label.configure(text=f"{cached_at_text}")
-        self.cached_weather_badge.place(x=12, rely=1.0, y=-12, anchor=tk.SW)
-        self.cached_weather_badge.lift()
-
-    def hide_cached_weather_label(self):
-        self.cached_weather_badge.place_forget()
-
-    def _load_cached_weather_icon(self):
-        icon_path = pathlib.Path(__file__).resolve().parents[3] / "images" / "buttons" / "weather.png"
-        if not icon_path.exists():
-            return
-        try:
-            icon = Image.open(icon_path).convert("RGBA").resize((18, 18), Image.LANCZOS)
-            self.cached_weather_icon = ImageTk.PhotoImage(icon)
-            self.cached_weather_icon_label.configure(image=self.cached_weather_icon)
-        except Exception as e:
-            log_event(logger, logging.DEBUG, "weather", "cached_label.icon_load_failed", error=e)
-
     def update_weather(self):
         if self.weather_fetch_inflight:
             log_event(logger, logging.DEBUG, "weather", "update.skipped", reason="fetch_inflight")
@@ -254,7 +209,7 @@ class WeatherScreen:
                 api_key=self.api_key,
                 city_id=self.city_id,
                 language=self.lang,
-                units=self.units,
+                units=self.shared.weather_units(),
             )
         except Exception as exc:
             log_event(logger, logging.ERROR, "weather", "update.worker_failed", error=exc)
@@ -299,7 +254,11 @@ class WeatherScreen:
             return
 
         self.last_updated = datetime.datetime.now().timestamp()
-        vm = build_weather_view_model(result.payload, result.cached_at_text)
+        vm = build_weather_view_model(
+            result.payload,
+            result.cached_at_text,
+            units=self.shared.weather_units(),
+        )
         self.main_app.publish_event(
             "weather.updated",
             {"source": result.source, "cached_at_text": result.cached_at_text},
@@ -315,8 +274,6 @@ class WeatherScreen:
     def update_weather_gui(self, vm, icon_bytes=None):
         self._apply_icon_bytes(icon_bytes)
         self.label_temperature.configure(text=vm.temperature_text)
-        self.label_max.configure(text=vm.max_text)
-        self.label_min.configure(text=vm.min_text)
         self.label_description.configure(text=vm.description_text)
 
     def _apply_icon_bytes(self, icon_bytes):
@@ -327,7 +284,7 @@ class WeatherScreen:
             condition_image = Image.open(condition_image_bytes)
             condition_image = condition_image.resize(
                 (self.icon_size_large, self.icon_size_large),
-                ImageTk.Image.LANCZOS,
+                Image.LANCZOS,
             )
             self.weather_now_image = ImageTk.PhotoImage(condition_image)
         except Exception as e:
@@ -362,8 +319,8 @@ class WeatherScreen:
         self._ensure_time_locale()
 
         current_time = datetime.datetime.now()
-        time_string = current_time.strftime("%H:%M")
-        date_string = self._format_date(current_time)
+        time_string = self.shared.format_time(current_time)
+        date_string = self.shared.format_date(current_time)
 
         try:
             self.label_time.configure(text=time_string)
@@ -372,52 +329,18 @@ class WeatherScreen:
             log_event(logger, logging.ERROR, "weather", "time.render_failed", error=e)
 
     def _ensure_time_locale(self):
-        if self._locale_initialized:
-            return
-        self._locale_initialized = True
-        if not self.time_locale:
-            self._locale_ok = True
-            return
-        try:
-            locale.setlocale(locale.LC_TIME, self.time_locale)
-            self._locale_ok = True
-            log_event(logger, logging.INFO, "weather", "time.locale_applied", locale=self.time_locale)
-        except Exception as exc:
-            self._locale_ok = False
+        ok, info = self.shared.ensure_time_locale()
+        if ok and info:
+            log_event(logger, logging.INFO, "weather", "time.locale_applied", locale=info)
+        if not ok:
             log_event(
                 logger,
                 logging.WARNING,
                 "weather",
                 "time.locale_apply_failed",
-                locale=self.time_locale,
-                error=exc,
+                locale=self.shared.time_locale,
+                error=info,
             )
-
-    def _format_date(self, dt: datetime.datetime) -> str:
-        fmt = self.date_format
-        if not fmt:
-            fmt = "%-d %b"
-        candidates = [fmt]
-        if "%-d" in fmt:
-            candidates.append(fmt.replace("%-d", "%#d"))
-        if "%#d" in fmt:
-            candidates.append(fmt.replace("%#d", "%-d"))
-        if "%e" in fmt:
-            candidates.append(fmt.replace("%e", "%d"))
-
-        seen = set()
-        for candidate in candidates:
-            if candidate in seen:
-                continue
-            seen.add(candidate)
-            try:
-                return dt.strftime(candidate)
-            except Exception:
-                continue
-        try:
-            return dt.strftime("%-d %b")
-        except Exception:
-            return dt.strftime("%d %b")
 
     def set_idle(self, idle=True):
         if idle:

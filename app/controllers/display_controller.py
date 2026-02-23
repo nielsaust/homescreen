@@ -8,6 +8,7 @@ from app.controllers.overlay_commands import OverlayCommand
 from app.controllers.overlay_manager import OverlayManager
 from app.ui.ui_render_service import UiRenderService
 from app.observability.domain_logger import log_event
+from app.services.idle_mode_service import resolve_idle_mode
 
 class DisplayController:
     def __init__(self, main_app):
@@ -64,7 +65,7 @@ class DisplayController:
         self._apply_kiosk_window_mode()
 
     def _create_base_screens(self):
-        for screen_name in ("off", "setup", "weather", "music", "menu"):
+        for screen_name in ("off", "setup", "time", "weather", "music", "menu"):
             self.create_screen(screen_name)
 
     def create_screen(self, screen_name):
@@ -82,7 +83,17 @@ class DisplayController:
             screen_object = SetupRequiredScreen(self.main_app, screen_frame)
         elif screen_name == "weather":         
             from app.ui.screens.weather_screen import WeatherScreen
-            screen_object = WeatherScreen(self.main_app,screen_frame,self.main_app.settings.weather_api_key, self.main_app.settings.weather_city_id, self.main_app.settings.language)
+            screen_object = WeatherScreen(
+                self.main_app,
+                screen_frame,
+                self.main_app.settings.weather_api_key,
+                self.main_app.settings.weather_city_id,
+                self.main_app.settings.language,
+                getattr(self.main_app.settings, "weather_units", "metric"),
+            )
+        elif screen_name == "time":
+            from app.ui.screens.time_screen import TimeScreen
+            screen_object = TimeScreen(self.main_app, screen_frame, self.main_app.settings.language)
         elif screen_name == "music":
             from app.ui.screens.music_screen import MusicScreen
             screen_object = MusicScreen(self.main_app,screen_frame)
@@ -451,7 +462,11 @@ class DisplayController:
         log_event(logger, logging.INFO, "display", "power.off")
         self.is_showing = False
         self.close_open_windows()
-        if not self.main_app.settings.show_weather_on_idle and self.get_screen_state() != "off":
+        idle_mode = resolve_idle_mode(
+            self.main_app.settings,
+            weather_enabled=bool(getattr(self.main_app, "enable_weather", False)),
+        )
+        if idle_mode == "off" and self.get_screen_state() != "off":
             self.show_screen("off")
         if(not self.main_app.system_info["is_desktop"]):
             self.backlight.set_power(False)

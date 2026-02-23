@@ -42,11 +42,10 @@ make settings-prune-local
 ## Recommended routine
 
 1. Add/change settings in `local_config/settings.json` while developing.
-2. If migrating from older setup, run `make migrate-local-config` once.
-3. Run `make settings-update-example`.
-4. Review `settings.json.example` and commit.
-5. Run `make settings-check` to confirm both files are aligned.
-6. Optionally run `make settings-prune-local-preview` and `make settings-prune-local` to remove stale local-only keys.
+2. Run `make settings-update-example`.
+3. Review `settings.json.example` and commit.
+4. Run `make settings-check` to confirm both files are aligned.
+5. Optionally run `make settings-prune-local-preview` and `make settings-prune-local` to remove stale local-only keys.
 
 The sync tool preserves key ordering based on `settings.json.example`, so new keys remain predictable across environments.
 
@@ -63,24 +62,35 @@ Useful runtime keys:
 - `log_enable_domain_levels`: opt-in for per-logger overrides (default `false`)
 - `log_domain_levels`: per-logger explicit levels map (used only when `log_enable_domain_levels=true`)
 - `app_environment`: controls dev-only menu visibility (`production` hides `dev_only` items)
-- `ui_locale`: UI language for system texts (`en`, `nl`; fallback to English)
+- `language`: UI language for system texts (`en`, `nl`; fallback to English)
+- `show_on_idle`: idle screen mode (`time`, `weather`, `off`)
+- `time_format`: clock format on idle/time/weather screens (`24h`, `12h`)
+- `weather_units`: weather unit mode (`metric`, `imperial`)
 - `menu_edit_hold_ms`: long-press duration (ms) to open runtime menu edit mode
 - `media_show_album`: show/hide album title in music overlay text
-- `weather_time_locale`: locale used for weather date rendering (LC_TIME)
-- `weather_date_format`: strftime format string for weather date label
+- `time_locale`: locale used for date/time rendering
+- `date_format`: strftime format string for weather date label
 
 ## Weather date/locale options
 
-- `weather_time_locale` examples:
+- `time_locale` examples:
   - `nl_NL.UTF-8`
   - `en_US.UTF-8`
   - `de_DE.UTF-8`
   - empty string (`""`) to use system default locale
-- `weather_date_format` examples:
+- `date_format` examples:
   - `%-d %b` -> `14 feb`
   - `%a %-d %b` -> `vr 14 feb`
   - `%d-%m` -> `14-02`
   - `%A %-d %B` -> `vrijdag 14 februari`
+
+- `time_format` examples:
+  - `24h` -> `16:21`
+  - `12h` -> `4:21 PM`
+
+- `weather_units` examples:
+  - `metric` -> `11°C`
+  - `imperial` -> `52°F`
 
 Space guidance for the idle weather top-right label:
 

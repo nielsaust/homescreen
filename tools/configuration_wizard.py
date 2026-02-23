@@ -30,7 +30,10 @@ MUSIC_BUTTON_REQUIREMENTS: dict[str, list[str]] = {
 
 WEATHER_BUTTON_REQUIREMENTS: dict[str, list[str]] = {
     "weather_options": ["enable_weather"],
-    "show_weather_on_idle": ["enable_weather"],
+    "idle_screen_options": [],
+    "show_on_idle_cycle": [],
+    "time_format_cycle": [],
+    "weather_units_cycle": [],
 }
 
 MUSIC_ACTION_SPECS: dict[str, dict] = {
@@ -46,7 +49,9 @@ MUSIC_ACTION_SPECS: dict[str, dict] = {
 }
 
 WEATHER_ACTION_SPECS: dict[str, dict] = {
-    "show_weather_on_idle": {"kind": "setting_toggle", "attr": "show_weather_on_idle"},
+    "show_on_idle_cycle": {"kind": "setting_cycle", "attr": "show_on_idle", "values": ["time", "weather", "off"]},
+    "time_format_cycle": {"kind": "setting_cycle", "attr": "time_format", "values": ["24h", "12h"]},
+    "weather_units_cycle": {"kind": "setting_cycle", "attr": "weather_units", "values": ["metric", "imperial"]},
 }
 
 MUSIC_STATE_SPECS: list[dict] = [
@@ -69,7 +74,41 @@ MUSIC_STATE_SPECS: list[dict] = [
 ]
 
 WEATHER_STATE_SPECS: list[dict] = [
-    {"button_id": "show_weather_on_idle", "type": "setting_bool", "source": "show_weather_on_idle", "default": False},
+    {
+        "button_id": "show_on_idle_cycle",
+        "type": "setting_choice",
+        "source": "show_on_idle",
+        "default": "time",
+        "action_text": "[idle_mode]",
+        "choices": {
+            "time": "Tijd",
+            "weather": "Weer",
+            "off": "Uit",
+        },
+        "inactive_values": ["off"],
+    },
+    {
+        "button_id": "time_format_cycle",
+        "type": "setting_choice",
+        "source": "time_format",
+        "default": "24h",
+        "action_text": "[time_mode]",
+        "choices": {
+            "24h": "24u",
+            "12h": "12u",
+        },
+    },
+    {
+        "button_id": "weather_units_cycle",
+        "type": "setting_choice",
+        "source": "weather_units",
+        "default": "metric",
+        "action_text": "[weather_units_mode]",
+        "choices": {
+            "metric": "Celsius",
+            "imperial": "Fahrenheit",
+        },
+    },
 ]
 
 
@@ -205,14 +244,15 @@ def _music_menu_item() -> dict:
 def _weather_menu_item() -> dict:
     return {
         "id": "weather_options",
-        "text": "Weer",
+        "text": "Idle screen",
         "image": "weather.png",
         "action": "open_page",
         "order": 500,
-        "setting_requirements": ["enable_weather"],
         "screen": [
             {"id": "weather_back", "text": "Terug", "image": "back.png", "action": "back", "order": 10},
-            {"id": "show_weather_on_idle", "text": "Toon weer als idle", "image": "weather.png", "action": "show_weather_on_idle", "action_spec": {"kind": "setting_toggle", "attr": "show_weather_on_idle"}, "state_spec": {"type": "setting_bool", "source": "show_weather_on_idle", "default": False}, "setting_requirements": ["enable_weather"], "order": 20},
+            {"id": "show_on_idle_cycle", "text": "Show idle [idle_mode]", "image": "weather.png", "action": "show_on_idle_cycle", "action_spec": {"kind": "setting_cycle", "attr": "show_on_idle", "values": ["time", "weather", "off"]}, "state_spec": {"type": "setting_choice", "source": "show_on_idle", "default": "time", "action_text": "[idle_mode]", "choices": {"time": "Tijd", "weather": "Weer", "off": "Uit"}, "inactive_values": ["off"]}, "order": 20},
+            {"id": "time_format_cycle", "text": "Tijd notatie [time_mode]", "image": "clock.png", "action": "time_format_cycle", "action_spec": {"kind": "setting_cycle", "attr": "time_format", "values": ["24h", "12h"]}, "state_spec": {"type": "setting_choice", "source": "time_format", "default": "24h", "action_text": "[time_mode]", "choices": {"24h": "24u", "12h": "12u"}}, "order": 30},
+            {"id": "weather_units_cycle", "text": "Weer eenheden [weather_units_mode]", "image": "weather.png", "action": "weather_units_cycle", "action_spec": {"kind": "setting_cycle", "attr": "weather_units", "values": ["metric", "imperial"]}, "state_spec": {"type": "setting_choice", "source": "weather_units", "default": "metric", "action_text": "[weather_units_mode]", "choices": {"metric": "Celsius", "imperial": "Fahrenheit"}}, "order": 40},
         ],
     }
 
@@ -346,15 +386,34 @@ def configure_music(settings: dict, topics: dict) -> None:
 def configure_weather(settings: dict) -> None:
     print("\n[configuration] Weather integration")
     settings["enable_weather"] = _prompt_bool("Enable weather integration", bool(settings.get("enable_weather", False)))
+    if "show_on_idle" not in settings:
+        settings["show_on_idle"] = "weather" if bool(settings.get("show_weather_on_idle", True)) else "off"
+    if "time_format" not in settings:
+        settings["time_format"] = "24h"
+    if "weather_units" not in settings:
+        settings["weather_units"] = "metric"
+
+    settings["show_on_idle"] = _prompt_choice(
+        "Idle screen mode",
+        ["time", "weather", "off"],
+        str(settings.get("show_on_idle", "time")),
+    )
+    settings["time_format"] = _prompt_choice(
+        "Tijd notatie",
+        ["24h", "12h"],
+        str(settings.get("time_format", "24h")),
+    )
+    settings["weather_units"] = _prompt_choice(
+        "Weer eenheden",
+        ["metric", "imperial"],
+        str(settings.get("weather_units", "metric")),
+    )
+
     if not settings["enable_weather"]:
-        settings["show_weather_on_idle"] = False
-        print("[configuration] Weather integration disabled.")
+        print("[configuration] Weather integration disabled (idle mode will use time/off as configured).")
+        _apply_feature_menu_defaults(settings, ask_overwrite=True)
         return
     print("OpenWeather setup: https://openweathermap.org/")
-    settings["show_weather_on_idle"] = _prompt_bool(
-        "Display weather when idle",
-        bool(settings.get("show_weather_on_idle", True)),
-    )
     settings["weather_api_key"] = _prompt("OpenWeather API key", str(settings.get("weather_api_key", "")))
     settings["weather_city_id"] = _prompt("OpenWeather city id", str(settings.get("weather_city_id", "")))
     settings["language"] = _prompt("Weather language (e.g. nl/en)", str(settings.get("language", "nl")))

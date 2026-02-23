@@ -13,7 +13,7 @@ Startup-triggered actions are configured separately in `local_config/startup_act
   - `hold_action_spec` on each menu item (optional long-press behavior)
   - `state_spec` on each menu item
   - `setting_requirements` on each menu item
-- Legacy fallback (still supported while migrating older files):
+- Legacy fallback (still supported):
   - top-level `action_specs`, `state_specs`, `button_setting_requirements`
 - Action execution engine:
   - `app/controllers/action_dispatcher.py`
@@ -139,7 +139,6 @@ Validation:
 ```bash
 make menu-item-verify-toggle ITEM_ID=my_item
 make menu-contract-check
-make menu-migrate-actions
 make settings-check
 ```
 

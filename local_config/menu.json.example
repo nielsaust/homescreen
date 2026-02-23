@@ -185,6 +185,106 @@
             "kind": "shell",
             "op": "shutdown"
           }
+        },
+        {
+          "id": "idle_screen_options",
+          "text": "Idle screen",
+          "image": "weather.png",
+          "action": "open_page",
+          "order": 20,
+          "screen": [
+            {
+              "id": "idle_screen_options_back",
+              "text": "Terug",
+              "image": "back.png",
+              "action": "back",
+              "order": 10,
+              "action_spec": {
+                "kind": "menu_nav",
+                "command": "back"
+              }
+            },
+            {
+              "id": "show_on_idle_cycle",
+              "text": "Show idle [idle_mode]",
+              "image": "weather.png",
+              "action": "show_on_idle_cycle",
+              "order": 20,
+              "action_spec": {
+                "kind": "setting_cycle",
+                "attr": "show_on_idle",
+                "values": [
+                  "time",
+                  "weather",
+                  "off"
+                ]
+              },
+              "state_spec": {
+                "type": "setting_choice",
+                "source": "show_on_idle",
+                "default": "time",
+                "action_text": "[idle_mode]",
+                "choices": {
+                  "time": "Tijd",
+                  "weather": "Weer",
+                  "off": "Uit"
+                },
+                "inactive_values": [
+                  "off"
+                ]
+              }
+            },
+            {
+              "id": "time_format_cycle",
+              "text": "Tijd notatie [time_mode]",
+              "image": "clock.png",
+              "action": "time_format_cycle",
+              "order": 30,
+              "action_spec": {
+                "kind": "setting_cycle",
+                "attr": "time_format",
+                "values": [
+                  "24h",
+                  "12h"
+                ]
+              },
+              "state_spec": {
+                "type": "setting_choice",
+                "source": "time_format",
+                "default": "24h",
+                "action_text": "[time_mode]",
+                "choices": {
+                  "24h": "24u",
+                  "12h": "12u"
+                }
+              }
+            },
+            {
+              "id": "weather_units_cycle",
+              "text": "Weer eenheden [weather_units_mode]",
+              "image": "weather.png",
+              "action": "weather_units_cycle",
+              "order": 40,
+              "action_spec": {
+                "kind": "setting_cycle",
+                "attr": "weather_units",
+                "values": [
+                  "metric",
+                  "imperial"
+                ]
+              },
+              "state_spec": {
+                "type": "setting_choice",
+                "source": "weather_units",
+                "default": "metric",
+                "action_text": "[weather_units_mode]",
+                "choices": {
+                  "metric": "Celsius",
+                  "imperial": "Fahrenheit"
+                }
+              }
+            }
+          ]
         }
       ]
     },

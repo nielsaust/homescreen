@@ -4,7 +4,6 @@ After cloning/pulling, run:
 
 ```bash
 make install
-make migrate-local-config  # one-time, only when migrating older local setup
 make configuration
 ```
 
@@ -12,7 +11,7 @@ The wizard updates `local_config/settings.json` interactively.
 MQTT topics are stored separately in `local_config/mqtt_topics.json`.
 `make install` creates a default `local_config/menu.json` from `local_config/menu.json.example`.
 If a local menu already exists, install asks whether it should be overwritten.
-Built-in localization catalogs live in `app/locales/*.json` and are selected via `ui_locale`.
+Built-in localization catalogs live in `app/locales/*.json` and are selected via `language`.
 Optional per-install overrides can be placed in `local_config/i18n/<locale>.json`.
 
 `app_environment` in `local_config/settings.json` controls visibility of dev-only menu items:
@@ -44,19 +43,21 @@ Optional per-install overrides can be placed in `local_config/i18n/<locale>.json
 3. Weather integration
 
 - Enable/disable weather integration (`enable_weather`)
-- Display weather when idle (`show_weather_on_idle`)
+- Idle screen mode (`show_on_idle`: `time`, `weather`, `off`)
+- Clock format (`time_format`: `24h`, `12h`)
+- Weather units (`weather_units`: `metric`, `imperial`)
 - OpenWeather API key (`weather_api_key`)
 - City ID (`weather_city_id`)
-- Language (`ui_locale`)
-- Date locale for idle weather clock (`weather_time_locale`, e.g. `nl_NL.UTF-8`; enter `system` to use OS default)
-- Date format for idle weather clock (`weather_date_format`, strftime format)
+- Language (`language`)
+- Date locale for idle weather clock (`time_locale`, e.g. `nl_NL.UTF-8`)
+- Date format for idle weather clock (`date_format`, strftime format)
 - OpenWeather/network resilience
   - Weather fetch runs async so temporary API outages do not block menu/idle interaction.
   - `network_check_refresh_interval_seconds` controls refresh interval for the in-app `Check status` screen.
 
 Localization
 
-- App locale (`ui_locale`, e.g. `en`, `nl`)
+- App locale (`language`, e.g. `en`, `nl`)
 - Standard UI texts use i18n keys with fallback to English.
 - Custom user-added menu item texts are not localized by this step.
 - Full guide: `docs/localization.md`
@@ -71,7 +72,7 @@ Localization
   - When disabled, related MQTT topics are set to empty strings.
 - Feature menu wiring
   - Music enabled: ensures `music` menu with media toggles exists.
-  - Weather enabled: ensures `weather_options` menu with `show_weather_on_idle` exists.
+  - Weather enabled: ensures `weather_options` menu with `show_on_idle` toggle exists.
   - If one of these items already exists, the wizard asks whether to overwrite it with the default structure.
 
 5. Auto-start/update setup
@@ -101,6 +102,54 @@ Settings keys:
 - `simulate_outage_mqtt`
 
 When enabled, the new `Check status` screen reflects simulated failures immediately.
+
+## Device State Mapping (Declarative)
+
+Device-state parsing is fully declarative and driven by:
+
+- `local_config/device_state_mapping.json` (local override)
+- `local_config/device_state_mapping.json.example` (baseline template)
+
+The app no longer relies on hardcoded per-device field defaults in Python code.
+
+### Mapping format
+
+```json
+{
+  "fields": {
+    "sleep_mode": {
+      "source": "sleep_mode",
+      "type": "on_off_bool",
+      "default": false,
+      "track_original": true
+    },
+    "climate_temperature": {
+      "source": "climate_temperature",
+      "type": "float",
+      "default": 20
+    },
+    "light_main": {
+      "source": "light_main",
+      "type": "light"
+    }
+  }
+}
+```
+
+### Supported `type` values
+
+- `string`
+- `float`
+- `on_off_bool`
+- `light`
+- `availability`
+
+Notes:
+
+- `source` selects the key from incoming MQTT device-state payloads.
+- `default` is used when source data is missing/empty.
+- `track_original: true` adds `<field>_original` and `<field>_changed` runtime attributes.
+- Keep names generic in `.example`; put installation-specific fields in local config.
 
 ## Related Commands
 

@@ -119,7 +119,7 @@ class _FakeMainApp:
         self.settings = SimpleNamespace(
             mqtt_accept_nonessential_messages_after=0,
             show_cam_on_print_percentage=90,
-            show_weather_on_idle=True,
+            show_on_idle="weather",
             enable_mqtt=True,
             enable_music=True,
             enable_weather=True,

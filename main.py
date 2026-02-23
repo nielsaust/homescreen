@@ -15,6 +15,7 @@ from app.services.music_metrics_service import MusicMetricsService
 from app.services.network_bootstrap_service import NetworkBootstrapService
 from app.services.queue_pump_service import QueuePumpService
 from app.services.system_info_service import SystemInfoService
+from app.services.network_status_banner_service import NetworkStatusBannerService
 from app.ui.widgets.network_status_widget import NetworkStatusWidget
 from app.config.settings import Settings
 from app.config.i18n import I18n
@@ -97,6 +98,7 @@ class MainApp:
         self.music_service = MusicService()
         self.music_metrics_service = MusicMetricsService(self, self.music_metrics_interval_ms)
         self.network_status_widget = NetworkStatusWidget(self, self.root, self.settings.feedback_icon_size)
+        self.network_status_banner_service = NetworkStatusBannerService(self)
         self.system_info = self.system_info_service.detect_platform()
         self.composition_service.compose_runtime_components()
         self.store.subscribe(self._on_state_changed)
@@ -119,19 +121,6 @@ class MainApp:
         self.music_object = None
         self.boot_time = time.time()
         self.time_last_action = time.time()
-
-    def update_network_status_ui(self, online):
-        if not (hasattr(self, "network_status_widget") and self.network_status_widget):
-            return
-
-        disconnected = []
-        internet_online = None if online is None else bool(online)
-        if internet_online is False:
-            disconnected.append(self.t("network_banner.connection.internet", default="Internet"))
-        if self.is_mqtt_enabled() and not self.is_mqtt_connected():
-            disconnected.append(self.t("network_banner.connection.mqtt", default="MQTT"))
-
-        self.network_status_widget.set_disconnected_connections(disconnected)
 
     def _on_state_changed(self, state, event):
         intents = self.ui_intent_mapper_service.map_event(state, event)

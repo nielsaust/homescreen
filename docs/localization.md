@@ -17,7 +17,7 @@ Set in `local_config/settings.json`:
 
 ```json
 {
-  "ui_locale": "en"
+  "language": "en"
 }
 ```
 
