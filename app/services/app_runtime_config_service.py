@@ -29,8 +29,6 @@ class AppRuntimeConfigService:
         main_app.enable_music = _to_bool(getattr(self.settings, "enable_music", False), False)
         main_app.enable_weather = _to_bool(getattr(self.settings, "enable_weather", False), False)
         self.settings.show_on_idle = resolve_idle_mode(self.settings, weather_enabled=main_app.enable_weather)
-        # Keep legacy flag available for compatibility paths while migrating references.
-        self.settings.show_weather_on_idle = self.settings.show_on_idle == "weather"
         raw_weather_units = str(getattr(self.settings, "weather_units", "metric") or "metric").strip().lower()
         self.settings.weather_units = raw_weather_units if raw_weather_units in {"metric", "imperial"} else "metric"
         raw_time_format = str(getattr(self.settings, "time_format", "24h") or "24h").strip().lower()
@@ -52,6 +50,14 @@ class AppRuntimeConfigService:
         main_app.music_debug_logging = _to_bool(getattr(self.settings, "music_debug_logging", False), False)
         main_app.music_metrics_interval_ms = int(
             (getattr(self.settings, "music_metrics_log_interval_seconds", 30) or 30) * 1000
+        )
+        self.settings.media_get_remote_image_retry_amount = max(
+            1,
+            int(getattr(self.settings, "media_get_remote_image_retry_amount", 3) or 3),
+        )
+        self.settings.media_get_remote_image_retry_delay_ms = max(
+            0,
+            int(getattr(self.settings, "media_get_remote_image_retry_delay_ms", 500) or 0),
         )
 
         network_interval = int(

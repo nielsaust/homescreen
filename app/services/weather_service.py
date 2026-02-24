@@ -35,7 +35,6 @@ class WeatherFetchResult:
     icon_bytes: bytes | None
     source: str  # live | cache | none
     cached_at_text: str | None
-    recovery_action: str | None
     network_available: bool
 
 
@@ -49,7 +48,6 @@ class WeatherService:
         self.settings = settings
         self.is_network_available = is_network_available
         self.on_network_status = on_network_status
-        self.api_failure_count = 0
         self.img_base_url = "https://openweathermap.org/img/wn/"
 
         self.cache_root = pathlib.Path(__file__).resolve().parents[2] / ".cache"
@@ -59,19 +57,14 @@ class WeatherService:
 
     def fetch_weather(self, api_key: str, city_id: str, language: str, units: str = "metric") -> WeatherFetchResult:
         if not api_key or not city_id:
-            return WeatherFetchResult(None, None, "none", None, None, False)
+            return WeatherFetchResult(None, None, "none", None, False)
 
         payload = self._fetch_live_payload(api_key, city_id, language, units)
-        recovery_action = None
 
         if payload is None:
-            self.api_failure_count += 1
-            threshold = int(getattr(self.settings, "weather_api_call_reboot_after_retries", 0) or 0)
-            if threshold > 0 and self.api_failure_count >= threshold:
-                recovery_action = str(getattr(self.settings, "weather_api_failure_action", "none"))
             payload = self._load_cached_weather()
             if payload is None:
-                return WeatherFetchResult(None, None, "none", None, recovery_action, False)
+                return WeatherFetchResult(None, None, "none", None, False)
 
             icon_code = self._extract_icon_code(payload)
             icon_bytes = self._load_cached_icon(icon_code) if icon_code else None
@@ -80,11 +73,9 @@ class WeatherService:
                 icon_bytes=icon_bytes,
                 source="cache",
                 cached_at_text=self._format_cached_timestamp(payload),
-                recovery_action=recovery_action,
                 network_available=False,
             )
 
-        self.api_failure_count = 0
         self._save_cached_weather(payload)
         icon_code = self._extract_icon_code(payload)
         icon_bytes = self._fetch_live_icon(icon_code)
@@ -96,7 +87,6 @@ class WeatherService:
             icon_bytes=icon_bytes,
             source="live",
             cached_at_text=None,
-            recovery_action=None,
             network_available=True,
         )
 

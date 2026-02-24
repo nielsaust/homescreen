@@ -5,6 +5,10 @@ import sys
 logger = logging.getLogger(__name__)
 
 class Settings:
+    NON_PERSISTED_RUNTIME_KEYS = {
+        "mqtt_runtime_connected",
+    }
+
     def __init__(self, json_file):
         self.json_file = pathlib.Path(json_file)
         if not self.json_file.is_absolute():
@@ -45,6 +49,8 @@ class Settings:
         for key, value in self.__dict__.items():
             # Runtime/internal fields should not be persisted to settings.json
             if key == "json_file" or key.startswith("_"):
+                continue
+            if key in self.NON_PERSISTED_RUNTIME_KEYS:
                 continue
             data[key] = value
         return data

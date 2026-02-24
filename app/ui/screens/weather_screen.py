@@ -58,7 +58,7 @@ class WeatherScreen:
         width = self.main_app.settings.screen_width
         height = self.main_app.settings.screen_height
 
-        self.icon_size_large = 240
+        self.icon_size_large = 300
         temp_font = tkFont.Font(family="Helvetica", size=96, weight="bold")
         description_font = tkFont.Font(family="Helvetica", size=42)
         timedate_font = tkFont.Font(family="Helvetica", size=52, weight="bold")
@@ -68,9 +68,9 @@ class WeatherScreen:
         self.main_frame.pack_propagate(False)
 
         self.primary_frame = tk.Frame(self.main_frame, background=background_color)
-        self.primary_frame.place(relx=0.5, rely=0.44, anchor=tk.CENTER)
+        self.primary_frame.place(relx=0.5, rely=0.42, y=-10, anchor=tk.CENTER)
         self.secondary_frame = tk.Frame(self.main_frame, background=background_color)
-        self.secondary_frame.place(relx=0.5, rely=1.0, y=-22, anchor=tk.S)
+        self.secondary_frame.place(relx=0.5, rely=1.0, y=-40, anchor=tk.S)
 
         self.label_condition = tk.Label(self.primary_frame, text="", bg=background_color, fg=foreground_color)
         self.label_temperature = tk.Label(self.primary_frame, text="--\u00b0C", font=temp_font, bg=background_color, fg=foreground_color)
@@ -148,11 +148,6 @@ class WeatherScreen:
             return
 
         self.update_weather_gui(vm, snapshot.get("icon_bytes"))
-        self.main_app.publish_event(
-            "weather.updated",
-            {"source": "cache", "cached_at_text": snapshot.get("cached_at_text")},
-            source="weather_screen",
-        )
         log_event(
             logger,
             logging.INFO,
@@ -220,23 +215,6 @@ class WeatherScreen:
         self.weather_fetch_inflight = False
         if result is None:
             return
-
-        if result.recovery_action:
-            threshold = getattr(self.main_app.settings, "weather_api_call_reboot_after_retries", 0)
-            log_event(
-                logger,
-                logging.CRITICAL,
-                "weather",
-                "update.recovery_action",
-                threshold=threshold,
-                action=result.recovery_action,
-            )
-            if result.recovery_action == "reboot":
-                self.main_app.touch_controller.reboot(ask=True)
-            elif result.recovery_action == "restart_app":
-                self.main_app.touch_controller.quit_app()
-            else:
-                log_event(logger, logging.WARNING, "weather", "update.degraded_mode_continue")
 
         if result.payload is None:
             self.main_app.publish_event(

@@ -47,7 +47,7 @@ make net-up
 ```
 
 Behavior:
-- App enters degraded mode while simulated offline.
+- App marks network-dependent features unavailable while simulated offline.
 - MQTT init/reconnect is deferred until network is available.
 - Weather falls back to cached payload when available.
 - Global network banner updates independent of weather screen ownership.

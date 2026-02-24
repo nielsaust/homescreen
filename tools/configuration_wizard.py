@@ -387,7 +387,7 @@ def configure_weather(settings: dict) -> None:
     print("\n[configuration] Weather integration")
     settings["enable_weather"] = _prompt_bool("Enable weather integration", bool(settings.get("enable_weather", False)))
     if "show_on_idle" not in settings:
-        settings["show_on_idle"] = "weather" if bool(settings.get("show_weather_on_idle", True)) else "off"
+        settings["show_on_idle"] = "time"
     if "time_format" not in settings:
         settings["time_format"] = "24h"
     if "weather_units" not in settings:

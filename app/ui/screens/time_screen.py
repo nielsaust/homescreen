@@ -42,7 +42,7 @@ class TimeScreen:
         time_font = tkFont.Font(family="Helvetica", size=160, weight="bold")
         ampm_font = tkFont.Font(family="Helvetica", size=24, weight="bold")
         date_font = tkFont.Font(family="Helvetica", size=56, weight="bold")
-        weather_font = tkFont.Font(family="Helvetica", size=40, weight="bold")
+        weather_font = tkFont.Font(family="Helvetica", size=44, weight="bold")
         weather_desc_font = tkFont.Font(family="Helvetica", size=34)
         weather_divider_font = tkFont.Font(family="Helvetica", size=30, weight="bold")
 
@@ -121,6 +121,7 @@ class TimeScreen:
         )
 
     def show(self):
+        self._apply_time_format_layout()
         self._update_time_loop()
         self._render_cached_weather()
         self._update_weather_loop()
@@ -138,6 +139,7 @@ class TimeScreen:
         self.time_update_job = self.main_frame.after(10 * 1000, self._update_time_loop)
 
     def update_time(self):
+        self._apply_time_format_layout()
         self._ensure_time_locale()
         now = datetime.datetime.now()
         try:
@@ -153,6 +155,15 @@ class TimeScreen:
             self.label_date.configure(text=self.shared.format_date(now))
         except Exception as exc:
             log_event(logger, logging.ERROR, "time", "render.failed", error=exc)
+
+    def _apply_time_format_layout(self):
+        if self.shared.is_24h_time_enabled():
+            self.label_meridiem.configure(text="")
+            if self.label_meridiem.winfo_ismapped():
+                self.label_meridiem.pack_forget()
+            return
+        if not self.label_meridiem.winfo_ismapped():
+            self.label_meridiem.pack(side=tk.LEFT, anchor=tk.S, padx=(8, 0), pady=(0, 30))
 
     def _ensure_time_locale(self):
         ok, info = self.shared.ensure_time_locale()
@@ -175,11 +186,6 @@ class TimeScreen:
                 units=self.shared.weather_units(),
             )
             self._render_weather_line(vm.temperature_text, vm.description_text, snapshot.get("icon_bytes"))
-            self.main_app.publish_event(
-                "weather.updated",
-                {"source": "cache", "cached_at_text": snapshot.get("cached_at_text")},
-                source="time_screen",
-            )
         except Exception as exc:
             log_event(logger, logging.DEBUG, "time", "weather.cache_render_failed", error=exc)
 

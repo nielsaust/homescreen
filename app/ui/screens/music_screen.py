@@ -251,7 +251,12 @@ class MusicScreen:
         thread.start()
 
     def _load_image_background(self, url, max_retries, request_id, track_signature):
-        image_bytes = self.art_service.fetch_album_art_bytes(url, max_retries=max_retries)
+        retry_delay_ms = int(getattr(self.main_app.settings, "media_get_remote_image_retry_delay_ms", 500) or 0)
+        image_bytes = self.art_service.fetch_album_art_bytes(
+            url,
+            max_retries=max_retries,
+            retry_delay_ms=retry_delay_ms,
+        )
 
         if image_bytes is None:
             self.main_app.record_music_metric("art_errors")

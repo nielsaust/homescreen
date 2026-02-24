@@ -53,13 +53,10 @@ class WeatherTimeSharedLogic:
         return True
 
     def format_time(self, dt: datetime.datetime) -> str:
-        if self.is_24h_time_enabled():
-            return dt.strftime("%H:%M")
-        try:
-            value = dt.strftime("%-I:%M %p")
-        except Exception:
-            value = dt.strftime("%I:%M %p")
-        return value.lstrip("0")
+        main, meridiem = self.format_time_parts(dt)
+        if not meridiem:
+            return main
+        return f"{main} {meridiem}"
 
     def format_time_parts(self, dt: datetime.datetime) -> tuple[str, str]:
         if self.is_24h_time_enabled():
@@ -68,7 +65,8 @@ class WeatherTimeSharedLogic:
             main = dt.strftime("%-I:%M")
         except Exception:
             main = dt.strftime("%I:%M").lstrip("0")
-        meridiem = dt.strftime("%p").strip().upper().replace(".", "")
+        # Keep meridiem stable and locale-independent.
+        meridiem = "AM" if dt.hour < 12 else "PM"
         return main, meridiem
 
     def weather_units(self) -> str:

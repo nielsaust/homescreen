@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 
 import certifi
 import requests
@@ -22,9 +23,11 @@ class MusicArtService:
         except Exception:
             return True
 
-    def fetch_album_art_bytes(self, url: str, max_retries: int = 3) -> bytes | None:
+    def fetch_album_art_bytes(self, url: str, max_retries: int = 3, retry_delay_ms: int = 0) -> bytes | None:
         verify = self._resolve_ssl_verify()
-        for retry in range(max_retries):
+        total_retries = max(1, int(max_retries or 1))
+        delay_seconds = max(0.0, float(retry_delay_ms or 0) / 1000.0)
+        for retry in range(total_retries):
             try:
                 response = requests.get(url, timeout=10, verify=verify)
                 response.raise_for_status()
@@ -33,7 +36,9 @@ class MusicArtService:
                 logger.error(
                     "Error retrieving album art (attempt %s/%s): %s",
                     retry + 1,
-                    max_retries,
+                    total_retries,
                     exc,
                 )
+                if retry < total_retries - 1 and delay_seconds > 0:
+                    time.sleep(delay_seconds)
         return None

@@ -49,7 +49,7 @@ Most logic moved into services/controllers.
 - `queue_pump_service.py`
   - UI intent pump + MQTT queue pump.
 - `network_bootstrap_service.py`
-  - startup connectivity, degraded mode, periodic network checks, deferred MQTT init.
+  - startup connectivity checks, periodic network checks, deferred MQTT init.
 - `mqtt_lifecycle_service.py`
   - MQTT controller init/start/stop.
 - `music_update_service.py`
