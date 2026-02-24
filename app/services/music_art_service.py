@@ -28,17 +28,32 @@ class MusicArtService:
         total_retries = max(1, int(max_retries or 1))
         delay_seconds = max(0.0, float(retry_delay_ms or 0) / 1000.0)
         for retry in range(total_retries):
+            attempt = retry + 1
             try:
                 response = requests.get(url, timeout=10, verify=verify)
                 response.raise_for_status()
+                if attempt > 1:
+                    logger.info(
+                        "Album art request succeeded on attempt %s/%s",
+                        attempt,
+                        total_retries,
+                    )
                 return response.content
             except requests.RequestException as exc:
-                logger.error(
-                    "Error retrieving album art (attempt %s/%s): %s",
-                    retry + 1,
-                    total_retries,
-                    exc,
-                )
-                if retry < total_retries - 1 and delay_seconds > 0:
+                if attempt < total_retries:
+                    logger.warning(
+                        "Error retrieving album art (attempt %s/%s): %s",
+                        attempt,
+                        total_retries,
+                        exc,
+                    )
+                else:
+                    logger.error(
+                        "Error retrieving album art (attempt %s/%s): %s",
+                        attempt,
+                        total_retries,
+                        exc,
+                    )
+                if attempt < total_retries and delay_seconds > 0:
                     time.sleep(delay_seconds)
         return None
