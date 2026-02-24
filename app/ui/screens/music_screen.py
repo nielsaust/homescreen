@@ -40,6 +40,7 @@ class MusicScreen:
         self.animation_id = None
         self.animation_running = False
         self.current_album_art_url = None
+        self.pending_album_art_url = None
         self.loading_animation_frames = []
         self.loading_animation_frames_cycle = None
         self.current_album_art_request_id = 0
@@ -117,7 +118,7 @@ class MusicScreen:
         album_for_overlay = album if show_album else None
 
         if artist is None:
-            log_event(logger, logging.WARNING, "music", "screen.partial_metadata", reason="missing_artist", state=state)
+            log_event(logger, logging.DEBUG, "music", "screen.partial_metadata", reason="missing_artist", state=state)
             if getattr(self.main_app, "music_debug_logging", False):
                 log_event(
                     logger,
@@ -175,7 +176,11 @@ class MusicScreen:
         if image_url == self.current_album_art_url:
             log_event(logger, logging.DEBUG, "music", "art.skipped", reason="already_loaded")
             return
+        if image_url == self.pending_album_art_url:
+            log_event(logger, logging.DEBUG, "music", "art.skipped", reason="already_loading")
+            return
 
+        self.pending_album_art_url = image_url
         self.clear_album_art()
         self.load_image(
             image_url,
@@ -310,18 +315,22 @@ class MusicScreen:
             self._apply_placeholder_if_current(request_id)
             return
         finally:
+            self.pending_album_art_url = None
             self.stop_loading_animation()
             self.main_app.root.update_idletasks()
 
     def _apply_placeholder_if_current(self, request_id):
         if request_id != self.current_album_art_request_id:
             return
-        self.stop_loading_animation()
-        self.main_app.record_music_metric("art_placeholder")
-        if getattr(self.main_app, "music_debug_logging", False):
-            log_event(logger, logging.INFO, "music", "art.placeholder_used")
-        self.load_local_image(IMAGES_DIR / "no_album_art.jpeg")
-        self.main_app.root.update_idletasks()
+        try:
+            self.main_app.record_music_metric("art_placeholder")
+            if getattr(self.main_app, "music_debug_logging", False):
+                log_event(logger, logging.INFO, "music", "art.placeholder_used")
+            self.load_local_image(IMAGES_DIR / "no_album_art.jpeg")
+            self.main_app.root.update_idletasks()
+        finally:
+            self.pending_album_art_url = None
+            self.stop_loading_animation()
 
     def load_local_image(self, image_path):
         try:
@@ -350,6 +359,9 @@ class MusicScreen:
 
     def start_loading_animation(self):
         log_event(logger, logging.DEBUG, "music", "art.loading_animation_start")
+        if not self.loading_animation_frames_cycle:
+            log_event(logger, logging.WARNING, "music", "art.loading_animation_unavailable")
+            return
         self.stop_loading_animation()
         self.animation_running = True
         self.animate_loading()
