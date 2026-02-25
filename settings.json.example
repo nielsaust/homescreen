@@ -49,6 +49,8 @@
   "weather_city_id": "CHANGE_ME",
   "weather_units": "metric",
   "time_format": "24h",
+  "time_screen_pi_meridiem_shift_up_px": 10,
+  "time_screen_pi_weather_icon_shift_up_px": 10,
   "store_settings": true,
   "verify_ssl_on_trusted_sources": true,
   "force_update": false,

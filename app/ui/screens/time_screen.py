@@ -32,6 +32,8 @@ class TimeScreen:
         self.weather_fetch_inflight = False
         self.weather_icon_image = None
         self.shared = WeatherTimeSharedLogic(self.main_app)
+        self._meridiem_pack_pady = self._compute_meridiem_pack_pady()
+        self._weather_icon_pack_pady = self._compute_weather_icon_pack_pady()
 
         background_color = self.main_app.settings.menu_background_color.get("weather") or "black"
         foreground_color = "white"
@@ -79,7 +81,7 @@ class TimeScreen:
             fg=foreground_color,
         )
         self.label_time.pack(side=tk.LEFT, anchor=tk.S)
-        self.label_meridiem.pack(side=tk.LEFT, anchor=tk.S, padx=(8, 0), pady=(0, 10))
+        self.label_meridiem.pack(side=tk.LEFT, anchor=tk.S, padx=(8, 0), pady=self._meridiem_pack_pady)
         self.label_date.pack(anchor=tk.CENTER, pady=(12, 0))
 
         self.weather_frame = tk.Frame(self.main_frame, background=background_color)
@@ -109,7 +111,7 @@ class TimeScreen:
             bg=background_color,
             fg=foreground_color,
         )
-        self.label_weather_icon.pack(side=tk.LEFT, padx=(0, 10))
+        self.label_weather_icon.pack(side=tk.LEFT, padx=(0, 10), pady=self._weather_icon_pack_pady)
         self.label_weather.pack(side=tk.LEFT)
         self.label_weather_separator.pack(side=tk.LEFT, padx=(8, 8))
         self.label_weather_description.pack(side=tk.LEFT)
@@ -148,7 +150,7 @@ class TimeScreen:
             if meridiem:
                 self.label_meridiem.configure(text=meridiem)
                 if not self.label_meridiem.winfo_ismapped():
-                    self.label_meridiem.pack(side=tk.LEFT, anchor=tk.S, padx=(8, 0), pady=(0, 30))
+                    self.label_meridiem.pack(side=tk.LEFT, anchor=tk.S, padx=(8, 0), pady=self._meridiem_pack_pady)
             else:
                 if self.label_meridiem.winfo_ismapped():
                     self.label_meridiem.pack_forget()
@@ -163,7 +165,34 @@ class TimeScreen:
                 self.label_meridiem.pack_forget()
             return
         if not self.label_meridiem.winfo_ismapped():
-            self.label_meridiem.pack(side=tk.LEFT, anchor=tk.S, padx=(8, 0), pady=(0, 30))
+            self.label_meridiem.pack(side=tk.LEFT, anchor=tk.S, padx=(8, 0), pady=self._meridiem_pack_pady)
+
+    def _is_desktop_runtime(self) -> bool:
+        system_info = getattr(self.main_app, "system_info", None)
+        if isinstance(system_info, dict):
+            return bool(system_info.get("is_desktop", False))
+        return False
+
+    def _pi_shift_up_px(self, setting_key: str, default_value: int) -> int:
+        if self._is_desktop_runtime():
+            return 0
+        try:
+            return int(getattr(self.main_app.settings, setting_key, default_value) or 0)
+        except Exception:
+            return int(default_value)
+
+    def _shift_up_to_pady(self, shift_up_px: int, base_bottom: int = 0) -> tuple[int, int]:
+        if shift_up_px >= 0:
+            return (0, max(0, base_bottom - shift_up_px))
+        return (abs(shift_up_px), base_bottom)
+
+    def _compute_meridiem_pack_pady(self) -> tuple[int, int]:
+        shift_up_px = self._pi_shift_up_px("time_screen_pi_meridiem_shift_up_px", 10)
+        return self._shift_up_to_pady(shift_up_px, base_bottom=30)
+
+    def _compute_weather_icon_pack_pady(self) -> tuple[int, int]:
+        shift_up_px = self._pi_shift_up_px("time_screen_pi_weather_icon_shift_up_px", 10)
+        return self._shift_up_to_pady(shift_up_px, base_bottom=0)
 
     def _ensure_time_locale(self):
         ok, info = self.shared.ensure_time_locale()

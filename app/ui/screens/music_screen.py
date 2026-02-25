@@ -169,9 +169,8 @@ class MusicScreen:
             return
 
         image_url = self.main_app.settings.home_assistant_api_base_url + album_art_api_url
-        track_signature = self.main_app.music_service.art_signature(self.main_app.music_object)
         if getattr(self.main_app, "music_debug_logging", False):
-            log_event(logger, logging.INFO, "music", "art.request_computed", image_url=image_url, signature=track_signature)
+            log_event(logger, logging.INFO, "music", "art.request_computed", image_url=image_url)
 
         if image_url == self.current_album_art_url:
             log_event(logger, logging.DEBUG, "music", "art.skipped", reason="already_loaded")
@@ -185,7 +184,6 @@ class MusicScreen:
         self.load_image(
             image_url,
             self.main_app.settings.media_get_remote_image_retry_amount,
-            track_signature=track_signature,
         )
 
     def clear_current(self):
@@ -240,7 +238,7 @@ class MusicScreen:
             self.album_art_image = None
             self.album_art_label.configure(image=None)
 
-    def load_image(self, image_url, num_of_tries=3, track_signature=None):
+    def load_image(self, image_url, num_of_tries=3):
         if getattr(self.main_app, "music_debug_logging", False):
             log_event(logger, logging.INFO, "music", "art.load_start", image_url=image_url, retries=num_of_tries)
         self.current_album_art_request_id += 1
@@ -250,12 +248,12 @@ class MusicScreen:
 
         thread = threading.Thread(
             target=self._load_image_background,
-            args=(image_url, num_of_tries, request_id, track_signature),
+            args=(image_url, num_of_tries, request_id),
             daemon=True,
         )
         thread.start()
 
-    def _load_image_background(self, url, max_retries, request_id, track_signature):
+    def _load_image_background(self, url, max_retries, request_id):
         retry_delay_ms = int(getattr(self.main_app.settings, "media_get_remote_image_retry_delay_ms", 500) or 0)
         image_bytes = self.art_service.fetch_album_art_bytes(
             url,
@@ -270,27 +268,13 @@ class MusicScreen:
 
         self.frame.after(
             0,
-            lambda data=image_bytes, image_url=url, rid=request_id, sig=track_signature: self._apply_remote_image_if_current(
-                data, image_url, rid, sig
+            lambda data=image_bytes, image_url=url, rid=request_id: self._apply_remote_image_if_current(
+                data, image_url, rid
             ),
         )
 
-    def _apply_remote_image_if_current(self, image_bytes, url, request_id, requested_signature):
+    def _apply_remote_image_if_current(self, image_bytes, url, request_id):
         if request_id != self.current_album_art_request_id:
-            return
-        current_signature = self.main_app.music_service.art_signature(self.main_app.music_object)
-        if requested_signature is not None and current_signature != requested_signature:
-            self.main_app.record_music_metric("art_stale_dropped")
-            if getattr(self.main_app, "music_debug_logging", False):
-                log_event(
-                    logger,
-                    logging.INFO,
-                    "music",
-                    "art.stale_dropped",
-                    requested_signature=requested_signature,
-                    current_signature=current_signature,
-                )
-            self.stop_loading_animation()
             return
         try:
             image = Image.open(BytesIO(image_bytes))
