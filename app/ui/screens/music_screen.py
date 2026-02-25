@@ -310,7 +310,7 @@ class MusicScreen:
             self.main_app.record_music_metric("art_placeholder")
             if getattr(self.main_app, "music_debug_logging", False):
                 log_event(logger, logging.INFO, "music", "art.placeholder_used")
-            self.load_local_image(IMAGES_DIR / "no_album_art.jpeg")
+            self.load_local_image(IMAGES_DIR / "no_album_art.png")
             self.main_app.root.update_idletasks()
         finally:
             self.pending_album_art_url = None
