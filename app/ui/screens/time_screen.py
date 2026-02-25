@@ -182,9 +182,12 @@ class TimeScreen:
             return int(default_value)
 
     def _shift_up_to_pady(self, shift_up_px: int, base_bottom: int = 0) -> tuple[int, int]:
+        # Positive value means "move up": increase bottom padding.
+        # Negative value means "move down": add top padding and reduce bottom when possible.
         if shift_up_px >= 0:
-            return (0, max(0, base_bottom - shift_up_px))
-        return (abs(shift_up_px), base_bottom)
+            return (0, max(0, base_bottom + shift_up_px))
+        down_px = abs(shift_up_px)
+        return (down_px, max(0, base_bottom - down_px))
 
     def _compute_meridiem_pack_pady(self) -> tuple[int, int]:
         shift_up_px = self._pi_shift_up_px("time_screen_pi_meridiem_shift_up_px", 10)
