@@ -37,6 +37,7 @@ class UiIntentMapperService:
                     "channel": state.music_channel,
                     "album": state.music_album,
                     "album_art_api_url": state.music_album_art_api_url,
+                    "album_art_music_assistant_url": state.music_album_art_music_assistant_url,
                 },
                 {
                     "type": "ui.music.playback",

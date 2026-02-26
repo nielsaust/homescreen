@@ -354,8 +354,18 @@ class DisplayController:
 
     def clear_album_art(self):
         music_screen = self.screen_objects.get("music")
-        if(music_screen and self.get_screen_state()=="music"):
+        if music_screen:
             music_screen.clear_album_art()
+
+    def clear_music_info(self):
+        music_screen = self.screen_objects.get("music")
+        if music_screen:
+            music_screen.clear_music_info()
+
+    def cancel_pending_album_art_load(self):
+        music_screen = self.screen_objects.get("music")
+        if music_screen:
+            music_screen.cancel_pending_art_load()
 
     def update_menu_states(self):
         menu_screen = self.screen_objects.get("menu")

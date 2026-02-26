@@ -17,8 +17,12 @@ class MusicService:
             "channel",
             "album",
             "album_art_api_url",
+            "album_art_music_assistant_url",
         )
-        return {key: payload.get(key) for key in allowed_keys if key in payload}
+        normalized = {key: payload.get(key) for key in allowed_keys if key in payload}
+        if "album_art_music_assistant_url" not in normalized and "album_art_api_url_music_assistant" in payload:
+            normalized["album_art_music_assistant_url"] = payload.get("album_art_api_url_music_assistant")
+        return normalized
 
     def resolve_payload(self, current: Any, incoming_partial: dict[str, Any]) -> dict[str, Any]:
         """Build full payload by overlaying incoming partial update on current state."""
@@ -29,12 +33,15 @@ class MusicService:
             "channel": getattr(current, "channel", None),
             "album": getattr(current, "album", None),
             "album_art_api_url": getattr(current, "album_art_api_url", None),
+            "album_art_music_assistant_url": getattr(current, "album_art_music_assistant_url", None),
         }
         resolved.update(incoming_partial)
 
         # Normalize common edge-cases
         if resolved.get("album_art_api_url") == "":
             resolved["album_art_api_url"] = None
+        if resolved.get("album_art_music_assistant_url") == "":
+            resolved["album_art_music_assistant_url"] = None
         if not resolved.get("artist") and resolved.get("channel"):
             resolved["artist"] = resolved["channel"]
         return resolved
@@ -47,6 +54,7 @@ class MusicService:
             payload.get("channel"),
             payload.get("album"),
             payload.get("album_art_api_url"),
+            payload.get("album_art_music_assistant_url"),
         )
 
     def should_process(self, payload: dict[str, Any], drop_duplicates: bool = True) -> bool:
@@ -68,12 +76,14 @@ class MusicService:
             channel = payload_or_obj.get("channel")
             album = payload_or_obj.get("album")
             album_art_api_url = payload_or_obj.get("album_art_api_url")
+            album_art_music_assistant_url = payload_or_obj.get("album_art_music_assistant_url")
         else:
             title = getattr(payload_or_obj, "title", None)
             artist = getattr(payload_or_obj, "artist", None)
             channel = getattr(payload_or_obj, "channel", None)
             album = getattr(payload_or_obj, "album", None)
             album_art_api_url = getattr(payload_or_obj, "album_art_api_url", None)
+            album_art_music_assistant_url = getattr(payload_or_obj, "album_art_music_assistant_url", None)
 
         if not artist and channel:
             artist = channel
@@ -83,4 +93,5 @@ class MusicService:
             artist,
             album,
             album_art_api_url,
+            album_art_music_assistant_url,
         )

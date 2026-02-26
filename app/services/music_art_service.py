@@ -23,11 +23,20 @@ class MusicArtService:
         except Exception:
             return True
 
-    def fetch_album_art_bytes(self, url: str, max_retries: int = 3, retry_delay_ms: int = 0) -> bytes | None:
+    def fetch_album_art_bytes(
+        self,
+        url: str,
+        max_retries: int = 3,
+        retry_delay_ms: int = 0,
+        should_abort=None,
+    ) -> bytes | None:
         verify = self._resolve_ssl_verify()
         total_retries = max(1, int(max_retries or 1))
         delay_seconds = max(0.0, float(retry_delay_ms or 0) / 1000.0)
         for retry in range(total_retries):
+            if callable(should_abort) and should_abort():
+                logger.debug("Album art request aborted before attempt %s/%s", retry + 1, total_retries)
+                return None
             attempt = retry + 1
             try:
                 response = requests.get(url, timeout=10, verify=verify)
@@ -54,6 +63,9 @@ class MusicArtService:
                         total_retries,
                         exc,
                     )
+                if callable(should_abort) and should_abort():
+                    logger.debug("Album art request aborted after attempt %s/%s", attempt, total_retries)
+                    return None
                 if attempt < total_retries and delay_seconds > 0:
                     time.sleep(delay_seconds)
         return None

@@ -59,6 +59,22 @@ class AppRuntimeConfigService:
             0,
             int(getattr(self.settings, "media_get_remote_image_retry_delay_ms", 500) or 0),
         )
+        self.settings.prefer_music_assistant_url = _to_bool(
+            getattr(self.settings, "prefer_music_assistant_url", False),
+            False,
+        )
+        self.settings.wait_for_album_art_ms = max(
+            0,
+            int(getattr(self.settings, "wait_for_album_art_ms", 0) or 0),
+        )
+        self.settings.clear_album_art_when_idle = _to_bool(
+            getattr(self.settings, "clear_album_art_when_idle", False),
+            False,
+        )
+        self.settings.clear_music_info = _to_bool(
+            getattr(self.settings, "clear_music_info", False),
+            False,
+        )
 
         network_interval = int(
             getattr(

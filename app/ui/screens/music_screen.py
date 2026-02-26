@@ -41,6 +41,8 @@ class MusicScreen:
         self.animation_running = False
         self.current_album_art_url = None
         self.pending_album_art_url = None
+        self.queued_album_art_url = None
+        self.album_art_wait_job = None
         self.loading_animation_frames = []
         self.loading_animation_frames_cycle = None
         self.current_album_art_request_id = 0
@@ -114,6 +116,7 @@ class MusicScreen:
         channel = getattr(obj, "channel", None)
         album = getattr(obj, "album", None)
         album_art_api_url = getattr(obj, "album_art_api_url", None)
+        album_art_music_assistant_url = getattr(obj, "album_art_music_assistant_url", None)
         show_album = bool(getattr(self.main_app.settings, "media_show_album", True))
         album_for_overlay = album if show_album else None
 
@@ -129,9 +132,10 @@ class MusicScreen:
                     title=title,
                     channel=channel,
                     album_art=album_art_api_url,
+                    album_art_music_assistant=album_art_music_assistant_url,
                 )
 
-        self._maybe_load_album_art(album_art_api_url)
+        self._maybe_load_album_art(album_art_api_url, album_art_music_assistant_url)
 
         has_any_text = any([artist, title, album_for_overlay, channel])
         if self.main_app.settings.media_show_titles and has_any_text:
@@ -141,54 +145,73 @@ class MusicScreen:
 
         return True
 
-    def apply_state_update(self, state, title, artist, channel, album, album_art_api_url):
+    def apply_state_update(
+        self,
+        state,
+        title,
+        artist,
+        channel,
+        album,
+        album_art_api_url,
+        album_art_music_assistant_url=None,
+    ):
         if state != "playing":
             self.remove_overlays()
             return
+
+        self._maybe_load_album_art(album_art_api_url, album_art_music_assistant_url)
 
         if artist is None and channel is None and title is None:
             return
 
         show_album = bool(getattr(self.main_app.settings, "media_show_album", True))
         album_for_overlay = album if show_album else None
-        self._maybe_load_album_art(album_art_api_url)
         if self.main_app.settings.media_show_titles:
             self.show_overlays(artist, title, album_for_overlay, channel)
 
-    def _maybe_load_album_art(self, album_art_api_url):
+    def _maybe_load_album_art(self, album_art_api_url, album_art_music_assistant_url=None):
+        image_url, source = self._resolve_album_art_url(album_art_api_url, album_art_music_assistant_url)
         log_event(
             logger,
             logging.DEBUG,
             "music",
             "art.check",
-            requested=album_art_api_url,
+            requested=image_url,
             current=self.current_album_art_url,
         )
-        if album_art_api_url is None:
-            log_event(logger, logging.DEBUG, "music", "art.skipped", reason="missing_url")
-            return
+        if image_url is None:
+            log_event(logger, logging.DEBUG, "music", "art.resolved_empty")
+        else:
+            log_event(logger, logging.INFO, "music", "art.source_selected", source=source)
+            if getattr(self.main_app, "music_debug_logging", False):
+                log_event(logger, logging.INFO, "music", "art.request_computed", image_url=image_url, source=source)
+        self._queue_album_art_update(image_url)
 
-        image_url = self.main_app.settings.home_assistant_api_base_url + album_art_api_url
-        if getattr(self.main_app, "music_debug_logging", False):
-            log_event(logger, logging.INFO, "music", "art.request_computed", image_url=image_url)
+    def _resolve_album_art_url(self, album_art_api_url, album_art_music_assistant_url=None):
+        prefer_ma = bool(getattr(self.main_app.settings, "prefer_music_assistant_url", False))
+        ma_url = str(album_art_music_assistant_url or "").strip()
+        api_url = str(album_art_api_url or "").strip()
 
-        if image_url == self.current_album_art_url:
-            log_event(logger, logging.DEBUG, "music", "art.skipped", reason="already_loaded")
-            return
-        if image_url == self.pending_album_art_url:
-            log_event(logger, logging.DEBUG, "music", "art.skipped", reason="already_loading")
-            return
-
-        self.pending_album_art_url = image_url
-        self.clear_album_art()
-        self.load_image(
-            image_url,
-            self.main_app.settings.media_get_remote_image_retry_amount,
-        )
+        if prefer_ma and ma_url:
+            return ma_url, "music_assistant"
+        if api_url:
+            if api_url.startswith("http://") or api_url.startswith("https://"):
+                return api_url, "direct_url"
+            return str(getattr(self.main_app.settings, "home_assistant_api_base_url", "") or "") + api_url, "home_assistant_proxy"
+        if ma_url:
+            return ma_url, "music_assistant_fallback"
+        return None, "none"
 
     def clear_current(self):
         self.top_text_label.configure(text="")
         self.bottom_text_label.configure(text="")
+
+    def clear_music_info(self):
+        self.clear_current()
+        self.remove_overlays()
+        if self.timeout_future:
+            self.frame.after_cancel(self.timeout_future)
+            self.timeout_future = None
 
     def show_overlays(self, artist, title, album, channel):
         vm = build_music_overlay_view_model(
@@ -233,10 +256,68 @@ class MusicScreen:
         self.bottom_overlay.place_forget()
 
     def clear_album_art(self):
-        if self.main_app.settings.media_clear_image_before_getting_new:
-            log_event(logger, logging.DEBUG, "music", "art.clear_before_load")
-            self.album_art_image = None
-            self.album_art_label.configure(image=None)
+        log_event(logger, logging.DEBUG, "music", "art.clear")
+        self.album_art_image = None
+        self.current_album_art_url = None
+        self.album_art_label.configure(image=None)
+
+    def cancel_pending_art_load(self):
+        if self.album_art_wait_job is not None:
+            try:
+                self.frame.after_cancel(self.album_art_wait_job)
+            except Exception:
+                pass
+            self.album_art_wait_job = None
+        self.queued_album_art_url = None
+        self.pending_album_art_url = None
+        # Invalidate in-flight request callbacks immediately.
+        self.current_album_art_request_id += 1
+        self.stop_loading_animation()
+
+    def _album_art_wait_ms(self) -> int:
+        try:
+            return max(0, int(getattr(self.main_app.settings, "wait_for_album_art_ms", 0) or 0))
+        except Exception:
+            return 0
+
+    def _queue_album_art_update(self, image_url):
+        self.queued_album_art_url = image_url
+        if self.album_art_wait_job is not None:
+            try:
+                self.frame.after_cancel(self.album_art_wait_job)
+            except Exception:
+                pass
+            self.album_art_wait_job = None
+
+        wait_ms = self._album_art_wait_ms()
+        if wait_ms <= 0:
+            self._apply_queued_album_art_update()
+            return
+        self.album_art_wait_job = self.frame.after(wait_ms, self._apply_queued_album_art_update)
+
+    def _apply_queued_album_art_update(self):
+        self.album_art_wait_job = None
+        image_url = self.queued_album_art_url
+        self.queued_album_art_url = None
+
+        if image_url is None:
+            self.cancel_pending_art_load()
+            self.clear_album_art()
+            return
+
+        if image_url == self.current_album_art_url:
+            log_event(logger, logging.DEBUG, "music", "art.skipped", reason="already_loaded")
+            return
+        if image_url == self.pending_album_art_url:
+            log_event(logger, logging.DEBUG, "music", "art.skipped", reason="already_loading")
+            return
+
+        self.pending_album_art_url = image_url
+        self.clear_album_art()
+        self.load_image(
+            image_url,
+            self.main_app.settings.media_get_remote_image_retry_amount,
+        )
 
     def load_image(self, image_url, num_of_tries=3):
         if getattr(self.main_app, "music_debug_logging", False):
@@ -259,6 +340,7 @@ class MusicScreen:
             url,
             max_retries=max_retries,
             retry_delay_ms=retry_delay_ms,
+            should_abort=lambda rid=request_id: rid != self.current_album_art_request_id,
         )
 
         if image_bytes is None:

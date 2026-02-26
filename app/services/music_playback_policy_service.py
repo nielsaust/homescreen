@@ -37,4 +37,14 @@ class MusicPlaybackPolicyService:
         state = getattr(self.main_app.music_object, "state", None)
         if state == "playing":
             return
+        self._clear_music_before_idle_transition()
         self.main_app.screen_state_controller.switch_to_idle()
+
+    def _clear_music_before_idle_transition(self) -> None:
+        clear_art = bool(getattr(self.main_app.settings, "clear_album_art_when_idle", False))
+        clear_info = bool(getattr(self.main_app.settings, "clear_music_info", False))
+        if clear_art:
+            self.main_app.display_controller.cancel_pending_album_art_load()
+            self.main_app.display_controller.clear_album_art()
+        if clear_info:
+            self.main_app.display_controller.clear_music_info()

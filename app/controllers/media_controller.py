@@ -35,7 +35,17 @@ class MediaController:
     def media_skip_song(self, next_previous):
         if not self._ensure_mqtt_enabled():
             return
-        if self.main_app.music_object and self.main_app.music_object.channel is None:
+        music_obj = getattr(self.main_app, "music_object", None)
+        channel_raw = getattr(music_obj, "channel", None) if music_obj is not None else None
+        channel_text = str(channel_raw or "").strip()
+        can_skip_track = bool(music_obj) and channel_text == ""
+        logger.debug(
+            "media.skip_song.check can_skip=%s channel_raw=%r channel_text=%r",
+            can_skip_track,
+            channel_raw,
+            channel_text,
+        )
+        if can_skip_track:
             if next_previous == "next":
                 self.main_app.mqtt_controller.publish_action("media-next")
                 self.main_app.display_controller.place_action_label(image="forward-white.png")

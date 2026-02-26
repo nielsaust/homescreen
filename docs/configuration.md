@@ -36,6 +36,15 @@ Optional per-install overrides can be placed in `local_config/i18n/<locale>.json
 - Music topic (`music`, stored in `local_config/mqtt_topics.json`)
 - Home Assistant API base URL (`home_assistant_api_base_url`)
 - Music display toggles (`media_show_titles`, `media_show_album`, `media_sanitize_titles`)
+- Album-art source preference (`prefer_music_assistant_url`)
+  - `true`: prefer full URL from `album_art_music_assistant_url` when present
+  - fallback remains `home_assistant_api_base_url + album_art_api_url`
+- Album-art update debounce (`wait_for_album_art_ms`)
+  - `0` disables waiting (default)
+  - `>0` waits that many milliseconds and applies only the latest art URL update
+- Idle cleanup options
+  - `clear_album_art_when_idle`: clear album art when music flow transitions to idle (not menu)
+  - `clear_music_info`: clear title/artist/album overlays on idle transition
 - Startup refresh behavior
   - Configure startup-triggered MQTT calls in `local_config/startup_actions.json`.
   - Example includes refresh of current music state via topic key `update_music`.

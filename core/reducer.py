@@ -49,6 +49,10 @@ def reduce_state(state: AppState, event: AppEvent) -> AppState:
             music_channel=payload.get("channel", base.music_channel),
             music_album=payload.get("album", base.music_album),
             music_album_art_api_url=payload.get("album_art_api_url", base.music_album_art_api_url),
+            music_album_art_music_assistant_url=payload.get(
+                "album_art_music_assistant_url",
+                base.music_album_art_music_assistant_url,
+            ),
         )
 
     if event_type == "device.state.updated":

@@ -24,6 +24,7 @@ class AppState:
     music_channel: str | None = None
     music_album: str | None = None
     music_album_art_api_url: str | None = None
+    music_album_art_music_assistant_url: str | None = None
 
     sleep_mode: bool | None = None
     printer_progress: float | int | None = None

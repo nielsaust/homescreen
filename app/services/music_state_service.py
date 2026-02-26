@@ -20,6 +20,7 @@ class MusicStateService:
         channel = data.get("channel")
         album = data.get("album")
         album_art_api_url = data.get("album_art_api_url")
+        album_art_music_assistant_url = data.get("album_art_music_assistant_url")
 
         if self.main_app.music_object is None:
             from app.models.music_object import MusicObject
@@ -31,6 +32,7 @@ class MusicStateService:
                 channel,
                 album,
                 album_art_api_url,
+                album_art_music_assistant_url,
             )
         else:
             self.main_app.music_object.state = state
@@ -39,6 +41,7 @@ class MusicStateService:
             self.main_app.music_object.channel = channel
             self.main_app.music_object.album = album
             self.main_app.music_object.album_art_api_url = album_art_api_url
+            self.main_app.music_object.album_art_music_assistant_url = album_art_music_assistant_url
 
         self.main_app.log_music_debug(
             "[music] object after update",
@@ -49,6 +52,7 @@ class MusicStateService:
                 "channel": self.main_app.music_object.channel,
                 "album": self.main_app.music_object.album,
                 "album_art_api_url": self.main_app.music_object.album_art_api_url,
+                "album_art_music_assistant_url": self.main_app.music_object.album_art_music_assistant_url,
             },
         )
         logger.debug("========= Music object updated =========")
@@ -67,6 +71,7 @@ class MusicStateService:
                 "channel": channel,
                 "album": album,
                 "album_art_api_url": album_art_api_url,
+                "album_art_music_assistant_url": album_art_music_assistant_url,
             },
         )
 

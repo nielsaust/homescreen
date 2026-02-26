@@ -16,6 +16,7 @@ class UiIntentHandler:
         self._last_cached_weather_label_text = None
         self._last_music_ui_signature = None
         self._last_music_playback_state = None
+        self._last_playing_track_key = None
         self._last_screen_ui_signature = None
 
     def _is_music_enabled(self):
@@ -97,6 +98,7 @@ class UiIntentHandler:
             intent.get("channel"),
             intent.get("album"),
             intent.get("album_art_api_url"),
+            intent.get("album_art_music_assistant_url"),
         )
         if signature == self._last_music_ui_signature:
             return
@@ -112,6 +114,7 @@ class UiIntentHandler:
             channel=intent.get("channel"),
             album=intent.get("album"),
             album_art_api_url=intent.get("album_art_api_url"),
+            album_art_music_assistant_url=intent.get("album_art_music_assistant_url"),
         )
 
     def _apply_music_playback(self, intent):
@@ -123,6 +126,19 @@ class UiIntentHandler:
         self._last_music_playback_state = playback_state
         menu_open = self.main_app.display_controller.get_screen_state() == "menu"
         if playback_state == "playing":
+            track_key = self._current_track_key()
+            if track_key and track_key != self._last_playing_track_key:
+                self.main_app.display_controller.cancel_pending_album_art_load()
+                self.main_app.display_controller.clear_album_art()
+                log_event(
+                    logger,
+                    logging.DEBUG,
+                    "music",
+                    "playback.album_art_cleared_before_show",
+                    previous=self._last_playing_track_key,
+                    current=track_key,
+                )
+            self._last_playing_track_key = track_key
             self.main_app.music_playback_policy_service.cancel_pause_idle_timeout()
             self.main_app.screen_state_controller.switch_to_music()
             return
@@ -132,7 +148,30 @@ class UiIntentHandler:
             return
         self.main_app.music_playback_policy_service.cancel_pause_idle_timeout()
         if not menu_open:
+            self._clear_music_before_idle_transition()
             self.main_app.screen_state_controller.switch_to_idle()
+
+    def _current_track_key(self):
+        obj = getattr(self.main_app, "music_object", None)
+        if obj is None:
+            return None
+        album = str(getattr(obj, "album", "") or "").strip()
+        title = str(getattr(obj, "title", "") or "").strip()
+        art_api = str(getattr(obj, "album_art_api_url", "") or "").strip()
+        art_ma = str(getattr(obj, "album_art_music_assistant_url", "") or "").strip()
+        key = (album, title, art_api, art_ma)
+        if not any(key):
+            return None
+        return key
+
+    def _clear_music_before_idle_transition(self):
+        clear_art = bool(getattr(self.main_app.settings, "clear_album_art_when_idle", False))
+        clear_info = bool(getattr(self.main_app.settings, "clear_music_info", False))
+        if clear_art:
+            self.main_app.display_controller.cancel_pending_album_art_load()
+            self.main_app.display_controller.clear_album_art()
+        if clear_info:
+            self.main_app.display_controller.clear_music_info()
 
     def _apply_screen_changed(self, intent):
         screen = intent.get("screen")
