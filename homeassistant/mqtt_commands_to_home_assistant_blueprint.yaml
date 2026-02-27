@@ -4,7 +4,6 @@ blueprint:
     Listens for homescreen MQTT commands (default topic: screen_commands/outgoing)
     and maps them to Home Assistant services/scripts/scenes/entities.
   domain: automation
-  min_version: "2024.10.0"
   input:
     mqtt_topic:
       name: MQTT command topic

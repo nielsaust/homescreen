@@ -4,7 +4,6 @@ blueprint:
     Publishes media player state to MQTT topic "music" for the homescreen app.
     Optionally includes Music Assistant artwork fields.
   domain: automation
-  min_version: "2024.10.0"
   input:
     media_player_entity:
       name: Media player
@@ -31,13 +30,13 @@ blueprint:
 
     qos:
       name: MQTT QoS
-      default: 0
+      default: "0"
       selector:
         select:
           options:
-            - 0
-            - 1
-            - 2
+            - "0"
+            - "1"
+            - "2"
 
 mode: restart
 max_exceeded: silent
@@ -67,7 +66,7 @@ actions:
           - action: mqtt.publish
             data:
               topic: "{{ topic }}"
-              qos: "{{ qos_level }}"
+              qos: "{{ qos_level | int(0) }}"
               payload: >-
                 {{ {
                   "state": s.state,
@@ -82,7 +81,7 @@ actions:
       - action: mqtt.publish
         data:
           topic: "{{ topic }}"
-          qos: "{{ qos_level }}"
+          qos: "{{ qos_level | int(0) }}"
           payload: >-
             {{ {
               "state": s.state,

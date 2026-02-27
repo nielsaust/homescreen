@@ -5,10 +5,12 @@
 State-change blueprint import link:
 
 `https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https://github.com/nielsaust/homescreen/blob/main/homeassistant/media_player_to_mqtt_music_blueprint.yaml`
+[Import Blueprint into my Home Assistant](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https://github.com/nielsaust/homescreen/blob/main/homeassistant/media_player_to_mqtt_music_blueprint.yaml)
 
 Manual refresh blueprint import link:
 
 `https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https://github.com/nielsaust/homescreen/blob/main/homeassistant/manual_music_refresh_to_mqtt_blueprint.yaml`
+[Import Blueprint into my Home Assistant](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https://github.com/nielsaust/homescreen/blob/main/homeassistant/manual_music_refresh_to_mqtt_blueprint.yaml)
 
 Then create automations from these blueprints and configure:
 

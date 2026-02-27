@@ -4,7 +4,6 @@ blueprint:
     Publishes selected Home Assistant entity states to a single MQTT JSON payload
     for the homescreen app (default topic: screen_commands/incoming).
   domain: automation
-  min_version: "2024.10.0"
   input:
     watched_entities:
       name: Watched entities
@@ -22,13 +21,13 @@ blueprint:
 
     qos:
       name: MQTT QoS
-      default: 0
+      default: "0"
       selector:
         select:
           options:
-            - 0
-            - 1
-            - 2
+            - "0"
+            - "1"
+            - "2"
 
     harmony_state_entity:
       name: Harmony/Cinema state entity
@@ -129,7 +128,7 @@ actions:
   - action: mqtt.publish
     data:
       topic: "{{ topic }}"
-      qos: "{{ qos_level }}"
+      qos: "{{ qos_level | int(0) }}"
       payload: >-
         {{ {
           "harmony_state": states(harmony_entity) | string,
