@@ -1,0 +1,94 @@
+blueprint:
+  name: Homescreen - Media Player to MQTT (music)
+  description: >
+    Publishes media player state to MQTT topic "music" for the homescreen app.
+    Optionally includes Music Assistant artwork fields.
+  domain: automation
+  min_version: "2024.10.0"
+  input:
+    media_player_entity:
+      name: Media player
+      description: Select the media player to publish to MQTT.
+      selector:
+        entity:
+          domain: media_player
+
+    mqtt_topic:
+      name: MQTT topic
+      description: Topic listened to by homescreen.
+      default: music
+      selector:
+        text: {}
+
+    include_music_assistant_art:
+      name: Include Music Assistant artwork fields
+      description: >
+        Enabled = send both album_art_api_url (entity_picture_local)
+        and album_art_api_url_music_assistant (entity_picture).
+      default: false
+      selector:
+        boolean: {}
+
+    qos:
+      name: MQTT QoS
+      default: 0
+      selector:
+        select:
+          options:
+            - 0
+            - 1
+            - 2
+
+mode: restart
+max_exceeded: silent
+
+triggers:
+  - trigger: state
+    entity_id: !input media_player_entity
+
+conditions:
+  - condition: template
+    value_template: >
+      {{ trigger.to_state is not none and trigger.to_state.state not in ['unknown', 'unavailable'] }}
+
+actions:
+  - variables:
+      topic: !input mqtt_topic
+      use_ma_art: !input include_music_assistant_art
+      qos_level: !input qos
+      s: "{{ trigger.to_state }}"
+      a: "{{ trigger.to_state.attributes }}"
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ use_ma_art }}"
+        sequence:
+          - action: mqtt.publish
+            data:
+              topic: "{{ topic }}"
+              qos: "{{ qos_level }}"
+              payload: >-
+                {{ {
+                  "state": s.state,
+                  "title": a.get("media_title", "") | default("", true),
+                  "artist": a.get("media_artist", "") | default("", true),
+                  "album": a.get("media_album_name", "") | default("", true),
+                  "channel": a.get("media_channel", "") | default("", true),
+                  "album_art_api_url": a.get("entity_picture_local", "") | default("", true),
+                  "album_art_api_url_music_assistant": a.get("entity_picture", "") | default("", true)
+                } | tojson }}
+    default:
+      - action: mqtt.publish
+        data:
+          topic: "{{ topic }}"
+          qos: "{{ qos_level }}"
+          payload: >-
+            {{ {
+              "state": s.state,
+              "title": a.get("media_title", "") | default("", true),
+              "artist": a.get("media_artist", "") | default("", true),
+              "album": a.get("media_album_name", "") | default("", true),
+              "channel": a.get("media_channel", "") | default("", true),
+              "album_art_api_url": a.get("entity_picture", "") | default("", true)
+            } | tojson }}

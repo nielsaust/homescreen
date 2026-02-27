@@ -79,4 +79,5 @@ For systemd/deploy details: `docs/deploy.md`
 - Menu schema/actions/state system: `docs/menu-system.md`
 - Localization (NL/EN system texts): `docs/localization.md`
 - Music integration payload contract: `docs/music-integration.md`
+- Home Assistant blueprint file: `homeassistant/media_player_to_mqtt_music_blueprint.yaml`
 - Security and history rewrite workflow: `docs/security.md`
