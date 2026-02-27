@@ -1,0 +1,579 @@
+blueprint:
+  name: Homescreen - MQTT Commands to Home Assistant
+  description: >
+    Listens for homescreen MQTT commands (default topic: screen_commands/outgoing)
+    and maps them to Home Assistant services/scripts/scenes/entities.
+  domain: automation
+  min_version: "2024.10.0"
+  input:
+    mqtt_topic:
+      name: MQTT command topic
+      description: Topic where homescreen publishes outgoing commands.
+      default: screen_commands/outgoing
+      selector:
+        text: {}
+
+    calendar_mqtt_topic:
+      name: Calendar MQTT topic
+      description: Topic used when command action is 'calendar'.
+      default: calendar
+      selector:
+        text: {}
+
+    update_devices_automation:
+      name: Automation - update device states
+      description: Triggered when action = update_device_states.
+      default: ""
+      selector:
+        text: {}
+
+    cover_kitchen_entity:
+      name: Cover - kitchen
+      default: ""
+      selector:
+        text: {}
+
+    cover_schuifpui_entity:
+      name: Cover - sliding door
+      default: ""
+      selector:
+        text: {}
+
+    cinema_toggle_script:
+      name: Script - cinema toggle
+      default: ""
+      selector:
+        text: {}
+
+    voice_music_script:
+      name: Script - voice music
+      default: ""
+      selector:
+        text: {}
+
+    beamer_on_button:
+      name: Input button - beamer on
+      default: ""
+      selector:
+        text: {}
+
+    beamer_off_button:
+      name: Input button - beamer off
+      default: ""
+      selector:
+        text: {}
+
+    soundbar_mute_button:
+      name: Input button - soundbar mute
+      default: ""
+      selector:
+        text: {}
+
+    soundbar_volume_up_button:
+      name: Input button - soundbar volume up
+      default: ""
+      selector:
+        text: {}
+
+    soundbar_volume_down_button:
+      name: Input button - soundbar volume down
+      default: ""
+      selector:
+        text: {}
+
+    soundbar_hdmi_button:
+      name: Input button - soundbar HDMI
+      default: ""
+      selector:
+        text: {}
+
+    soundbar_toggle_button:
+      name: Input button - soundbar toggle
+      default: ""
+      selector:
+        text: {}
+
+    playstation_toggle_button:
+      name: Input button - playstation toggle
+      default: ""
+      selector:
+        text: {}
+
+    scene_romantic_entity:
+      name: Scene - romantic
+      default: ""
+      selector:
+        text: {}
+
+    scene_movie_entity:
+      name: Scene - movie
+      default: ""
+      selector:
+        text: {}
+
+    scene_dinner_entity:
+      name: Scene - dinner
+      default: ""
+      selector:
+        text: {}
+
+    scene_bright_entity:
+      name: Scene - bright
+      default: ""
+      selector:
+        text: {}
+
+    sleep_mode_entity:
+      name: Input boolean - sleep mode
+      default: ""
+      selector:
+        text: {}
+
+    trash_warning_entity:
+      name: Input boolean - trash warning
+      default: ""
+      selector:
+        text: {}
+
+    bed_heating_entity:
+      name: Switch - bed heating
+      default: ""
+      selector:
+        text: {}
+
+    media_player_entity:
+      name: Media player entity
+      default: ""
+      selector:
+        text: {}
+
+    all_lights_entity:
+      name: All lights entity/group
+      default: ""
+      selector:
+        text: {}
+
+    light_woonkamer_entity:
+      name: Light - living room
+      default: ""
+      selector:
+        text: {}
+
+    light_tafel_entity:
+      name: Light - table
+      default: ""
+      selector:
+        text: {}
+
+    light_kleur_entity:
+      name: Light - color
+      default: ""
+      selector:
+        text: {}
+
+    light_keuken_entity:
+      name: Light - kitchen
+      default: ""
+      selector:
+        text: {}
+
+    blinds_stop_automation:
+      name: Automation - blinds stop
+      default: ""
+      selector:
+        text: {}
+
+    calendar_entity:
+      name: Calendar entity
+      default: ""
+      selector:
+        text: {}
+
+mode: restart
+max_exceeded: silent
+
+triggers:
+  - trigger: mqtt
+    topic: !input mqtt_topic
+
+actions:
+  - variables:
+      action_name: >-
+        {% if trigger.payload_json is mapping %}
+          {{ trigger.payload_json.action | default('', true) }}
+        {% else %}
+          {{ '' }}
+        {% endif %}
+      value_raw: >-
+        {% if trigger.payload_json is mapping and 'value' in trigger.payload_json %}
+          {{ trigger.payload_json.value }}
+        {% else %}
+          {{ none }}
+        {% endif %}
+      calendar_topic: !input calendar_mqtt_topic
+      update_devices_automation_id: !input update_devices_automation
+      cover_kitchen_id: !input cover_kitchen_entity
+      cover_schuifpui_id: !input cover_schuifpui_entity
+      cinema_toggle_script_id: !input cinema_toggle_script
+      voice_music_script_id: !input voice_music_script
+      beamer_on_button_id: !input beamer_on_button
+      beamer_off_button_id: !input beamer_off_button
+      soundbar_mute_button_id: !input soundbar_mute_button
+      soundbar_volume_up_button_id: !input soundbar_volume_up_button
+      soundbar_volume_down_button_id: !input soundbar_volume_down_button
+      soundbar_hdmi_button_id: !input soundbar_hdmi_button
+      soundbar_toggle_button_id: !input soundbar_toggle_button
+      playstation_toggle_button_id: !input playstation_toggle_button
+      scene_romantic_id: !input scene_romantic_entity
+      scene_movie_id: !input scene_movie_entity
+      scene_dinner_id: !input scene_dinner_entity
+      scene_bright_id: !input scene_bright_entity
+      sleep_mode_id: !input sleep_mode_entity
+      trash_warning_id: !input trash_warning_entity
+      bed_heating_id: !input bed_heating_entity
+      media_player_id: !input media_player_entity
+      all_lights_id: !input all_lights_entity
+      light_woonkamer_id: !input light_woonkamer_entity
+      light_tafel_id: !input light_tafel_entity
+      light_kleur_id: !input light_kleur_entity
+      light_keuken_id: !input light_keuken_entity
+      blinds_stop_automation_id: !input blinds_stop_automation
+      calendar_entity_id: !input calendar_entity
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'update_device_states' and update_devices_automation_id != '' }}"
+        sequence:
+          - action: automation.trigger
+            target:
+              entity_id: "{{ update_devices_automation_id }}"
+            data:
+              skip_condition: true
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'cover_kitchen_toggle' and cover_kitchen_id != '' }}"
+        sequence:
+          - action: cover.toggle
+            target:
+              entity_id: "{{ cover_kitchen_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'cover_schuifpui_toggle' and cover_schuifpui_id != '' }}"
+        sequence:
+          - action: cover.toggle
+            target:
+              entity_id: "{{ cover_schuifpui_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'cover_kitchen' and cover_kitchen_id != '' and value_raw is not none }}"
+        sequence:
+          - action: cover.set_cover_position
+            target:
+              entity_id: "{{ cover_kitchen_id }}"
+            data:
+              position: "{{ value_raw | int(0) }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'cinema_toggle' and cinema_toggle_script_id != '' }}"
+        sequence:
+          - action: script.turn_on
+            target:
+              entity_id: "{{ cinema_toggle_script_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'voice_music' and voice_music_script_id != '' }}"
+        sequence:
+          - action: script.turn_on
+            target:
+              entity_id: "{{ voice_music_script_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'beamer_on' and beamer_on_button_id != '' }}"
+        sequence:
+          - action: input_button.press
+            target:
+              entity_id: "{{ beamer_on_button_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'beamer_off' and beamer_off_button_id != '' }}"
+        sequence:
+          - action: input_button.press
+            target:
+              entity_id: "{{ beamer_off_button_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'soundbar_mute' and soundbar_mute_button_id != '' }}"
+        sequence:
+          - action: input_button.press
+            target:
+              entity_id: "{{ soundbar_mute_button_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'soundbar_volume_up' and soundbar_volume_up_button_id != '' }}"
+        sequence:
+          - action: input_button.press
+            target:
+              entity_id: "{{ soundbar_volume_up_button_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'soundbar_volume_down' and soundbar_volume_down_button_id != '' }}"
+        sequence:
+          - action: input_button.press
+            target:
+              entity_id: "{{ soundbar_volume_down_button_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'soundbar_hdmi' and soundbar_hdmi_button_id != '' }}"
+        sequence:
+          - action: input_button.press
+            target:
+              entity_id: "{{ soundbar_hdmi_button_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'soundbar_toggle' and soundbar_toggle_button_id != '' }}"
+        sequence:
+          - action: input_button.press
+            target:
+              entity_id: "{{ soundbar_toggle_button_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'ps_toggle' and playstation_toggle_button_id != '' }}"
+        sequence:
+          - action: input_button.press
+            target:
+              entity_id: "{{ playstation_toggle_button_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'scene_romantic' and scene_romantic_id != '' }}"
+        sequence:
+          - action: scene.turn_on
+            target:
+              entity_id: "{{ scene_romantic_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'scene_movie' and scene_movie_id != '' }}"
+        sequence:
+          - action: scene.turn_on
+            target:
+              entity_id: "{{ scene_movie_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'scene_dinner' and scene_dinner_id != '' }}"
+        sequence:
+          - action: scene.turn_on
+            target:
+              entity_id: "{{ scene_dinner_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'scene_bright' and scene_bright_id != '' }}"
+        sequence:
+          - action: scene.turn_on
+            target:
+              entity_id: "{{ scene_bright_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'sleep_mode_toggle' and sleep_mode_id != '' }}"
+        sequence:
+          - action: input_boolean.toggle
+            target:
+              entity_id: "{{ sleep_mode_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'trash_warning_toggle' and trash_warning_id != '' }}"
+        sequence:
+          - action: input_boolean.toggle
+            target:
+              entity_id: "{{ trash_warning_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'calendar' and calendar_entity_id != '' }}"
+        sequence:
+          - action: mqtt.publish
+            data:
+              topic: "{{ calendar_topic }}"
+              payload: >-
+                {{ {
+                  "manual": true,
+                  "title": state_attr(calendar_entity_id, 'message') | default('', true),
+                  "start_time": state_attr(calendar_entity_id, 'start_time') | default('', true),
+                  "end_time": state_attr(calendar_entity_id, 'end_time') | default('', true),
+                  "description": state_attr(calendar_entity_id, 'description') | default('', true),
+                  "all_day": state_attr(calendar_entity_id, 'all_day') | default(false, true)
+                } | tojson }}
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'bed_heating_toggle' and bed_heating_id != '' }}"
+        sequence:
+          - action: switch.toggle
+            target:
+              entity_id: "{{ bed_heating_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'media-play-pause' and media_player_id != '' }}"
+        sequence:
+          - action: media_player.media_play_pause
+            target:
+              entity_id: "{{ media_player_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'media-next' and media_player_id != '' }}"
+        sequence:
+          - action: media_player.media_next_track
+            target:
+              entity_id: "{{ media_player_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'media-previous' and media_player_id != '' }}"
+        sequence:
+          - action: media_player.media_previous_track
+            target:
+              entity_id: "{{ media_player_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'media-volume-up' and media_player_id != '' }}"
+        sequence:
+          - action: media_player.volume_up
+            target:
+              entity_id: "{{ media_player_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'media-volume-down' and media_player_id != '' }}"
+        sequence:
+          - action: media_player.volume_down
+            target:
+              entity_id: "{{ media_player_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'scene_off' and all_lights_id != '' }}"
+        sequence:
+          - action: light.turn_off
+            target:
+              entity_id: "{{ all_lights_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'light_woonkamer' and light_woonkamer_id != '' and value_raw is not none }}"
+        sequence:
+          - action: light.turn_on
+            target:
+              entity_id: "{{ light_woonkamer_id }}"
+            data:
+              brightness_pct: "{{ value_raw | int(0) }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'light_woonkamer_toggle' and light_woonkamer_id != '' }}"
+        sequence:
+          - action: light.toggle
+            target:
+              entity_id: "{{ light_woonkamer_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'light_tafel' and light_tafel_id != '' and value_raw is not none }}"
+        sequence:
+          - action: light.turn_on
+            target:
+              entity_id: "{{ light_tafel_id }}"
+            data:
+              brightness_pct: "{{ value_raw | int(0) }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'light_tafel_toggle' and light_tafel_id != '' }}"
+        sequence:
+          - action: light.toggle
+            target:
+              entity_id: "{{ light_tafel_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'light_kleur' and light_kleur_id != '' and value_raw is not none }}"
+        sequence:
+          - action: light.turn_on
+            target:
+              entity_id: "{{ light_kleur_id }}"
+            data:
+              brightness_pct: "{{ value_raw | int(0) }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'light_kleur_toggle' and light_kleur_id != '' }}"
+        sequence:
+          - action: light.toggle
+            target:
+              entity_id: "{{ light_kleur_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'light_keuken' and light_keuken_id != '' and value_raw is not none }}"
+        sequence:
+          - action: light.turn_on
+            target:
+              entity_id: "{{ light_keuken_id }}"
+            data:
+              brightness_pct: "{{ value_raw | int(0) }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'light_keuken_toggle' and light_keuken_id != '' }}"
+        sequence:
+          - action: light.toggle
+            target:
+              entity_id: "{{ light_keuken_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'blinds_up' and cover_schuifpui_id != '' }}"
+        sequence:
+          - action: cover.open_cover
+            target:
+              entity_id: "{{ cover_schuifpui_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'blinds_down' and cover_schuifpui_id != '' }}"
+        sequence:
+          - action: cover.close_cover
+            target:
+              entity_id: "{{ cover_schuifpui_id }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action_name == 'blinds_stop' and blinds_stop_automation_id != '' }}"
+        sequence:
+          - action: automation.trigger
+            target:
+              entity_id: "{{ blinds_stop_automation_id }}"
+            data:
+              skip_condition: true
+
+    default: []

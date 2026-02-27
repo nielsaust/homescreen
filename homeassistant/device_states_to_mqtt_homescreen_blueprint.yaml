@@ -1,0 +1,159 @@
+blueprint:
+  name: Homescreen - Device States to MQTT
+  description: >
+    Publishes selected Home Assistant entity states to a single MQTT JSON payload
+    for the homescreen app (default topic: screen_commands/incoming).
+  domain: automation
+  min_version: "2024.10.0"
+  input:
+    watched_entities:
+      name: Watched entities
+      description: State changes on these entities trigger a publish.
+      selector:
+        entity:
+          multiple: true
+
+    mqtt_topic:
+      name: MQTT topic
+      description: Topic consumed by homescreen for device states.
+      default: screen_commands/incoming
+      selector:
+        text: {}
+
+    qos:
+      name: MQTT QoS
+      default: 0
+      selector:
+        select:
+          options:
+            - 0
+            - 1
+            - 2
+
+    harmony_state_entity:
+      name: Harmony/Cinema state entity
+      selector:
+        entity:
+          domain: input_text
+
+    sleep_mode_entity:
+      name: Sleep mode entity
+      selector:
+        entity:
+          domain: input_boolean
+
+    trash_warning_entity:
+      name: Trash warning entity
+      selector:
+        entity:
+          domain: input_boolean
+
+    bed_heating_entity:
+      name: Bed heating entity
+      selector:
+        entity:
+          domain: switch
+
+    dishwasher_loaded_entity:
+      name: Dishwasher loaded entity
+      selector:
+        entity:
+          domain: input_boolean
+
+    cover_kitchen_entity:
+      name: Kitchen cover entity
+      selector:
+        entity:
+          domain: cover
+
+    cover_schuifpui_entity:
+      name: Sliding door cover entity
+      selector:
+        entity:
+          domain: cover
+
+    temperature_entity:
+      name: Temperature sensor entity
+      selector:
+        entity:
+          domain: sensor
+
+    light_kitchen_entity:
+      name: Kitchen light entity
+      selector:
+        entity:
+          domain: light
+
+    light_table_entity:
+      name: Table light entity
+      selector:
+        entity:
+          domain: light
+
+    light_color_entity:
+      name: Color light entity
+      selector:
+        entity:
+          domain: light
+
+    light_living_entity:
+      name: Living room light entity
+      selector:
+        entity:
+          domain: light
+
+mode: restart
+max_exceeded: silent
+
+triggers:
+  - trigger: state
+    entity_id: !input watched_entities
+
+actions:
+  - variables:
+      topic: !input mqtt_topic
+      qos_level: !input qos
+      harmony_entity: !input harmony_state_entity
+      sleep_entity: !input sleep_mode_entity
+      trash_entity: !input trash_warning_entity
+      bed_heat_entity: !input bed_heating_entity
+      dishwasher_entity: !input dishwasher_loaded_entity
+      cover_kitchen: !input cover_kitchen_entity
+      cover_schuifpui: !input cover_schuifpui_entity
+      temp_entity: !input temperature_entity
+      light_kitchen: !input light_kitchen_entity
+      light_table: !input light_table_entity
+      light_color: !input light_color_entity
+      light_living: !input light_living_entity
+
+  - action: mqtt.publish
+    data:
+      topic: "{{ topic }}"
+      qos: "{{ qos_level }}"
+      payload: >-
+        {{ {
+          "harmony_state": states(harmony_entity) | string,
+          "cover_kitchen": (state_attr(cover_kitchen, 'current_position') | default(0, true)) | string,
+          "cover_schuifpui": (state_attr(cover_schuifpui, 'current_position') | default(0, true)) | string,
+          "canary_temp": (states(temp_entity) | float(0)) | string,
+          "sleep_mode": states(sleep_entity) | string,
+          "trash_warning": states(trash_entity) | string,
+          "bed_heating_on": states(bed_heat_entity) | string,
+          "vaatwasser_loaded": states(dishwasher_entity) | string,
+          "light_keuken": {
+            "state": states(light_kitchen) | string,
+            "brightness": state_attr(light_kitchen, 'brightness') | default(0, true)
+          },
+          "light_tafel": {
+            "state": states(light_table) | string,
+            "brightness": state_attr(light_table, 'brightness') | default(0, true)
+          },
+          "light_kleur": {
+            "state": states(light_color) | string,
+            "brightness": state_attr(light_color, 'brightness') | default(0, true)
+          },
+          "light_woonkamer": {
+            "state": states(light_living) | string,
+            "brightness": state_attr(light_living, 'brightness') | default(0, true)
+          }
+        } | tojson }}

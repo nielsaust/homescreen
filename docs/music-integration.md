@@ -2,21 +2,24 @@
 
 ## Blueprint Import
 
-Use this import link format in Home Assistant:
+State-change blueprint import link:
 
-`https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https://mijn-github-url-naar-de-yaml`
+`https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https://github.com/nielsaust/homescreen/blob/main/homeassistant/media_player_to_mqtt_music_blueprint.yaml`
 
-For this repository, publish and reference:
+Manual refresh blueprint import link:
 
-`homeassistant/media_player_to_mqtt_music_blueprint.yaml`
+`https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https://github.com/nielsaust/homescreen/blob/main/homeassistant/manual_music_refresh_to_mqtt_blueprint.yaml`
 
-Then create an automation from that blueprint and configure:
+Then create automations from these blueprints and configure:
 
 - `media_player_entity`: the player to track
 - `mqtt_topic`: `music`
 - `include_music_assistant_art`:
   - `true` for Music Assistant players
   - `false` for regular players
+- Manual refresh blueprint defaults:
+  - request topic: `screen_commands/update_music`
+  - publish topic: `music`
 
 ## App Configuration (Homescreen)
 
@@ -30,6 +33,8 @@ Ensure the app is configured to consume the same MQTT topic:
    - `music` topic key -> `music` (in `local_config/mqtt_topics.json`)
 4. If you include Music Assistant artwork field in the blueprint:
    - set `prefer_music_assistant_url: true` in `local_config/settings.json`
+5. For all available HA blueprints in this repo, see:
+   - `docs/home-assistant-blueprints.md`
 
 ## Expected MQTT Payload
 

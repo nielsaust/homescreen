@@ -1,0 +1,96 @@
+blueprint:
+  name: Homescreen - Manual Music Refresh to MQTT
+  description: >
+    Listens for a manual MQTT refresh request (default: screen_commands/update_music)
+    and publishes the current media player state to the homescreen music topic.
+    Intended for startup sync and manual refresh actions.
+  domain: automation
+  min_version: "2024.10.0"
+  input:
+    request_topic:
+      name: MQTT request topic
+      description: Topic that triggers a manual music state publish.
+      default: screen_commands/update_music
+      selector:
+        text: {}
+
+    publish_topic:
+      name: MQTT publish topic
+      description: Topic consumed by homescreen for music state.
+      default: music
+      selector:
+        text: {}
+
+    media_player_entity:
+      name: Media player
+      description: Media player used as source for published state.
+      selector:
+        entity:
+          domain: media_player
+
+    include_music_assistant_art:
+      name: Include Music Assistant artwork URL
+      description: >
+        Enabled = also publish album_art_music_assistant_url from entity_picture.
+      default: true
+      selector:
+        boolean: {}
+
+    qos:
+      name: MQTT QoS
+      default: 0
+      selector:
+        select:
+          options:
+            - 0
+            - 1
+            - 2
+
+mode: queued
+max: 10
+
+triggers:
+  - trigger: mqtt
+    topic: !input request_topic
+
+actions:
+  - variables:
+      target_topic: !input publish_topic
+      mp: !input media_player_entity
+      use_ma_art: !input include_music_assistant_art
+      qos_level: !input qos
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ use_ma_art }}"
+        sequence:
+          - action: mqtt.publish
+            data:
+              topic: "{{ target_topic }}"
+              qos: "{{ qos_level }}"
+              payload: >-
+                {{ {
+                  "state": states(mp),
+                  "title": state_attr(mp, "media_title") | default("", true),
+                  "artist": state_attr(mp, "media_artist") | default("", true),
+                  "album": state_attr(mp, "media_album_name") | default("", true),
+                  "channel": state_attr(mp, "media_channel") | default("", true),
+                  "album_art_api_url": state_attr(mp, "entity_picture_local") | default("", true),
+                  "album_art_music_assistant_url": state_attr(mp, "entity_picture") | default("", true),
+                  "album_art_api_url_music_assistant": state_attr(mp, "entity_picture") | default("", true)
+                } | tojson }}
+    default:
+      - action: mqtt.publish
+        data:
+          topic: "{{ target_topic }}"
+          qos: "{{ qos_level }}"
+          payload: >-
+            {{ {
+              "state": states(mp),
+              "title": state_attr(mp, "media_title") | default("", true),
+              "artist": state_attr(mp, "media_artist") | default("", true),
+              "album": state_attr(mp, "media_album_name") | default("", true),
+              "channel": state_attr(mp, "media_channel") | default("", true),
+              "album_art_api_url": state_attr(mp, "entity_picture_local") | default("", true)
+            } | tojson }}
