@@ -7,7 +7,7 @@ blueprint:
   input:
     media_player_entity:
       name: Media player
-      description: Select the media player to publish to MQTT.
+      description: Select the media player to publish to MQTT. Music Assistant player is prefered.
       selector:
         entity:
           domain: media_player
@@ -20,10 +20,11 @@ blueprint:
         text: {}
 
     include_music_assistant_art:
-      name: Include Music Assistant artwork fields
+      name: Entity is a Music Assistant player (prefered).
       description: >
         Enabled = send both album_art_api_url (entity_picture_local)
-        and album_art_api_url_music_assistant (entity_picture).
+        and album_art_api_url_music_assistant (entity_picture). 
+        Music Assistant players usually perform better in term of album art.
       default: false
       selector:
         boolean: {}

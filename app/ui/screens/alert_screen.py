@@ -14,34 +14,51 @@ class AlertScreen:
         self.show_seconds = self.main_app.settings.alert_default_show_seconds
         self.current_seconds_visible = 0
 
-    def tick_alert(self): 
-        if not self.is_showing:
-            logger.error("can't update alert; not showing")
-            return
-
-        if self.current_seconds_visible > self.show_seconds:
-            self.destroy()
-            return
-        
-        self.current_seconds_visible += 1
-        self.alert_updater = self.window.after(1000, self.tick_alert)
-        
-    def show(self, data):
-        logger.debug(f"show in alert screen: {data}")
-        
-        # Cancel any running timer
+    def _cancel_timer(self):
         if self.alert_updater and self.window:
             try:
                 self.window.after_cancel(self.alert_updater)
             except Exception:
                 pass
+        self.alert_updater = None
+
+    def _coerce_show_seconds(self, raw_value):
+        try:
+            value = int(raw_value)
+        except Exception:
+            value = int(self.main_app.settings.alert_default_show_seconds)
+        return max(0, value)
+
+    def tick_alert(self):
+        if not self.is_showing or not self.window:
+            return
+
+        if self.current_seconds_visible >= self.show_seconds:
+            self.destroy()
+            return
+
+        self.current_seconds_visible += 1
+        try:
+            self.alert_updater = self.window.after(1000, self.tick_alert)
+        except Exception:
+            self.alert_updater = None
+            self.destroy(trigger_idle=False)
+
+    def show(self, data):
+        logger.debug(f"show in alert screen: {data}")
+
+        # If an alert is already shown, tear it down first without idle side-effects.
+        if self.window or self.is_showing:
+            self.destroy(trigger_idle=False)
 
         self.current_seconds_visible = 0
         self.title = data.get("title", "")
 
         if self.title != "":
             # Prioriteit: argument > data > default
-            self.show_seconds = data.get("show_seconds", self.main_app.settings.alert_default_show_seconds)
+            self.show_seconds = self._coerce_show_seconds(
+                data.get("show_seconds", self.main_app.settings.alert_default_show_seconds)
+            )
             self.default_foreground_color = data.get(
                 "foreground_color",
                 self.main_app.settings.alert_default_foreground_color
@@ -92,14 +109,20 @@ class AlertScreen:
 
         return True
 
-    def destroy(self, event=None):
-        if not self.is_showing or not self.window:
+    def destroy(self, event=None, trigger_idle=True):
+        if not self.is_showing and not self.window:
             return
-        self.main_app.display_controller.check_idle()
-        if self.alert_updater:
+
+        window = self.window
+        self._cancel_timer()
+        self.is_showing = False
+        self.window = None
+
+        if window:
             try:
-                self.window.after_cancel(self.alert_updater)
+                window.destroy()
             except Exception:
                 pass
-        self.is_showing = False
-        self.window.destroy()
+
+        if trigger_idle:
+            self.main_app.display_controller.check_idle()
